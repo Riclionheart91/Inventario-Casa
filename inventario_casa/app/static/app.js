@@ -174,7 +174,7 @@
       note(ainote, 'L\'AI sta suggerendo categoria e tipo…');
       api('POST', 'api/suggerisci', { nome: r.nome || '', marca: r.marca || '', confezione: r.confezione || '' }).then(function (a) {
         if ($('bc').value.trim() !== bc || box.hidden) return;
-        if (!a || !a.ai) { note(ainote, a && a.motivo === 'chiave' ? 'Suggerimento AI spento: manca la chiave Gemini nelle opzioni dell\'app. Scegli tu categoria e tipo.' : 'L\'AI non ha risposto: scegli tu categoria e tipo.', 'warn'); return; }
+        if (!a || !a.ai) { note(ainote, a && a.motivo === 'chiave' ? 'Suggerimento AI spento: manca la chiave Gemini nelle opzioni dell\'app. Scegli tu categoria e tipo.' : 'L\'AI non ha risposto' + (a && a.dettaglio ? ' (' + a.dettaglio + ')' : '') + ': scegli tu categoria e tipo.', 'warn'); return; }
         if (toccato) { note(ainote, ''); return; }   // l'utente ha gia scelto qualcosa: non si sovrascrive
         if (a.categoria) { cat.value = a.categoria; fillSot(); if (a.sottocategoria) sot.value = a.sottocategoria; }
         if (a.tipo) tipo.value = a.tipo;

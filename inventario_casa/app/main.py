@@ -158,7 +158,7 @@ def suggerisci(m: ChiediAi, x_code: str = Header(None)):
         return {"ai": False, "motivo": "chiave"}
     s = ai.suggerisci(m.nome, m.marca, m.confezione, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"),
                       _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
-    return dict(s, ai=True) if s else {"ai": False, "motivo": "risposta"}
+    return dict(s, ai=True) if s else {"ai": False, "motivo": "risposta", "dettaglio": ai.ULTIMO_ERRORE[0]}
 
 
 @app.get("/api/tipi")

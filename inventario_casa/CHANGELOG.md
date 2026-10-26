@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.4.4 — 2026-10-27
+Suggerimento AI: se Gemini non risponde, la schermata mostra il motivo (codice di errore del servizio, senza la chiave). L'AI parte anche se il prodotto trovato non ha un nome.
+
 ## 0.4.3 — 2026-10-27
 Proposta per un codice nuovo: menu sempre pronti e AI sempre visibile.
 - Categorie e sottocategorie si caricano prima di mostrare la proposta: prima i menu potevano comparire vuoti.
