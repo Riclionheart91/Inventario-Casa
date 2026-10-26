@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.2.1 — 2026-10-26
+- Scheda prodotto: "Aggiornato il" ora è sempre gg/mm/aaaa (prima poteva comparire come numero o in formato internazionale).
+
 ## 0.2.0 — 2026-10-26
 Fase 2: scritture sul foglio (restano bloccate finché l'opzione "sola lettura" è attiva).
 - Correzione importante: la form inviava la posizione con un nome che il server non riconosceva, quindi ogni salvataggio sarebbe stato rifiutato.

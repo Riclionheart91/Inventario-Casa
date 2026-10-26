@@ -1,6 +1,6 @@
 import os, sys, unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app.service import Inventory, ApiError
+from app.service import Inventory, ApiError, data_it
 from app.store import MemoryStore
 
 
@@ -107,6 +107,13 @@ class T(unittest.TestCase):
         h = st.sheets["movimenti"][0]; row = dict(zip(h, st.sheets["movimenti"][-1]))
         self.assertEqual(len(row["ID_Movimento"]), 8)
         self.assertRegex(row["Data"], r"^\d\d/\d\d/\d{4}$")
+
+    def test_data_it(self):
+        self.assertEqual(data_it(46102), "21/03/2026")
+        self.assertEqual(data_it("46102"), "21/03/2026")
+        self.assertEqual(data_it("2026-03-21T10:00:00"), "21/03/2026")
+        self.assertEqual(data_it("21/3/2026 4.45.20"), "21/03/2026")
+        self.assertEqual(data_it(""), "")
 
     def test_categorie(self):
         _, inv, _ = make()

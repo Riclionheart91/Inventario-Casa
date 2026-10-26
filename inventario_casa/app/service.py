@@ -29,6 +29,27 @@ def nbc(x) -> str:
     return s.lstrip("0")
 
 
+def data_it(x) -> str:
+    """Data in formato gg/mm/aaaa: accetta il numero seriale di Google Sheets, il testo ISO o una data gia italiana."""
+    from datetime import timedelta
+    if x is None or str(x).strip() == "":
+        return ""
+    if isinstance(x, (int, float)) and not isinstance(x, bool):
+        if 20000 < x < 80000:   # numero seriale (giorni dal 30/12/1899)
+            return (datetime(1899, 12, 30) + timedelta(days=int(x))).strftime("%d/%m/%Y")
+        return str(x)
+    t = str(x).strip()
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", t)
+    if m:
+        return "%s/%s/%s" % (m.group(3), m.group(2), m.group(1))
+    m = re.match(r"^(\d{1,2})[/.](\d{1,2})[/.](\d{4})", t)
+    if m:
+        return "%02d/%02d/%s" % (int(m.group(1)), int(m.group(2)), m.group(3))
+    if re.fullmatch(r"\d{5}(\.\d+)?", t):
+        return data_it(float(t))
+    return t
+
+
 def _num(x) -> float:
     try:
         return float(str(x).replace(",", "."))
@@ -158,7 +179,7 @@ class Inventory:
                     "categoria": g("Categoria"), "sottocategoria": g("Sottocategoria"), "tipo": tipo,
                     "immagine": g("Immagine"), "dettagli": g("Dettagli prodotto"), "punteggi": g("Punteggi"),
                     "composizione": g("Composizione"), "free_from": g("Free-from"), "nutrizione": g("Nutrizione (100g)"),
-                    "smaltimento": g("Smaltimento/riciclo"), "aggiornato": g("Aggiornato il"),
+                    "smaltimento": g("Smaltimento/riciclo"), "aggiornato": data_it(g("Aggiornato il")),
                     "scorta_minima": minima, "giacenze": giac, "totale": sum(x["qta"] for x in giac)}
         return None
 
