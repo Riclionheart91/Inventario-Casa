@@ -4,7 +4,8 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
@@ -13,6 +14,7 @@ from .store import make_store
 app = FastAPI(title="Inventario Casa", docs_url=None, redoc_url=None)
 _inv = None
 SHARED = os.environ.get("SHARED_CODE", "")
+READ_ONLY = os.environ.get("READ_ONLY", "true").lower() != "false"
 
 
 def inv() -> Inventory:
@@ -26,6 +28,11 @@ def check(code):
     """Codice opzionale (seconda barriera). Il login resta quello di Home Assistant (ingress)."""
     if SHARED and not hmac.compare_digest(code or "", SHARED):
         raise HTTPException(401, "Codice mancante o errato")
+
+
+def writable():
+    if READ_ONLY:
+        raise HTTPException(403, "Modalita sola lettura attiva")
 
 
 @app.exception_handler(ApiError)
@@ -64,6 +71,7 @@ def prodotto(barcode: str, x_code: str = Header(None)):
 @app.post("/api/movimento")
 def movimento(m: Mov, x_code: str = Header(None)):
     check(x_code)
+    writable()
     return inv().movimento(m.barcode, m.tipo, m.location, m.quantita, m.prodotto, m.foto)
 
 
@@ -76,18 +84,16 @@ def approvazioni(x_code: str = Header(None)):
 @app.post("/api/approvazioni/{id_}")
 def decidi(id_: str, d: Dec, x_code: str = Header(None)):
     check(x_code)
+    writable()
     return inv().decidi(id_, d.azione)
 
 
 @app.post("/api/foto")
 async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: str = Header(None)):
     check(x_code)
+    writable()
     return inv().foto(barcode, await file.read(), file.content_type or "")
 
 
-WEB = Path(__file__).resolve().parent.parent / "web"
-
-
-@app.get("/")
-def index():
-    return FileResponse(WEB / "index.html")
+STATIC = Path(__file__).resolve().parent / "static"
+app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

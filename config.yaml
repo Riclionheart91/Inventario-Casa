@@ -15,8 +15,10 @@ options:
   drive_folder_id: ""
   service_account_json: ""
   shared_code: ""
+  sola_lettura: true
 schema:
   sheet_id: str
   drive_folder_id: str
   service_account_json: password
   shared_code: password?
+  sola_lettura: bool
