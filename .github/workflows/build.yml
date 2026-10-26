@@ -34,14 +34,9 @@ jobs:
         run: |
           v=$(awk '/^version:/ {gsub(/"/, "", $2); print $2}' inventario_casa/config.yaml)
           echo "version=$v" >> "$GITHUB_OUTPUT"
-      - name: Nome immagine in minuscolo
-        id: img
-        run: |
-          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          echo "name=ghcr.io/${owner}/${{ matrix.arch }}-addon-inventario-casa" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: inventario_casa
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ steps.img.outputs.name }}:${{ steps.v.outputs.version }}
+          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-addon-inventario-casa:${{ steps.v.outputs.version }}
