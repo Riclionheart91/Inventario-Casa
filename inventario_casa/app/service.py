@@ -76,6 +76,25 @@ class Inventory:
                         "tipo": p.get("Tipo", "")}
         return None
 
+    def elenco_prodotti(self) -> List[dict]:
+        """Tutti i prodotti del catalogo in ordine alfabetico, anche quelli con giacenza zero."""
+        tot: Dict[str, float] = {}
+        minima: Dict[str, float] = {}
+        for e in self.stock():
+            k = str(e["barcode"])
+            tot[k] = tot.get(k, 0) + e["qta"]
+            minima[k] = e["minima"]
+        out = []
+        for p in self._dicts(SH_PROD):
+            k = nbc(p.get("Barcode"))
+            if not k:
+                continue
+            g = lambda n: str(p.get(n, "") or "").strip()
+            out.append({"barcode": int(k), "nome": g("Prodotto") or "(senza nome)", "marca": g("Marca"), "conf": g("Confezione"),
+                        "tipo": g("Tipo"), "categoria": g("Categoria"), "sotto": g("Sottocategoria"), "img": g("Immagine"),
+                        "qta": tot.get(str(int(k)), 0), "minima": minima.get(str(int(k)), 0)})
+        return sorted(out, key=lambda e: (e["nome"].casefold(), e["marca"].casefold()))
+
     def scheda(self, barcode) -> Optional[dict]:
         """Scheda prodotto: dati del catalogo + giacenze per posizione e categoria."""
         k = nbc(barcode)

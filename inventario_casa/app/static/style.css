@@ -43,8 +43,8 @@ details.g summary{padding:12px 0;font-size:12px;font-weight:700;letter-spacing:.
 .pd .k{width:52px;flex:none;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--mut)}.pd.dopo .k{color:var(--acc)}.pd.dopo .v{font-weight:500}
 .card .why{font-size:13px;color:var(--mut)}.card .btns{display:flex;gap:10px}.card .btns .btn{flex:1}
 .empty{color:var(--mut);text-align:center;margin-top:40px}
-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:var(--s1);border-top:1px solid #262d33;padding:6px 4px calc(10px + env(safe-area-inset-bottom))}
-nav button{background:none;border:0;min-height:48px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#7d8790;font-size:11px;cursor:pointer}
+nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:var(--s1);border-top:1px solid #262d33;padding:6px 4px calc(10px + env(safe-area-inset-bottom))}
+nav button{background:none;border:0;min-height:48px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#7d8790;font-size:10.5px;cursor:pointer;padding:0;min-width:0}
 nav button[aria-current=page]{color:var(--acc);font-weight:700}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222a30;border:1px solid var(--bd);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%}
 #toast.on{opacity:1}#toast.err{border-color:var(--bad)}
@@ -73,3 +73,7 @@ nav button[aria-current=page]{color:var(--acc);font-weight:700}
 .sc-giac b{font-size:16px}
 .sc-giac.tot{font-weight:700}
 .sc-low{color:var(--warn);font-size:13px;margin-top:6px}
+
+.sc-foot{padding:10px 20px calc(12px + env(safe-area-inset-bottom));background:var(--s1);border-top:1px solid #262d33}.sc-foot .btn{width:100%}
+.letter{padding:12px 0 4px;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--acc);text-transform:uppercase}
+.badge.zero{background:#2a2023;color:var(--bad)}

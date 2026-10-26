@@ -3,6 +3,10 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.1.10 — 2026-10-26
+- Nuova pagina "Prodotti": tutti i prodotti del catalogo in ordine alfabetico, con ricerca (nome, marca, tipo, categoria, codice) e anche quelli con giacenza zero ("Esaurito"). Toccando un prodotto si apre la scheda.
+- Scheda prodotto: pulsante "Carica o scarica" che apre il movimento con il codice già inserito.
+
 ## 0.1.9 — 2026-10-26
 - Stock: miniature senza sfondo bianco (il bianco collegato ai bordi diventa trasparente, calcolato sul dispositivo).
 - Nuova scheda prodotto: si apre toccando una riga dello Stock. Mostra immagine, marca e confezione, tipo e categoria, giacenze per posizione e categoria con il totale, scorta minima, punteggi, nutrizione, compatibilità, dettagli, composizione, smaltimento e data di aggiornamento.

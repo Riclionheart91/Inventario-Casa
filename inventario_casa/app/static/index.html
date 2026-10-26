@@ -39,6 +39,11 @@
 <div id="stock"></div>
 </section>
 
+<section id="v-prod" class="view" hidden>
+<div class="field"><label for="qp2" class="sr">Cerca un prodotto</label><input id="qp2" type="search" placeholder="Cerca tra tutti i prodotti"></div>
+<div id="prodlist"></div>
+</section>
+
 <section id="v-spesa" class="view" hidden><p class="empty">La lista della spesa arriva nella prossima fase.</p></section>
 <section id="v-bozze" class="view" hidden><p class="empty">Le bozze da inserire arrivano nella prossima fase.</p></section>
 <section id="v-appr" class="view" hidden><div id="appr"></div></section>
@@ -47,7 +52,8 @@
 <nav id="nav" aria-label="Sezioni"></nav>
 <div id="scheda" role="dialog" aria-modal="true" aria-labelledby="sc-nome" hidden>
 <div class="sc-bar"><button type="button" id="sc-close" class="sq" aria-label="Chiudi la scheda">←</button><b>Scheda prodotto</b></div>
-<div id="sc-body" class="sc-body"></div></div>
+<div id="sc-body" class="sc-body"></div>
+<div class="sc-foot"><button type="button" id="sc-mov" class="btn primary">Carica o scarica</button></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 </div>
 <script src="app.js"></script>

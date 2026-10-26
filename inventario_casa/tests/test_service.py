@@ -45,6 +45,12 @@ class T(unittest.TestCase):
         with self.assertRaises(ApiError):
             inv.movimento(8002795002995, "Cng", "Casa", 1, categoria="Dispensa", categoria_new="Dispensa")
 
+    def test_elenco_prodotti_alfabetico_con_zero(self):
+        _, inv, _ = make()
+        e = inv.elenco_prodotti()
+        self.assertEqual([x["nome"] for x in e], ["Latte UHT", "Si & No Mais"])
+        self.assertEqual([x["qta"] for x in e], [4, 0])
+
     def test_scheda(self):
         _, inv, _ = make()
         s = inv.scheda("8002795002995")

@@ -76,6 +76,12 @@ def prodotto(barcode: str, x_code: str = Header(None)):
     return p
 
 
+@app.get("/api/prodotti")
+def prodotti(x_code: str = Header(None)):
+    check(x_code)
+    return inv().elenco_prodotti()
+
+
 @app.get("/api/scheda/{barcode}")
 def scheda(barcode: str, x_code: str = Header(None)):
     check(x_code)

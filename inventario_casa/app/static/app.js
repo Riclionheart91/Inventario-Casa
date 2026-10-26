@@ -8,9 +8,10 @@
     stock: '<path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
     spesa: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M3 4h3l2.5 11h10L21 7H7"/>',
     bozze: '<path d="M4 13h4l2 3h4l2-3h4"/><path d="M5 13l2-8h10l2 8v6H5z"/>',
+    prod: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
     appr: '<path d="M5 13l4 4L19 7"/>'
   };
-  var TABS = [['mov', '+/-', 'Movimento +/-'], ['stock', 'Stock', 'Stock'], ['spesa', 'Spesa', 'Spesa'], ['bozze', 'Da inserire', 'Da inserire'], ['appr', 'Approvazioni', 'Approvazioni AI']];
+  var TABS = [['mov', '+/-', 'Movimento +/-'], ['stock', 'Stock', 'Stock'], ['prod', 'Prodotti', 'Tutti i prodotti'], ['spesa', 'Spesa', 'Spesa'], ['bozze', 'Da inserire', 'Da inserire'], ['appr', 'Approvazioni', 'Approvazioni AI']];
   var $ = function (id) { return document.getElementById(id); };
   var st = { tipo: 'Carico', luogo: 'Casa', qta: 1, known: null, fotoBlob: null, stock: [], filtro: 'Tutti', tab: 'mov' };
 
@@ -34,6 +35,7 @@
   function mockApi(method, path, body) {
     var m;
     if (path === 'api/stock') return MOCKDB.stock;
+    if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
     if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero.', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
     if (path === 'api/movimento') return { ok: true, nuovo: !!(body && body.foto) };
@@ -79,6 +81,7 @@
     Array.prototype.forEach.call($('nav').children, function (b) { if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
     if (tab !== 'mov') stopScan();
     if (tab === 'stock') loadStock();
+    if (tab === 'prod') loadProd();
     if (tab === 'appr') loadAppr();
     if (tab === 'mov') $('bc').focus();
   }
@@ -269,7 +272,7 @@
   /* ---------- scheda prodotto ---------- */
   function secTxt(titolo, testo) { if (!testo) return null; var s = el('div', 'sc-sec'); s.appendChild(el('h3', '', titolo)); s.appendChild(el('p', '', testo)); return s; }
   function openScheda(barcode) {
-    var box = $('sc-body'); box.textContent = 'Carico…'; $('scheda').hidden = false; $('sc-close').focus();
+    st.schedaBc = barcode; var box = $('sc-body'); box.textContent = 'Carico…'; $('scheda').hidden = false; $('sc-close').focus();
     api('GET', 'api/scheda/' + barcode).then(function (p) {
       box.textContent = '';
       var head = el('div', 'sc-head'), im = el('div', 'sc-img'), t = el('div', '');
@@ -333,6 +336,35 @@
     });
   }
 
+
+  /* ---------- elenco prodotti ---------- */
+  function loadProd() {
+    api('GET', 'api/prodotti').then(function (r) { st.prod = r || []; renderProd(); $('sub').textContent = st.prod.length + ' prodotti'; })
+      .catch(function (e) { toast('Elenco non caricato: ' + e.message, true); });
+  }
+  function renderProd() {
+    var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist'), last = '';
+    box.textContent = '';
+    var list = (st.prod || []).filter(function (r) { return !q || [r.nome, r.marca, r.categoria, r.sotto, r.tipo, String(r.barcode)].join(' ').toLowerCase().indexOf(q) >= 0; });
+    if (!list.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto trovato.')); return; }
+    list.forEach(function (r) {
+      var L = (r.nome.charAt(0) || '#').toUpperCase(); if (!/[A-Z]/.test(L)) L = '#';
+      if (L !== last) { box.appendChild(el('div', 'letter', L)); last = L; }
+      var it = el('div', 'item'), n = el('div', 'n'), th = el('div', 'th');
+      if (r.img) thumb(th, r.img);
+      it.appendChild(th); it.tabIndex = 0; it.setAttribute('role', 'button'); it.setAttribute('aria-label', 'Apri la scheda di ' + r.nome);
+      n.appendChild(el('b', '', r.nome));
+      var sub = [r.marca, r.conf].filter(Boolean).join(' · '); if (sub) n.appendChild(el('span', 'sub2', sub));
+      if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.categoria].filter(Boolean).join(' · ')));
+      it.appendChild(n);
+      var zero = !r.qta, low = !zero && r.minima > 0 && r.qta <= r.minima;
+      it.appendChild(el('span', 'badge' + (zero ? ' zero' : low ? ' low' : ''), zero ? 'Esaurito' : low ? 'Sotto scorta' : 'Ok'));
+      it.appendChild(el('div', 'qta', String(r.qta || 0)));
+      (function (bc) { it.addEventListener('click', function () { openScheda(bc); }); it.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openScheda(bc); } }); })(r.barcode);
+      box.appendChild(it);
+    });
+  }
+
   /* ---------- approvazioni ---------- */
   function loadAppr() {
     api('GET', 'api/approvazioni').then(function (list) { renderAppr(list || []); })
@@ -364,7 +396,7 @@
     buildNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
     $('qp').addEventListener('click', function () { setQta(st.qta + 1); });
-    $('scan').addEventListener('click', startScan); $('sc-close').addEventListener('click', closeScheda); document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('scheda').hidden) closeScheda(); }); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
+    $('scan').addEventListener('click', startScan); $('sc-close').addEventListener('click', closeScheda); $('qp2').addEventListener('input', renderProd); $('sc-mov').addEventListener('click', function () { var bc = st.schedaBc; closeScheda(); show('mov'); if (bc) { $('bc').value = bc; lookup(); } }); document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('scheda').hidden) closeScheda(); }); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
     $('cancel').addEventListener('click', function () { stopScan(); resetForm(); });
     $('f').addEventListener('submit', save);
     var dbt;
