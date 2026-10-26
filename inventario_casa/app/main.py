@@ -72,8 +72,8 @@ def prodotto(barcode: str, x_code: str = Header(None)):
     check(x_code)
     p = inv().prodotto(barcode)
     if p is None:
-        raise HTTPException(404, "Codice sconosciuto")
-    return p
+        return {"found": False}   # codice nuovo: non e un errore
+    return dict(p, found=True)
 
 
 @app.get("/api/prodotti")
