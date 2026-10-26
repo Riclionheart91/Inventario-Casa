@@ -1,5 +1,6 @@
 name: "Inventario Casa"
-version: "0.1.3"
+version: "0.1.4"
+image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
 arch: [amd64, aarch64]

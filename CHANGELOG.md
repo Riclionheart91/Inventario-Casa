@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.1.4 — 2026-10-26
+- Immagine precostruita su GitHub (ghcr.io): gli aggiornamenti non compilano più l'app su Home Assistant, quindi sono molto più veloci.
+
 ## 0.1.3 — 2026-10-26
 - Nuova icona e logo dell'app (casa con scatola), anche per l'installazione sul telefono (PWA).
 - Aggiunto questo changelog.
