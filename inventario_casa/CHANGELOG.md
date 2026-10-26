@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.4.5 — 2026-10-27
+La sottocategoria vuota ora dice "Scegli prima la categoria".
+
 ## 0.4.4 — 2026-10-27
 Suggerimento AI: se Gemini non risponde, la schermata mostra il motivo (codice di errore del servizio, senza la chiave). L'AI parte anche se il prodotto trovato non ha un nome.
 
