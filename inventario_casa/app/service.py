@@ -79,11 +79,17 @@ class Inventory:
     def stock(self) -> List[dict]:
         """Giacenza per prodotto e luogo, calcolata dai movimenti, con tipo e scorta minima presi dal catalogo.
         TODO: leggere Stock_ByLoc (foglio a formule) se si vuole identica a AppSheet; semantica di Sposta/Rettifica da confermare."""
+        tipi_ai: Dict[str, str] = {}
+        for a in self._dicts(SH_AIP):  # il Tipo vive in ai_prodotti (prodotti non ha la colonna): vale l'ultimo non rifiutato
+            k = nbc(a.get("Barcode"))
+            t = str(a.get("Tipo", "") or "").strip()
+            if k and t and str(a.get("Stato", "")).upper() != "RIFIUTATO":
+                tipi_ai[k] = t
         cat: Dict[str, dict] = {}
         for p in self._dicts(SH_PROD):
             k = nbc(p.get("Barcode"))
             if k:
-                cat[k] = {"tipo": str(p.get("Tipo", "") or "").strip(), "minima": _minima(p)}
+                cat[k] = {"tipo": str(p.get("Tipo", "") or "").strip() or tipi_ai.get(k, ""), "minima": _minima(p)}
         acc: Dict[tuple, dict] = {}
         for m in self._dicts(SH_MOV):
             k = nbc(m.get("Barcode"))

@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.1.1"
+version: "0.1.2"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
 arch: [amd64, aarch64]
