@@ -33,6 +33,15 @@ def _num(x) -> float:
         return 0.0
 
 
+def _minima(p: dict) -> float:
+    """Scorta minima dal catalogo: cerca una colonna il cui nome contenga 'scorta' e 'min' (nome esatto da confermare sul foglio)."""
+    for h, v in p.items():
+        n = str(h).lower()
+        if "scorta" in n and "min" in n:
+            return _num(v)
+    return 0
+
+
 class Inventory:
     def __init__(self, store, ttl: int = CACHE_TTL, clock=time.time):
         self.store, self.ttl, self.clock = store, ttl, clock
@@ -68,8 +77,13 @@ class Inventory:
 
     # --- stock ----------------------------------------------------------
     def stock(self) -> List[dict]:
-        """Giacenza per prodotto e luogo, calcolata dai movimenti.
+        """Giacenza per prodotto e luogo, calcolata dai movimenti, con tipo e scorta minima presi dal catalogo.
         TODO: leggere Stock_ByLoc (foglio a formule) se si vuole identica a AppSheet; semantica di Sposta/Rettifica da confermare."""
+        cat: Dict[str, dict] = {}
+        for p in self._dicts(SH_PROD):
+            k = nbc(p.get("Barcode"))
+            if k:
+                cat[k] = {"tipo": str(p.get("Tipo", "") or "").strip(), "minima": _minima(p)}
         acc: Dict[tuple, dict] = {}
         for m in self._dicts(SH_MOV):
             k = nbc(m.get("Barcode"))
@@ -83,15 +97,17 @@ class Inventory:
                 d = -q
             else:
                 continue
-            e = acc.setdefault((k, loc), {"barcode": int(k), "prodotto": m.get("Prodotto", ""),
+            c = cat.get(k, {})
+            e = acc.setdefault((k, loc), {"barcode": int(k), "nome": m.get("Prodotto", ""),
                                           "categoria": m.get("Categoria", ""),
-                                          "sottocategoria": m.get("Sottocategoria", ""),
-                                          "location": loc, "giacenza": 0})
-            e["giacenza"] += d
-        out = [e for e in acc.values() if e["giacenza"] != 0]
+                                          "sotto": m.get("Sottocategoria", ""),
+                                          "tipo": c.get("tipo", ""), "minima": c.get("minima", 0),
+                                          "luogo": loc, "qta": 0})
+            e["qta"] += d
+        out = [e for e in acc.values() if e["qta"] != 0]
         for e in out:
-            e["giacenza"] = int(e["giacenza"]) if float(e["giacenza"]).is_integer() else e["giacenza"]
-        return sorted(out, key=lambda e: (e["categoria"], e["prodotto"], e["location"]))
+            e["qta"] = int(e["qta"]) if float(e["qta"]).is_integer() else e["qta"]
+        return sorted(out, key=lambda e: (e["categoria"], e["nome"], e["luogo"]))
 
     # --- movimenti ------------------------------------------------------
     def movimento(self, barcode, tipo: str, location: str, quantita, prodotto: str = "", foto: str = "") -> dict:

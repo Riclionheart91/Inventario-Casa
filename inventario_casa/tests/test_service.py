@@ -25,7 +25,7 @@ class T(unittest.TestCase):
         _, inv, _ = make()
         s = inv.stock()
         self.assertEqual(len(s), 1)
-        self.assertEqual(s[0]["giacenza"], 4)
+        self.assertEqual(s[0]["qta"], 4)
 
     def test_prodotto_barcode_misto(self):
         _, inv, _ = make()
@@ -39,7 +39,7 @@ class T(unittest.TestCase):
         row = st.sheets["movimenti"][-1]
         self.assertIsInstance(row[0], int)
         self.assertEqual(row[5:7], ["Dispensa", "Bevande"])
-        self.assertEqual(inv.stock()[0]["giacenza"], 7)
+        self.assertEqual(inv.stock()[0]["qta"], 7)
 
     def test_movimento_validazioni(self):
         _, inv, _ = make()
@@ -57,9 +57,9 @@ class T(unittest.TestCase):
         st, inv, t = make()
         inv.stock()
         st.sheets["movimenti"].append([8002795002995, "Carico", "Casa", 10, "", "", "", ""])
-        self.assertEqual(inv.stock()[0]["giacenza"], 4)   # ancora in cache
+        self.assertEqual(inv.stock()[0]["qta"], 4)   # ancora in cache
         t[0] += 21
-        self.assertEqual(inv.stock()[0]["giacenza"], 14)
+        self.assertEqual(inv.stock()[0]["qta"], 14)
 
     def test_approvazioni_prima_dopo(self):
         _, inv, _ = make()

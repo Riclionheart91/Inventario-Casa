@@ -18,9 +18,9 @@
   var MOCKDB = {
     prod: { '8002795002995': { prodotto: 'Latte UHT intero', categoria: 'Dispensa', sottocategoria: 'Bevande' }, '8000500310427': { prodotto: 'Nutella 450 g', categoria: 'Dispensa', sottocategoria: 'Snack e Dolci' } },
     stock: [
-      { nome: 'Latte fresco intero', categoria: 'Frigorifero', sotto: 'Latticini', luogo: 'Casa', qta: 3, minima: 1 },
-      { nome: 'Burro', categoria: 'Frigorifero', sotto: 'Latticini', luogo: 'Casa', qta: 1, minima: 2 },
-      { nome: 'Latte UHT intero', categoria: 'Dispensa', sotto: 'Bevande', luogo: 'Casa', qta: 6, minima: 2 },
+      { nome: 'Latte fresco intero', categoria: 'Frigorifero', sotto: 'Latticini', tipo: 'Latte', luogo: 'Casa', qta: 3, minima: 1 },
+      { nome: 'Burro', categoria: 'Frigorifero', sotto: 'Latticini', tipo: 'Burro', luogo: 'Casa', qta: 1, minima: 2 },
+      { nome: 'Latte UHT intero', categoria: 'Dispensa', sotto: 'Bevande', tipo: 'Latte', luogo: 'Casa', qta: 6, minima: 2 },
       { nome: 'Pasta di semola', categoria: 'Dispensa', sotto: 'Pasta e riso', luogo: 'Casa', qta: 9, minima: 3 },
       { nome: 'Sale fino', categoria: 'Dispensa', sotto: 'Condimenti e Sale', luogo: 'Casa', qta: 2, minima: 1 },
       { nome: 'Acqua naturale', categoria: 'Cantina', sotto: 'Bevande', luogo: 'Cantina', qta: 12, minima: 6 },
@@ -196,14 +196,14 @@
     st.stock.filter(function (r) {
       if (st.filtro === 'Casa' || st.filtro === 'Cantina') { if (r.luogo !== st.filtro) return false; }
       if (st.filtro === 'Sotto scorta' && !isLow(r)) return false;
-      return !q || [r.nome, r.categoria, r.sotto].join(' ').toLowerCase().indexOf(q) >= 0;
+      return !q || [r.nome, r.categoria, r.sotto, r.tipo].join(' ').toLowerCase().indexOf(q) >= 0;
     }).forEach(function (r) { var g = r.categoria || 'Altro'; if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(r); });
     if (!order.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto trovato.')); return; }
     order.forEach(function (g) {
       var d = el('details', 'g'); d.open = true; d.appendChild(el('summary', '', g + ' (' + groups[g].length + ')'));
       groups[g].forEach(function (r) {
         var it = el('div', 'item'), n = el('div', 'n');
-        n.appendChild(el('b', '', r.nome)); n.appendChild(el('span', '', [r.sotto, r.luogo].filter(Boolean).join(' · ')));
+        n.appendChild(el('b', '', r.nome)); if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.luogo].filter(Boolean).join(' · ')));
         it.appendChild(n); it.appendChild(el('span', 'badge' + (isLow(r) ? ' low' : ''), isLow(r) ? 'Sotto scorta' : 'Ok'));
         it.appendChild(el('div', 'qta', String(r.qta))); d.appendChild(it);
       });
