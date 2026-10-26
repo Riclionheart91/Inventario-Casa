@@ -76,6 +76,15 @@ def prodotto(barcode: str, x_code: str = Header(None)):
     return p
 
 
+@app.get("/api/scheda/{barcode}")
+def scheda(barcode: str, x_code: str = Header(None)):
+    check(x_code)
+    p = inv().scheda(barcode)
+    if p is None:
+        raise HTTPException(404, "Codice sconosciuto")
+    return p
+
+
 @app.post("/api/movimento")
 def movimento(m: Mov, x_code: str = Header(None)):
     check(x_code)

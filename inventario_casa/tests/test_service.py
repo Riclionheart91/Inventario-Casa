@@ -45,6 +45,14 @@ class T(unittest.TestCase):
         with self.assertRaises(ApiError):
             inv.movimento(8002795002995, "Cng", "Casa", 1, categoria="Dispensa", categoria_new="Dispensa")
 
+    def test_scheda(self):
+        _, inv, _ = make()
+        s = inv.scheda("8002795002995")
+        self.assertEqual(s["nome"], "Latte UHT")
+        self.assertEqual(s["totale"], 4)
+        self.assertEqual(s["giacenze"][0]["luogo"], "Casa")
+        self.assertIsNone(inv.scheda("1"))
+
     def test_prodotto_barcode_misto(self):
         _, inv, _ = make()
         self.assertEqual(inv.prodotto("08002795002995")["prodotto"], "Latte UHT")

@@ -18,7 +18,7 @@
   var MOCKDB = {
     prod: { '8002795002995': { prodotto: 'Latte UHT intero', categoria: 'Dispensa', sottocategoria: 'Bevande' }, '8000500310427': { prodotto: 'Nutella 450 g', categoria: 'Dispensa', sottocategoria: 'Snack e Dolci' } },
     stock: [
-      { nome: 'Latte fresco intero', categoria: 'Frigorifero', sotto: 'Latticini', tipo: 'Latte', luogo: 'Casa', qta: 3, minima: 1 },
+      { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', conf: '1 l', img: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='white'/%3E%3Crect x='60' y='30' width='80' height='140' rx='12' fill='%23c0392b'/%3E%3Crect x='72' y='70' width='56' height='50' fill='white'/%3E%3C/svg%3E", categoria: 'Frigorifero', sotto: 'Latticini', tipo: 'Latte', luogo: 'Casa', qta: 3, minima: 1 },
       { nome: 'Burro', categoria: 'Frigorifero', sotto: 'Latticini', tipo: 'Burro', luogo: 'Casa', qta: 1, minima: 2 },
       { nome: 'Latte UHT intero', categoria: 'Dispensa', sotto: 'Bevande', tipo: 'Latte', luogo: 'Casa', qta: 6, minima: 2 },
       { nome: 'Pasta di semola', categoria: 'Dispensa', sotto: 'Pasta e riso', luogo: 'Casa', qta: 9, minima: 3 },
@@ -34,6 +34,7 @@
   function mockApi(method, path, body) {
     var m;
     if (path === 'api/stock') return MOCKDB.stock;
+    if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero.', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
     if (path === 'api/movimento') return { ok: true, nuovo: !!(body && body.foto) };
     if (path === 'api/foto') return { ok: true, id: 'mock-foto' };
@@ -236,6 +237,62 @@
     img.src = url;
   }
 
+
+  /* ---------- immagini senza sfondo bianco ---------- */
+  var imgCache = {};
+  function cleanImg(url, cb) { // toglie il bianco collegato ai bordi; se l'immagine non e leggibile, usa l'originale
+    if (imgCache[url]) { cb(imgCache[url]); return; }
+    var im = new Image(); im.crossOrigin = 'anonymous'; im.referrerPolicy = 'no-referrer';
+    im.onload = function () {
+      try {
+        var k = Math.min(1, 220 / Math.max(im.width, im.height)), w = Math.max(1, Math.round(im.width * k)), h = Math.max(1, Math.round(im.height * k));
+        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        var cx = cv.getContext('2d'); cx.drawImage(im, 0, 0, w, h);
+        var d = cx.getImageData(0, 0, w, h), px = d.data, seen = new Uint8Array(w * h), stack = [], i;
+        function bianco(p) { var o = p * 4; return px[o + 3] < 20 || (px[o] > 232 && px[o + 1] > 232 && px[o + 2] > 232 && Math.max(px[o], px[o + 1], px[o + 2]) - Math.min(px[o], px[o + 1], px[o + 2]) < 18); }
+        for (i = 0; i < w; i++) { stack.push(i, (h - 1) * w + i); }
+        for (i = 0; i < h; i++) { stack.push(i * w, i * w + w - 1); }
+        while (stack.length) {
+          var p = stack.pop(); if (seen[p] || !bianco(p)) continue; seen[p] = 1; px[p * 4 + 3] = 0;
+          var x = p % w; if (x > 0) stack.push(p - 1); if (x < w - 1) stack.push(p + 1); if (p >= w) stack.push(p - w); if (p < w * (h - 1)) stack.push(p + w);
+        }
+        cx.putImageData(d, 0, 0); imgCache[url] = cv.toDataURL('image/png'); cb(imgCache[url]);
+      } catch (e) { imgCache[url] = url; cb(url); }
+    };
+    im.onerror = function () { cb(''); };
+    im.src = url;
+  }
+  function thumb(box, url) {
+    cleanImg(url, function (u) { if (!u) return; var im = document.createElement('img'); im.src = u; im.alt = ''; box.appendChild(im); });
+  }
+
+  /* ---------- scheda prodotto ---------- */
+  function secTxt(titolo, testo) { if (!testo) return null; var s = el('div', 'sc-sec'); s.appendChild(el('h3', '', titolo)); s.appendChild(el('p', '', testo)); return s; }
+  function openScheda(barcode) {
+    var box = $('sc-body'); box.textContent = 'Carico…'; $('scheda').hidden = false; $('sc-close').focus();
+    api('GET', 'api/scheda/' + barcode).then(function (p) {
+      box.textContent = '';
+      var head = el('div', 'sc-head'), im = el('div', 'sc-img'), t = el('div', '');
+      if (p.immagine) thumb(im, p.immagine);
+      var h2 = el('h2', '', p.nome || 'Prodotto'); h2.id = 'sc-nome'; t.appendChild(h2);
+      var m = [p.marca, p.confezione].filter(Boolean).join(' · '); if (m) t.appendChild(el('div', 'm', m));
+      t.appendChild(el('div', 'm', 'Codice ' + p.barcode));
+      head.appendChild(im); head.appendChild(t); box.appendChild(head);
+      var pills = el('div', 'pills'); [p.tipo, p.categoria, p.sottocategoria].filter(Boolean).forEach(function (x) { pills.appendChild(el('span', '', x)); }); box.appendChild(pills);
+      var g = el('div', 'sc-sec'); g.appendChild(el('h3', '', 'Giacenza'));
+      (p.giacenze || []).forEach(function (x) { var r = el('div', 'sc-giac'); r.appendChild(el('span', '', [x.luogo, x.categoria].filter(Boolean).join(' · '))); r.appendChild(el('b', '', String(x.qta))); g.appendChild(r); });
+      if (!(p.giacenze || []).length) g.appendChild(el('p', '', 'Nessuna giacenza.'));
+      else { var tt = el('div', 'sc-giac tot'); tt.appendChild(el('span', '', 'Totale')); tt.appendChild(el('b', '', String(p.totale))); g.appendChild(tt); }
+      if (p.scorta_minima > 0) g.appendChild(el('div', p.totale <= p.scorta_minima ? 'sc-low' : 'note', 'Scorta minima del tipo: ' + p.scorta_minima + (p.totale <= p.scorta_minima ? ' — sotto scorta' : '')));
+      box.appendChild(g);
+      [['Punteggi', p.punteggi && p.punteggi.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
+       ['Nutrizione (100 g)', p.nutrizione && p.nutrizione.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
+       ['Adatto a', p.free_from], ['Dettagli', p.dettagli], ['Composizione', p.composizione], ['Smaltimento e riciclo', p.smaltimento],
+       ['Aggiornato il', p.aggiornato]].forEach(function (a) { var s = secTxt(a[0], a[1]); if (s) box.appendChild(s); });
+    }).catch(function (e) { box.textContent = 'Scheda non disponibile: ' + e.message; });
+  }
+  function closeScheda() { $('scheda').hidden = true; }
+
   /* ---------- stock ---------- */
   function loadStock() {
     api('GET', 'api/stock').then(function (r) { st.stock = r || []; renderStock(); $('sub').textContent = st.stock.length + ' prodotti'; })
@@ -263,8 +320,9 @@
       var d = el('details', 'g'); d.open = true; d.appendChild(el('summary', '', g + ' (' + groups[g].length + ')'));
       groups[g].forEach(function (r) {
         var it = el('div', 'item'), n = el('div', 'n'), th = el('div', 'th');
-        if (r.img) { var im = document.createElement('img'); im.src = r.img; im.alt = ''; im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; im.addEventListener('error', function () { im.remove(); }); th.appendChild(im); }
-        it.appendChild(th);
+        if (r.img) thumb(th, r.img);
+        it.appendChild(th); it.tabIndex = 0; it.setAttribute('role', 'button'); it.setAttribute('aria-label', 'Apri la scheda di ' + r.nome);
+        (function (bc) { it.addEventListener('click', function () { openScheda(bc); }); it.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openScheda(bc); } }); })(r.barcode);
         n.appendChild(el('b', '', r.nome));
         var sub = [r.marca, r.conf].filter(Boolean).join(' · '); if (sub) n.appendChild(el('span', 'sub2', sub));
         if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.luogo].filter(Boolean).join(' · ')));
@@ -306,7 +364,7 @@
     buildNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
     $('qp').addEventListener('click', function () { setQta(st.qta + 1); });
-    $('scan').addEventListener('click', startScan); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
+    $('scan').addEventListener('click', startScan); $('sc-close').addEventListener('click', closeScheda); document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('scheda').hidden) closeScheda(); }); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
     $('cancel').addEventListener('click', function () { stopScan(); resetForm(); });
     $('f').addEventListener('submit', save);
     var dbt;

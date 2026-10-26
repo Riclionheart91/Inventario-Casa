@@ -76,6 +76,27 @@ class Inventory:
                         "tipo": p.get("Tipo", "")}
         return None
 
+    def scheda(self, barcode) -> Optional[dict]:
+        """Scheda prodotto: dati del catalogo + giacenze per posizione e categoria."""
+        k = nbc(barcode)
+        if not k:
+            return None
+        for p in self._dicts(SH_PROD):
+            if nbc(p.get("Barcode")) != k:
+                continue
+            g = lambda *names: next((str(p[n]).strip() for n in names if n in p and str(p[n]).strip()), "")
+            tipo = g("Tipo")
+            giac = [{"luogo": e["luogo"], "categoria": e["categoria"], "qta": e["qta"], "minima": e["minima"]}
+                    for e in self.stock() if str(e["barcode"]) == str(int(k))]
+            minima = giac[0]["minima"] if giac else 0
+            return {"barcode": int(k), "nome": g("Prodotto"), "marca": g("Marca"), "confezione": g("Confezione"),
+                    "categoria": g("Categoria"), "sottocategoria": g("Sottocategoria"), "tipo": tipo,
+                    "immagine": g("Immagine"), "dettagli": g("Dettagli prodotto"), "punteggi": g("Punteggi"),
+                    "composizione": g("Composizione"), "free_from": g("Free-from"), "nutrizione": g("Nutrizione (100g)"),
+                    "smaltimento": g("Smaltimento/riciclo"), "aggiornato": g("Aggiornato il"),
+                    "scorta_minima": minima, "giacenze": giac, "totale": sum(x["qta"] for x in giac)}
+        return None
+
     # --- stock ----------------------------------------------------------
     def stock(self) -> List[dict]:
         """Giacenza per prodotto e luogo, calcolata dai movimenti, con tipo e scorta minima presi dal catalogo.
