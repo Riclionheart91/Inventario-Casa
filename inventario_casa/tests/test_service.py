@@ -9,6 +9,7 @@ def make():
         "prodotti": [["Barcode", "Prodotto", "Marca", "Categoria", "Sottocategoria", "Tipo"],
                      [8002795002995, "Latte UHT", "X", "Dispensa", "Bevande", "Latte"],
                      [9000000000001, "Si & No Mais", "Y", "Dispensa", "Snack e Dolci", ""]],
+        "categorie": [["Categoria", "Sottocategoria"], ["Dispensa", "Bevande"], ["Dispensa", "Snack e Dolci"], ["Frigorifero", "Latticini"]],
         "movimenti": [["Barcode", "Tipo", "Location", "Quantità", "Prodotto", "Categoria", "Sottocategoria", "Foto"],
                       [8002795002995, "Carico", "Casa", 6, "Latte UHT", "Dispensa", "Bevande", ""],
                       [8002795002995, "Scarico", "Casa", 2, "Latte UHT", "Dispensa", "Bevande", ""]],
@@ -99,6 +100,30 @@ class T(unittest.TestCase):
         self.assertIs(inv.stock(), a)          # riusato dalla memoria
         inv.movimento("8002795002995", "Carico", "Casa", 1)
         self.assertEqual(inv.stock()[0]["qta"], 5)   # dopo una scrittura si ricalcola
+
+    def test_movimento_scrive_id_e_data(self):
+        st, inv, _ = make()
+        inv.movimento("8002795002995", "Scarico", "Casa", 1, categoria="Dispensa")
+        h = st.sheets["movimenti"][0]; row = dict(zip(h, st.sheets["movimenti"][-1]))
+        self.assertEqual(len(row["ID_Movimento"]), 8)
+        self.assertRegex(row["Data"], r"^\d\d/\d\d/\d{4}$")
+
+    def test_categorie(self):
+        _, inv, _ = make()
+        self.assertEqual(inv.categorie(), [{"categoria": "Dispensa", "sottocategorie": ["Bevande", "Snack e Dolci"]},
+                                           {"categoria": "Frigorifero", "sottocategorie": ["Latticini"]}])
+
+    def test_cambio_sottocategoria_e_modifica_prodotto(self):
+        st, inv, _ = make()
+        r = inv.modifica_prodotto("8002795002995", "Snack e Dolci")
+        self.assertEqual(r["movimenti_aggiornati"], 2)
+        self.assertEqual(inv.prodotto("8002795002995")["sottocategoria"], "Snack e Dolci")
+        self.assertEqual(inv.stock()[0]["qta"], 4)            # le quantita non cambiano
+        self.assertEqual({m[6] for m in st.sheets["movimenti"][1:]}, {"Snack e Dolci"})
+        with self.assertRaises(ApiError):
+            inv.modifica_prodotto("8002795002995", "Latticini")   # non e una sottocategoria di Dispensa
+        with self.assertRaises(ApiError):
+            inv.modifica_prodotto("1", "Bevande")
 
     def test_approvazioni_prima_dopo(self):
         _, inv, _ = make()

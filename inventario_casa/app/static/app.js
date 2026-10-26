@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   var MOCK = new URLSearchParams(location.search).get('mock') === '1';
-  var TIPI = [['Carico', 'Carico'], ['Scarico', 'Scarico'], ['Sposta', 'Move'], ['Rettifica', 'Cng']]; // [etichetta, valore inviato]
+  var TIPI = [['Carico', 'Carico'], ['Scarico', 'Scarico'], ['Sposta', 'Move'], ['Cambia categoria', 'Cng']]; // [etichetta, valore inviato]
   var LUOGHI = ['Casa', 'Cantina'];
   var ICON = {
     mov: '<path d="M5 12h14M12 5v14"/>',
@@ -13,7 +13,7 @@
   };
   var TABS = [['mov', '+/-', 'Movimento +/-'], ['stock', 'Stock', 'Stock'], ['prod', 'Prodotti', 'Tutti i prodotti'], ['spesa', 'Spesa', 'Spesa'], ['bozze', 'Da inserire', 'Da inserire'], ['appr', 'Approvazioni', 'Approvazioni AI']];
   var $ = function (id) { return document.getElementById(id); };
-  var st = { tipo: 'Carico', luogo: 'Casa', qta: 1, known: null, fotoBlob: null, stock: [], filtro: 'Tutti', tab: 'mov' };
+  var st = { tipo: 'Carico', luogo: 'Casa', qta: 1, known: null, giac: [], riga: 0, cats: null, ro: true, fotoBlob: null, stock: [], filtro: 'Tutti', tab: 'mov' };
 
   /* ---------- API (con mock) ---------- */
   var MOCKDB = {
@@ -38,6 +38,9 @@
     if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
     if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero.', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
+    if (path === 'api/config') return { url_sicuro: '', sola_lettura: false };
+    if (path === 'api/categorie') return [{ categoria: 'Dispensa', sottocategorie: ['Pasta e Riso', 'Bevande', 'Snack e Dolci'] }, { categoria: 'Frigorifero', sottocategorie: ['Latticini'] }, { categoria: 'Cantina', sottocategorie: ['Bevande'] }];
+    if (method === 'PATCH') return { ok: true, movimenti_aggiornati: 3 };
     if (path === 'api/movimento') return { ok: true, nuovo: !!(body && body.foto) };
     if (path === 'api/foto') return { ok: true, id: 'mock-foto' };
     if (path === 'api/approvazioni') return MOCKDB.appr.slice();
@@ -50,7 +53,7 @@
     if (raw) { opt.body = raw; opt.headers['Content-Type'] = raw.type || 'application/octet-stream'; }
     else if (body !== undefined) { opt.body = JSON.stringify(body); opt.headers['Content-Type'] = 'application/json'; }
     return fetch('./' + path, opt).then(function (r) {
-      if (!r.ok) throw new Error('Errore ' + r.status);
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { throw new Error((j && (j.errore || j.detail || j.error)) || ('Errore ' + r.status)); });
       return r.json();
     });
   }
@@ -93,7 +96,7 @@
       var lab = Array.isArray(it) ? it[0] : it;
       var b = el('button', '', lab); b.type = 'button';
       b.setAttribute('aria-pressed', String(st[key] === lab));
-      b.addEventListener('click', function () { st[key] = lab; buildSeg(id, items, key); });
+      b.addEventListener('click', function () { st[key] = lab; buildSeg(id, items, key); if (key === 'tipo') renderRiga(); });
       box.appendChild(b);
     });
   }
@@ -116,13 +119,44 @@
         setKnown(true); $('pr').value = r.prodotto || '';
         note($('cat'), [r.categoria, r.sottocategoria].filter(Boolean).join(' › '));
         note($('hint'), 'Prodotto noto: il movimento viene salvato subito.', 'ok');
+        loadGiac(bc);
       } else {
-        setKnown(false); note($('cat'), '');
+        setKnown(false); note($('cat'), ''); st.giac = []; renderRiga();
         note($('hint'), 'Codice nuovo: scatta una foto, il prodotto va in "Da inserire" e lo compila l\'AI.', 'warn');
       }
     }).catch(function (e) { if (my === lookupSeq) { setKnown(null); note($('hint'), 'Ricerca non riuscita: ' + e.message, 'warn'); } });
   }
+  function altroLuogo(l) { return LUOGHI.filter(function (x) { return x !== l; })[0]; }
+  function loadGiac(bc) {   // giacenze del prodotto: servono per Scarico, Sposta e Cambia categoria
+    api('GET', 'api/scheda/' + bc).then(function (p) {
+      if ($('bc').value.trim() !== bc) return;
+      st.giac = (p.giacenze || []).filter(function (g) { return g.qta > 0; }); st.riga = 0; renderRiga();
+    }).catch(function () { st.giac = []; renderRiga(); });
+    if (!st.cats) api('GET', 'api/categorie').then(function (c) { st.cats = c || []; renderRiga(); }).catch(function () { st.cats = []; });
+  }
+  function renderRiga() {
+    var need = st.tipo !== 'Carico', box = $('riga'), g = st.giac[st.riga];
+    $('f-luogo').hidden = need; $('f-riga').hidden = !need || st.known !== true; $('f-catnew').hidden = !(need && st.known === true && st.tipo === 'Cambia categoria' && g);
+    if (!need || st.known !== true) return;
+    box.textContent = '';
+    st.giac.forEach(function (x, i) {
+      var b = el('button', '', ''); b.type = 'button'; b.setAttribute('aria-pressed', String(i === st.riga));
+      b.appendChild(el('span', '', [x.luogo, x.categoria].filter(Boolean).join(' · '))); b.appendChild(el('b', '', x.qta + ' pz'));
+      b.addEventListener('click', function () { st.riga = i; renderRiga(); }); box.appendChild(b);
+    });
+    var n = $('rnote');
+    if (!g) { note(n, 'Nessuna giacenza da movimentare per questo prodotto.', 'warn'); return; }
+    if (st.tipo === 'Sposta') note(n, 'Sposto da ' + g.luogo + ' a ' + altroLuogo(g.luogo) + '.', '');
+    else if (st.tipo === 'Cambia categoria') note(n, '', '');
+    else note(n, '', '');
+    if (st.tipo === 'Cambia categoria') {
+      var sel = $('catnew'), prima = sel.value; sel.textContent = '';
+      (st.cats || []).map(function (c) { return c.categoria; }).filter(function (c) { return c !== g.categoria; }).forEach(function (c) { var o = el('option', '', c); o.value = c; sel.appendChild(o); });
+      if (prima) sel.value = prima;
+    }
+  }
   function resetForm() {
+    st.giac = []; st.riga = 0; renderRiga();
     $('bc').value = ''; $('pr').value = ''; setKnown(null); setQta(1);
     note($('hint'), ''); note($('cat'), ''); $('bc').focus();
   }
@@ -152,7 +186,15 @@
       return st.known === false ? api('POST', 'api/foto', undefined, st.fotoBlob).then(function (r) { return r.id || r.url || ''; }) : '';
     }).then(function (foto) {
       var tipoVal = TIPI.filter(function (t) { return t[0] === st.tipo; })[0][1];
-      return api('POST', 'api/movimento', { barcode: bc, tipo: tipoVal, luogo: st.luogo, quantita: st.qta, prodotto: $('pr').value.trim(), foto: foto || undefined });
+      var body = { barcode: bc, tipo: tipoVal, location: st.luogo, quantita: st.qta, prodotto: $('pr').value.trim(), foto: foto || undefined };
+      if (st.tipo !== 'Carico') {
+        var g = st.giac[st.riga];
+        if (st.known !== true || !g) { toast('Serve un prodotto noto con giacenza.', true); throw new Error('stop'); }
+        body.location = g.luogo; body.categoria = g.categoria;
+        if (st.tipo === 'Sposta') body.destinazione = altroLuogo(g.luogo);
+        if (st.tipo === 'Cambia categoria') { body.categoria_new = $('catnew').value; if (!body.categoria_new) { toast('Scegli la nuova categoria.', true); throw new Error('stop'); } }
+      }
+      return api('POST', 'api/movimento', body);
     }).then(function () { toast('Movimento salvato.'); resetForm(); })
       .catch(function (e) { if (e.message !== 'stop') toast('Non salvato: ' + e.message, true); })
       .then(function () { btn.disabled = false; });
@@ -304,11 +346,27 @@
       else { var tt = el('div', 'sc-giac tot'); tt.appendChild(el('span', '', 'Totale')); tt.appendChild(el('b', '', String(p.totale))); g.appendChild(tt); }
       if (p.scorta_minima > 0) g.appendChild(el('div', p.totale <= p.scorta_minima ? 'sc-low' : 'note', 'Scorta minima del tipo: ' + p.scorta_minima + (p.totale <= p.scorta_minima ? ' — sotto scorta' : '')));
       box.appendChild(g);
+      if (!st.ro) editSotto(box, p);
       [['Punteggi', p.punteggi && p.punteggi.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
        ['Nutrizione (100 g)', p.nutrizione && p.nutrizione.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
        ['Adatto a', p.free_from], ['Dettagli', p.dettagli], ['Composizione', p.composizione], ['Smaltimento e riciclo', p.smaltimento],
        ['Aggiornato il', p.aggiornato]].forEach(function (a) { var s = secTxt(a[0], a[1]); if (s) box.appendChild(s); });
     }).catch(function (e) { box.textContent = 'Scheda non disponibile: ' + e.message; });
+  }
+  function editSotto(box, p) {   // la sottocategoria e del prodotto: si cambia qui, non con un movimento
+    var s = el('div', 'sc-sec'); s.appendChild(el('h3', '', 'Cambia sottocategoria'));
+    var row = el('div', 'sc-edit'), sel = el('select', ''), ok = el('button', 'btn primary', 'Salva'); ok.type = 'button'; sel.setAttribute('aria-label', 'Nuova sottocategoria');
+    row.appendChild(sel); row.appendChild(ok); s.appendChild(row); box.appendChild(s);
+    (st.cats ? Promise.resolve(st.cats) : api('GET', 'api/categorie').then(function (c) { st.cats = c || []; return st.cats; })).then(function (cs) {
+      var c = cs.filter(function (x) { return x.categoria === p.categoria; })[0];
+      ((c && c.sottocategorie) || []).forEach(function (x) { var o = el('option', '', x); o.value = x; sel.appendChild(o); });
+      sel.value = p.sottocategoria;
+    });
+    ok.addEventListener('click', function () {
+      ok.disabled = true;
+      api('PATCH', 'api/prodotto/' + p.barcode, { sottocategoria: sel.value }).then(function (r) { toast('Sottocategoria cambiata (' + r.movimenti_aggiornati + ' movimenti aggiornati).'); st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); } catch (e) { /* ok */ } openScheda(p.barcode); })
+        .catch(function (e) { toast('Non salvato: ' + e.message, true); }).then(function () { ok.disabled = false; });
+    });
   }
   function closeScheda() { $('scheda').hidden = true; }
 
@@ -414,6 +472,7 @@
 
   /* ---------- avvio ---------- */
   function init() {
+    api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; }).catch(function () { st.ro = true; });
     buildNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
     $('qp').addEventListener('click', function () { setQta(st.qta + 1); });

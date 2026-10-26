@@ -15,6 +15,10 @@ class SheetsStore:
     def update_cell(self, sheet: str, row: int, header: str, value) -> None:
         raise NotImplementedError
 
+    def update_cells(self, sheet: str, items) -> None:
+        """Scrive piu celle in una volta: items = [(riga 1-based, intestazione, valore)]."""
+        raise NotImplementedError
+
     def upload_photo(self, name: str, data: bytes, mime: str) -> str:
         raise NotImplementedError
 
@@ -46,6 +50,10 @@ class MemoryStore(SheetsStore):
         while len(r) <= i:
             r.append("")
         r[i] = value
+
+    def update_cells(self, sheet, items):
+        for row, header, value in items:
+            self.update_cell(sheet, row, header, value)
 
     def upload_photo(self, name, data, mime):
         self.photos[name] = data
@@ -94,6 +102,16 @@ class GoogleStore(SheetsStore):
         c = self._col(headers.index(header))
         self.sheets.values().update(spreadsheetId=self.sheet_id, range="'%s'!%s%d" % (sheet, c, row),
                                     valueInputOption="USER_ENTERED", body={"values": [[value]]}).execute()
+
+    def update_cells(self, sheet, items):
+        items = list(items)
+        if not items:
+            return
+        headers, _ = self.get_rows(sheet)
+        data = [{"range": "'%s'!%s%d" % (sheet, self._col(headers.index(h)), r), "values": [[v]]} for r, h, v in items]
+        for i in range(0, len(data), 400):
+            self.sheets.values().batchUpdate(spreadsheetId=self.sheet_id,
+                                             body={"valueInputOption": "USER_ENTERED", "data": data[i:i + 400]}).execute()
 
     def upload_photo(self, name, data, mime):
         from googleapiclient.http import MediaInMemoryUpload

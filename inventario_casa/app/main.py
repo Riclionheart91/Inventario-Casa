@@ -52,6 +52,10 @@ class Mov(BaseModel):
     categoria_new: str = ""
 
 
+class ModProd(BaseModel):
+    sottocategoria: str
+
+
 class Dec(BaseModel):
     azione: str
 
@@ -74,6 +78,19 @@ def prodotto(barcode: str, x_code: str = Header(None)):
     if p is None:
         return {"found": False}   # codice nuovo: non e un errore
     return dict(p, found=True)
+
+
+@app.get("/api/categorie")
+def categorie(x_code: str = Header(None)):
+    check(x_code)
+    return inv().categorie()
+
+
+@app.patch("/api/prodotto/{barcode}")
+def modifica_prodotto(barcode: str, m: ModProd, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().modifica_prodotto(barcode, m.sottocategoria)
 
 
 @app.get("/api/prodotti")

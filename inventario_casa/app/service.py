@@ -1,13 +1,15 @@
 """Logica dell'inventario (solo libreria standard, testabile senza rete)."""
 import re
 import time
+import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
 # TODO: verificare sul foglio reale i nomi esatti di colonne e valori (vedi README).
 SH_MOV, SH_PROD, SH_AIP, SH_AIT, SH_AIC, SH_CODA = "movimenti", "prodotti", "ai_prodotti", "ai_tipi", "ai_categorie", "coda"
+SH_CAT = "categorie"
 TIPI_MOV = ("Carico", "Scarico", "Move", "Cng")           # vocabolario del foglio
-ALIAS_MOV = {"Sposta": "Move", "Rettifica": "Cng"}        # nomi alternativi accettati dall'app
+ALIAS_MOV = {"Sposta": "Move", "Rettifica": "Cng", "Cambia categoria": "Cng"}        # nomi alternativi accettati dall'app
 LUOGHI = ("Casa", "Cantina")                              # TODO: leggerli dal foglio
 ST_PENDING = {SH_AIP: "DA_APPROVARE", SH_AIT: "DA_APPROVARE", SH_AIC: "PROPOSTA"}
 ST_OK = {SH_AIP: "APPROVATO", SH_AIT: "APPROVATO", SH_AIC: "APPROVATA"}   # TODO: stati finali letti da aiApplyApproved
@@ -78,6 +80,47 @@ class Inventory:
                         "categoria": p.get("Categoria", ""), "sottocategoria": p.get("Sottocategoria", ""),
                         "tipo": p.get("Tipo", "")}
         return None
+
+    def categorie(self) -> List[dict]:
+        """Categorie con le loro sottocategorie, dal foglio `categorie`, nell'ordine del foglio."""
+        out: Dict[str, List[str]] = {}
+        for r in self._dicts(SH_CAT):
+            c, sc = str(r.get("Categoria", "") or "").strip(), str(r.get("Sottocategoria", "") or "").strip()
+            if c:
+                out.setdefault(c, [])
+                if sc and sc not in out[c]:
+                    out[c].append(sc)
+        return [{"categoria": c, "sottocategorie": v} for c, v in out.items()]
+
+    def modifica_prodotto(self, barcode, sottocategoria: str) -> dict:
+        """Cambio di sottocategoria = modifica del prodotto: aggiorna il catalogo e le righe di movimento di quel
+        codice, senza toccare le quantita."""
+        k = nbc(barcode)
+        sc = (sottocategoria or "").strip()
+        if not k or not sc:
+            raise ApiError(400, "Codice o sottocategoria mancante")
+        h, rows = self._rows(SH_PROD, True)
+        if "Barcode" not in h or "Sottocategoria" not in h:
+            raise ApiError(500, "Il foglio prodotti non ha le colonne attese")
+        ib, isc, ic = h.index("Barcode"), h.index("Sottocategoria"), (h.index("Categoria") if "Categoria" in h else None)
+        riga = next((i for i, r in enumerate(rows) if len(r) > ib and nbc(r[ib]) == k), None)
+        if riga is None:
+            raise ApiError(404, "Codice sconosciuto")
+        cat = str(rows[riga][ic]).strip() if ic is not None and len(rows[riga]) > ic else ""
+        ammesse = {c["categoria"]: c["sottocategorie"] for c in self.categorie()}
+        if ammesse and sc not in ammesse.get(cat, []):
+            raise ApiError(400, "Sottocategoria non prevista per la categoria %s" % (cat or "(vuota)"))
+        self.store.update_cells(SH_PROD, [(riga + 2, "Sottocategoria", sc)])
+        n = 0
+        hm, rm = self._rows(SH_MOV, True)
+        if "Barcode" in hm and "Sottocategoria" in hm:
+            jb, js = hm.index("Barcode"), hm.index("Sottocategoria")
+            ups = [(i + 2, "Sottocategoria", sc) for i, r in enumerate(rm)
+                   if len(r) > jb and nbc(r[jb]) == k and (len(r) <= js or str(r[js]).strip() != sc)]
+            self.store.update_cells(SH_MOV, ups)
+            n = len(ups)
+        self._drop(SH_PROD, SH_MOV)
+        return {"ok": True, "movimenti_aggiornati": n}
 
     def elenco_prodotti(self) -> List[dict]:
         """Tutti i prodotti del catalogo in ordine alfabetico, anche quelli con giacenza zero."""
@@ -215,7 +258,7 @@ class Inventory:
         cat0 = (categoria or (p["categoria"] if p else "")).strip()
         base = {"Barcode": int(k), "Quantità": qv, "Prodotto": (p["prodotto"] if p else prodotto),
                 "Sottocategoria": p["sottocategoria"] if p else "", "Foto": foto,
-                "Data": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  # TODO: colonna data reale
+                "Data": datetime.now().strftime("%d/%m/%Y"), "Chi": "App"}   # come nel foglio: gg/mm/aaaa
         righe = []
         if tipo in ("Carico", "Scarico"):
             righe.append(dict(base, Tipo=tipo, Location=location, Categoria=cat0))
@@ -235,6 +278,7 @@ class Inventory:
             righe.append(dict(base, Tipo="Carico", Location=location, Categoria=categoria_new))
         n = 0
         for r in righe:
+            r["ID_Movimento"] = uuid.uuid4().hex[:8]   # AppSheet lo genera da solo solo per le righe inserite da lui
             n = self.store.append_row(SH_MOV, r)
         self._drop(SH_MOV)
         return {"ok": True, "riga": n, "righe": len(righe), "noto": p is not None}

@@ -77,3 +77,8 @@ nav button[aria-current=page]{color:var(--acc);font-weight:700}
 .sc-foot{padding:10px 20px calc(12px + env(safe-area-inset-bottom));background:var(--s1);border-top:1px solid #262d33}.sc-foot .btn{width:100%}
 .letter{padding:12px 0 4px;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--acc);text-transform:uppercase}
 .badge.zero{background:#2a2023;color:var(--bad)}
+
+.seg.one{grid-template-columns:1fr}
+.seg.one button{height:auto;min-height:48px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left}
+select{width:100%;height:48px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:inherit;font-size:16px;padding:0 12px}
+.sc-edit{display:flex;gap:8px;align-items:center;margin-top:8px}.sc-edit select{flex:1}.sc-edit .btn{flex:none;padding:0 16px;height:48px}
