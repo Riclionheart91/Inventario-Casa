@@ -146,13 +146,13 @@
   var NOTA_NUOVO = 'Codice nuovo: scatta una foto, il prodotto va in "Da inserire" e lo compila l\'AI.';
   function hideProp() { $('prop').hidden = true; $('prop').textContent = ''; st.prop = null; $('save').hidden = false; }
   function cercaNuovo(bc, my) {
-    api('GET', 'api/cerca/' + bc).then(function (r) {
+    var cats = st.cats ? Promise.resolve() : api('GET', 'api/categorie').then(function (c) { st.cats = c || []; }).catch(function () { st.cats = []; });
+    var tipi = st.tipi ? Promise.resolve() : api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; }).catch(function () { st.tipi = []; });
+    Promise.all([cats, tipi]).then(function () { return api('GET', 'api/cerca/' + bc); }).then(function (r) {
       if (my !== lookupSeq) return;
       if (r && r.found) { st.prop = r; showProp(bc, r); note($('hint'), 'Trovato su ' + r.fonte + ': controlla e conferma.', 'ok'); }
       else note($('hint'), 'Non trovato nei database' + (r && r.errori && r.errori.length ? ' (alcuni non hanno risposto: ' + r.errori.join(', ') + ')' : '') + '. ' + NOTA_NUOVO, 'warn');
     }).catch(function () { if (my === lookupSeq) note($('hint'), 'Ricerca nei database non riuscita. ' + NOTA_NUOVO, 'warn'); });
-    if (!st.cats) api('GET', 'api/categorie').then(function (c) { st.cats = c || []; }).catch(function () { st.cats = []; });
-    if (!st.tipi) api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; var dl = $('tipi-dl'); if (dl) { dl.textContent = ''; st.tipi.forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); } }).catch(function () { st.tipi = []; });
   }
   function showProp(bc, r) {
     var box = $('prop'); box.textContent = ''; box.hidden = false; $('foto').hidden = true; $('save').hidden = true;
@@ -170,16 +170,16 @@
     var tipo = el('input'); tipo.type = 'text'; tipo.placeholder = 'Tipo (facoltativo)'; tipo.setAttribute('list', 'tipi-dl'); tipo.setAttribute('aria-label', 'Tipo');
     var dl = $('tipi-dl') || el('datalist'); dl.id = 'tipi-dl'; dl.textContent = ''; (st.tipi || []).forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); box.appendChild(dl); box.appendChild(tipo);
     var toccato = false; [cat, sot, tipo].forEach(function (x) { x.addEventListener('input', function () { toccato = true; }); x.addEventListener('change', function () { toccato = true; }); });
-    if (st.ai) {   // suggerimento AI: riempie i menu, l'utente rivede e corregge prima di salvare
+    {   // suggerimento AI: riempie i menu, l'utente rivede e corregge prima di salvare
       note(ainote, 'L\'AI sta suggerendo categoria e tipo…');
       api('POST', 'api/suggerisci', { nome: r.nome || '', marca: r.marca || '', confezione: r.confezione || '' }).then(function (a) {
         if ($('bc').value.trim() !== bc || box.hidden) return;
-        if (!a || !a.ai) { note(ainote, 'Suggerimento AI non disponibile: scegli tu categoria e tipo.'); return; }
+        if (!a || !a.ai) { note(ainote, a && a.motivo === 'chiave' ? 'Suggerimento AI spento: manca la chiave Gemini nelle opzioni dell\'app. Scegli tu categoria e tipo.' : 'L\'AI non ha risposto: scegli tu categoria e tipo.', 'warn'); return; }
         if (toccato) { note(ainote, ''); return; }   // l'utente ha gia scelto qualcosa: non si sovrascrive
         if (a.categoria) { cat.value = a.categoria; fillSot(); if (a.sottocategoria) sot.value = a.sottocategoria; }
         if (a.tipo) tipo.value = a.tipo;
         note(ainote, 'Suggerito dall\'AI: controlla e correggi se serve.' + (a.tipo_nuovo ? ' Il tipo «' + a.tipo + '» è nuovo: finirà in Approvazioni per la scorta minima.' : ''), 'ok');
-      }).catch(function () { note(ainote, 'Suggerimento AI non disponibile: scegli tu categoria e tipo.'); });
+      }).catch(function (e) { note(ainote, 'Suggerimento AI non disponibile (' + e.message + '): scegli tu categoria e tipo.', 'warn'); });
     }
     box.appendChild(el('div', 'm', 'Il prodotto viene creato e caricato con la quantità e la posizione scelte qui sotto.'));
     var ok = el('button', 'btn primary', 'Conferma e salva'); ok.type = 'button'; box.appendChild(ok);

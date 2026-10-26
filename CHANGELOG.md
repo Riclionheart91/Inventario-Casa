@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.4.3 — 2026-10-27
+Proposta per un codice nuovo: menu sempre pronti e AI sempre visibile.
+- Categorie e sottocategorie si caricano prima di mostrare la proposta: prima i menu potevano comparire vuoti.
+- Il suggerimento AI parte sempre; se manca la chiave Gemini nelle opzioni dell'app la schermata lo dice, invece di non mostrare nulla.
+
 ## 0.4.2 — 2026-10-27
 Corretti salvataggio con foto, lettura del codice e ricerca.
 - Salvataggio di un prodotto nuovo con foto: la foto veniva inviata in un formato non accettato dal server e l'errore era illeggibile. Ora si invia nel formato giusto e gli errori del server sono mostrati come testo.
