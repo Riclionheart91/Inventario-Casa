@@ -89,6 +89,39 @@ class K(unittest.TestCase):
         r = lookup.cerca("123456", fetch=fetch, chiavi={"BARCODELOOKUP_KEY": "k1", "GOUPC_TOKEN": "t"})
         self.assertEqual((r["nome"], r["marca"], r["fonte"]), ("Biscotti Frollini", "Mulino", "BarcodeLookup"))   # vince il piu prioritario
 
+    def test_altri_database_senza_chiave(self):
+        def fetch(u, t, h=None):
+            if "foodrepo" in u:
+                return {"data": [{"name_translations": {"it": "Muesli croccante"}, "display_name_translations": {"it": "Vallée"}}]}
+            if "opengtindb" in u:
+                return {"_testo": "error=0\nname=Pasta fresca\nhersteller=Bio\n"}
+            if "open.beer" in u:
+                return {"data": [{"name": "Bionda", "brewery": "Birrificio X"}]}
+            if "openlibrary" in u:
+                return {"ISBN:9788804668237": {"title": "Un libro", "authors": [{"name": "A. Autore"}]}}
+            if "googleapis" in u:
+                return {"items": [{"volumeInfo": {"title": "Altro libro", "authors": ["B"], "imageLinks": {"thumbnail": "http://i/x.jpg"}}}]}
+            if "api.fda.gov" in u:
+                return {"results": [{"brand_name": "Aspirina", "labeler_name": "Bayer", "active_ingredients": [{"name": "ASA", "strength": "500 mg"}]}]}
+            return {"status": 0}
+        r = lookup.cerca("123456", fetch=fetch)
+        self.assertEqual((r["nome"], r["marca"], r["fonte"]), ("Muesli croccante", "Vallée", "FoodRepo"))
+        for nome, f in (("opengtindb", lookup._opengtindb), ("beer", lookup._openbeer), ("books", lookup._openlibrary), ("g", lookup._googlebooks), ("fda", lookup._openfda)):
+            r = f("9788804668237", {"GOOGLE_BOOKS_KEY": "kk"}, fetch, 1)
+            self.assertTrue(r and r["nome"], nome)
+        self.assertEqual(lookup._googlebooks("9788804668237", {}, fetch, 1)["immagine"], "https://i/x.jpg")
+        self.assertIsNone(lookup._openlibrary("8002795002995", {}, fetch, 1))   # non e un ISBN
+        self.assertEqual(lookup._opengtindb("1", {}, fetch, 1)["nome"], "Pasta fresca")
+
+    def test_chiavi_facoltative_nell_url_ma_non_obbligatorie(self):
+        visti = []
+        def fetch(u, t, h=None):
+            visti.append(u); return {}
+        lookup._openfda("1", {"OPENFDA_KEY": "seg"}, fetch, 1); lookup._googlebooks("9788804668237", {"GOOGLE_BOOKS_KEY": "seg"}, fetch, 1)
+        self.assertTrue(all("seg" in u for u in visti))
+        visti.clear(); lookup._openfda("1", {}, fetch, 1)
+        self.assertTrue(visti and not any("api_key" in u for u in visti))
+
     def test_provider_a_chiave_con_intestazioni_e_chiavi_doppie(self):
         viste = {}
         def fetch(u, t, h=None):

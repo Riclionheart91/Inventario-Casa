@@ -3,6 +3,12 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.4.1 — 2026-10-26
+Ricerca del codice: altri database dal motore di arricchimento.
+- Nuovi, senza chiave: FoodRepo, OpenGTINDB, Datakick (con gtinsearch), Open Beer DB; per i libri OpenLibrary e Google Books (solo ISBN), per i farmaci OpenFDA.
+- Nuove opzioni facoltative: google_books_key e openfda_key (alzano i limiti giornalieri).
+- Non portati: Wikidata, USDA, Untappd, Amazon e i ripieghi che leggono dal foglio.
+
 ## 0.4.0 — 2026-10-26
 L'AI suggerisce categoria, sottocategoria e tipo quando crei un prodotto nuovo.
 - Dopo la proposta dai database, Gemini propone categoria, sottocategoria e tipo; i menu arrivano già compilati e li correggi prima di "Conferma e salva". Non viene registrata nessuna proposta del prodotto (niente righe in ai_prodotti).

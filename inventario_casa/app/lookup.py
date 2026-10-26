@@ -19,7 +19,11 @@ def fetch_http(url: str, timeout: float, headers: Optional[dict] = None) -> Opti
     req = urllib.request.Request(url, headers=dict({"User-Agent": "InventarioCasa/0.4 (home assistant add-on)"}, **(headers or {})))
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            return json.loads(r.read().decode("utf-8", "replace"))
+            testo = r.read().decode("utf-8", "replace")
+        try:
+            return json.loads(testo)
+        except ValueError:
+            return {"_testo": testo}   # risposta non JSON (es. OpenGTINDB): la legge il provider
     except Exception:
         return None
 
@@ -139,8 +143,105 @@ def _gs1(bc, k, f, t):
     return _min(d.get("labelDescription") or d.get("shortDescription"), d.get("brandName"), "", "Verified by GS1")
 
 
-# (chiavi necessarie, funzione): dopo i database aperti nell'ordine di priorita, come nel motore
-CON_CHIAVE = ((("BARCODELOOKUP_KEY",), _barcodelookup), (("UPCDATABASE_KEY",), _upcdatabase), (("GOUPC_TOKEN",), _goupc),
+# ---- altri database senza chiave (e libri/farmaci con chiave facoltativa), dal motore Apps Script ----
+def _foodrepo(bc, k, f, t):
+    d = f("https://www.foodrepo.org/api/v3/products?barcodes=" + bc, t, {"Accept": "application/json"}) or {}
+    data = d.get("data") if isinstance(d.get("data"), list) else []
+    if not data:
+        return None
+    p = data[0]; nt = p.get("name_translations") or {}
+    nome = nt.get("it") or nt.get("en") or nt.get("de") or nt.get("fr") or p.get("name")
+    dn = p.get("display_name_translations") or {}
+    ing = (p.get("ingredients_translations") or {})
+    im = ""
+    try:
+        im = p["images"][0]["categories"]["front"]["thumb"]
+    except (KeyError, IndexError, TypeError):
+        im = p.get("image_url") or ""
+    return _min(nome, dn.get("it") or dn.get("en"), im, "FoodRepo", ing.get("it") or ing.get("en") or ing.get("de") or "")
+
+
+def _opengtindb(bc, k, f, t):
+    d = f("https://opengtindb.org/?ean=%s&cmd=query&queryid=%s" % (bc, k.get("OPENGTINDB_QUERYID") or "400000000"), t) or {}
+    mappa = {}
+    for riga in str(d.get("_testo", "")).splitlines():
+        m = re.match(r"^([^=]+)=(.*)$", riga)
+        if m:
+            mappa[m.group(1).strip().lower()] = m.group(2).strip()
+    return _min(mappa.get("name") or mappa.get("beschreibung"), mappa.get("brand") or mappa.get("hersteller"), "", "OpenGTINDB")
+
+
+def _datakick(bc, k, f, t):
+    for url, fonte in (("https://www.datakick.org/api/items/" + bc, "Datakick"), ("https://www.gtinsearch.org/api/products/" + bc, "gtinsearch")):
+        d = f(url, t) or {}
+        r = _min(d.get("name") or d.get("product_name"), d.get("brand_name") or d.get("brand"), "", fonte, d.get("ingredients") or "")
+        if r:
+            return r
+    return None
+
+
+def _openbeer(bc, k, f, t):
+    d = f("https://open.beer/api/v1/beers?barcode=%s&limit=1" % bc, t)
+    items = (d.get("data") or d.get("items")) if isinstance(d, dict) else d
+    if not isinstance(items, list) or not items:
+        return None
+    b = items[0]
+    br = b.get("brewery") or b.get("brand")
+    if not br:
+        try:
+            br = b["relationships"]["brewery"]["data"]["name"]
+        except (KeyError, TypeError):
+            br = ""
+    return _min(b.get("name") or b.get("title"), br, "", "Open Beer DB")
+
+
+def _isbn(bc):
+    return bc.startswith(("978", "979")) and len(bc) == 13
+
+
+def _openlibrary(bc, k, f, t):
+    if not _isbn(bc):
+        return None
+    b = (f("https://openlibrary.org/api/books?bibkeys=ISBN:%s&format=json&jscmd=data" % bc, t) or {}).get("ISBN:" + bc)
+    if not b:
+        return None
+    autori = ", ".join(a.get("name", "") for a in b.get("authors") or [] if isinstance(a, dict))
+    c = b.get("cover") or {}
+    return _min(b.get("title"), autori, c.get("large") or c.get("medium") or c.get("small"), "OpenLibrary")
+
+
+def _googlebooks(bc, k, f, t):
+    if not _isbn(bc):
+        return None
+    chiave = ("&key=" + k["GOOGLE_BOOKS_KEY"]) if k.get("GOOGLE_BOOKS_KEY") else ""
+    d = f("https://www.googleapis.com/books/v1/volumes?q=isbn:%s%s" % (bc, chiave), t) or {}
+    it = d.get("items") or []
+    if not it:
+        return None
+    vi = it[0].get("volumeInfo") or {}; im = vi.get("imageLinks") or {}
+    return _min(vi.get("title"), ", ".join(vi.get("authors") or []), (im.get("thumbnail") or im.get("smallThumbnail") or "").replace("http:", "https:"), "Google Books")
+
+
+def _openfda(bc, k, f, t):
+    chiave = ("&api_key=" + k["OPENFDA_KEY"]) if k.get("OPENFDA_KEY") else ""
+    for url in ('https://api.fda.gov/drug/ndc.json?search=product_ndc:"%s"&limit=1%s' % (bc, chiave),
+                'https://api.fda.gov/drug/label.json?search=openfda.upc_code:"%s"&limit=1%s' % (bc, chiave)):
+        res = ((f(url, t) or {}).get("results") or [None])[0]
+        if not res:
+            continue
+        of = res.get("openfda") or {}
+        nome = res.get("brand_name") or res.get("generic_name") or (of.get("brand_name") or [""])[0]
+        marca = res.get("labeler_name") or (of.get("manufacturer_name") or [""])[0]
+        ing = "; ".join(("%s %s" % (i.get("name", ""), i.get("strength", ""))).strip() for i in res.get("active_ingredients") or [] if isinstance(i, dict))
+        r = _min(nome, marca, "", "OpenFDA", ing)
+        if r:
+            return r
+    return None
+
+
+# (chiavi necessarie, funzione): dopo i database aperti nell'ordine di priorita, come nel motore; senza chiavi richieste = sempre attivo
+CON_CHIAVE = (((), _foodrepo), ((), _opengtindb), ((), _datakick), ((), _openbeer), ((), _openlibrary), ((), _googlebooks), ((), _openfda),
+              (("BARCODELOOKUP_KEY",), _barcodelookup), (("UPCDATABASE_KEY",), _upcdatabase), (("GOUPC_TOKEN",), _goupc),
               (("SPOONACULAR_KEY",), _spoonacular), (("NUTRITIONIX_APP_ID", "NUTRITIONIX_APP_KEY"), _nutritionix),
               (("EDAMAM_APP_ID", "EDAMAM_APP_KEY"), _edamam), (("ICECAT_SHOP", "ICECAT_API_TOKEN"), _icecat),
               (("GS1_API_URL", "GS1_API_KEY"), _gs1))

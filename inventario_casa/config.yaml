@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.4.0"
+version: "0.4.1"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
@@ -33,6 +33,8 @@ options:
   icecat_api_token: ""
   gs1_api_url: ""
   gs1_api_key: ""
+  google_books_key: ""
+  openfda_key: ""
 schema:
   sheet_id: str
   drive_folder_id: str?
@@ -55,3 +57,5 @@ schema:
   icecat_api_token: password?
   gs1_api_url: str?
   gs1_api_key: password?
+  google_books_key: password?
+  openfda_key: password?
