@@ -243,8 +243,20 @@
 
   /* ---------- immagini senza sfondo bianco ---------- */
   var imgCache = {};
-  function cleanImg(url, cb) { // toglie il bianco collegato ai bordi; se l'immagine non e leggibile, usa l'originale
+  var idbP = null;   // archivio persistente delle miniature gia elaborate (resta tra una apertura e l'altra)
+  function idb() {
+    if (!idbP) idbP = new Promise(function (ok) {
+      try { var rq = indexedDB.open('miniature', 1); rq.onupgradeneeded = function () { rq.result.createObjectStore('i'); }; rq.onsuccess = function () { ok(rq.result); }; rq.onerror = function () { ok(null); }; } catch (e) { ok(null); }
+    });
+    return idbP;
+  }
+  function idbGet(k, cb) { idb().then(function (db) { if (!db) return cb(null); try { var r = db.transaction('i').objectStore('i').get(k); r.onsuccess = function () { cb(r.result || null); }; r.onerror = function () { cb(null); }; } catch (e) { cb(null); } }); }
+  function idbPut(k, v) { idb().then(function (db) { try { if (db) db.transaction('i', 'readwrite').objectStore('i').put(v, k); } catch (e) { /* non salva: pazienza */ } }); }
+  function cleanImg(url, cb) {
     if (imgCache[url]) { cb(imgCache[url]); return; }
+    idbGet('v1|' + url, function (hit) { if (hit) { imgCache[url] = hit; cb(hit); } else cleanImg2(url, cb); });
+  }
+  function cleanImg2(url, cb) { // toglie il bianco collegato ai bordi; se l'immagine non e leggibile, usa l'originale
     var im = new Image(); im.crossOrigin = 'anonymous'; im.referrerPolicy = 'no-referrer';
     im.onload = function () {
       try {
@@ -259,7 +271,7 @@
           var p = stack.pop(); if (seen[p] || !bianco(p)) continue; seen[p] = 1; px[p * 4 + 3] = 0;
           var x = p % w; if (x > 0) stack.push(p - 1); if (x < w - 1) stack.push(p + 1); if (p >= w) stack.push(p - w); if (p < w * (h - 1)) stack.push(p + w);
         }
-        cx.putImageData(d, 0, 0); imgCache[url] = cv.toDataURL('image/png'); cb(imgCache[url]);
+        cx.putImageData(d, 0, 0); imgCache[url] = cv.toDataURL('image/png'); idbPut('v1|' + url, imgCache[url]); cb(imgCache[url]);
       } catch (e) { imgCache[url] = url; cb(url); }
     };
     im.onerror = function () { cb(''); };
