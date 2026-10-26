@@ -31,7 +31,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Legge la versione
         id: v
-        run: echo "version=$(grep '^version:' inventario_casa/config.yaml | sed 's/version: *//; s/\"//g')" >> "$GITHUB_OUTPUT"
+        run: |
+          v=$(awk '/^version:/ {gsub(/"/, "", $2); print $2}' inventario_casa/config.yaml)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: inventario_casa
