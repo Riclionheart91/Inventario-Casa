@@ -45,6 +45,7 @@ def _minima(p: dict) -> float:
 
 class Inventory:
     def __init__(self, store, ttl: int = CACHE_TTL, clock=time.time):
+        self._memo = {}
         self.store, self.ttl, self.clock = store, ttl, clock
         self._cache: Dict[str, tuple] = {}
 
@@ -54,9 +55,11 @@ class Inventory:
             return hit[1], hit[2]
         h, r = self.store.get_rows(sheet)
         self._cache[sheet] = (self.clock(), h, r)
+        self._memo.clear()   # dati riletti: i calcoli derivati vanno rifatti
         return h, r
 
     def _drop(self, *sheets):
+        self._memo.clear()
         for s in sheets:
             self._cache.pop(s, None)
 
@@ -118,6 +121,14 @@ class Inventory:
 
     # --- stock ----------------------------------------------------------
     def stock(self) -> List[dict]:
+        """Calcolata una volta per ciclo di cache (elenco, scheda e giacenze la riusano)."""
+        for n in (SH_AIP, SH_AIT, SH_PROD, SH_MOV):
+            self._rows(n)   # rilegge i fogli scaduti e, se cambiano, svuota la memoria dei calcoli
+        if "stock" not in self._memo:
+            self._memo["stock"] = self._stock()
+        return self._memo["stock"]
+
+    def _stock(self) -> List[dict]:
         """Giacenza per prodotto e luogo, calcolata dai movimenti, con tipo e scorta minima presi dal catalogo.
         TODO: leggere Stock_ByLoc (foglio a formule) se si vuole identica a AppSheet; semantica di Sposta/Rettifica da confermare."""
         tipi_ai: Dict[str, str] = {}

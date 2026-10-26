@@ -93,6 +93,13 @@ class T(unittest.TestCase):
         t[0] += 21
         self.assertEqual(inv.stock()[0]["qta"], 14)
 
+    def test_stock_calcolato_una_volta(self):
+        st, inv, t = make()
+        a = inv.stock()
+        self.assertIs(inv.stock(), a)          # riusato dalla memoria
+        inv.movimento("8002795002995", "Carico", "Casa", 1)
+        self.assertEqual(inv.stock()[0]["qta"], 5)   # dopo una scrittura si ricalcola
+
     def test_approvazioni_prima_dopo(self):
         _, inv, _ = make()
         a = inv.approvazioni()
