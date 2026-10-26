@@ -178,10 +178,19 @@
   }
   function altroLuogo(l) { return LUOGHI.filter(function (x) { return x !== l; })[0]; }
   function loadGiac(bc) {   // giacenze del prodotto: servono per Scarico, Sposta e Cambia categoria
-    api('GET', 'api/scheda/' + bc).then(function (p) {
+    var fine = function (g, err) {
       if ($('bc').value.trim() !== bc) return;
-      st.giac = (p.giacenze || []).filter(function (g) { return g.qta > 0; }); st.riga = 0; renderRiga();
-    }).catch(function () { st.giac = []; renderRiga(); });
+      st.giac = g.filter(function (x) { return x.qta > 0; }); st.riga = 0; st.errGiac = err || ''; renderRiga();
+    };
+    var daStock = function (err) {   // rete di sicurezza: se la scheda non risponde, la giacenza si legge dall'elenco Stock
+      return api('GET', 'api/stock').then(function (r) {
+        var righe = (r && r.items) || r || [];
+        fine(righe.filter(function (x) { return String(x.barcode) === String(parseInt(bc, 10)); }), err);
+      }).catch(function (e2) { fine([], (err || '') + ' ' + e2.message); });
+    };
+    api('GET', 'api/scheda/' + bc).then(function (p) {
+      if (p.giacenze && p.giacenze.length) fine(p.giacenze); else return daStock('');
+    }).catch(function (e) { return daStock(e.message); });
     if (!st.cats) api('GET', 'api/categorie').then(function (c) { st.cats = c || []; renderRiga(); }).catch(function () { st.cats = []; });
   }
   function renderRiga() {
@@ -195,7 +204,7 @@
       b.addEventListener('click', function () { st.riga = i; renderRiga(); }); box.appendChild(b);
     });
     var n = $('rnote');
-    if (!g) { note(n, 'Nessuna giacenza da movimentare per questo prodotto.', 'warn'); return; }
+    if (!g) { note(n, st.errGiac ? 'Non riesco a leggere la giacenza (' + st.errGiac.trim() + ').' : 'Nessuna giacenza da movimentare per questo prodotto.', 'warn'); return; }
     if (st.tipo === 'Sposta') note(n, 'Sposto da ' + g.luogo + ' a ' + altroLuogo(g.luogo) + '.', '');
     else if (st.tipo === 'Cambia categoria') note(n, '', '');
     else note(n, '', '');

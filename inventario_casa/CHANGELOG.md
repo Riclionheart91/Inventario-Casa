@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.3.1 — 2026-10-26
+Corretto: nello Scarico poteva comparire "Nessuna giacenza" anche con prodotto in magazzino.
+- Se la scheda del prodotto non risponde, la giacenza viene letta dall'elenco Stock.
+- Se la lettura fallisce davvero, l'app mostra il motivo invece di dire che non c'è giacenza.
+
 ## 0.3.0 — 2026-10-26
 Fase 3, primo passo: ricerca del codice dentro l'app.
 - Un codice nuovo viene cercato subito su Open Food Facts, Open Beauty Facts, Open Pet Food Facts e Open Products Facts, tutti insieme (massimo 6 secondi, si ferma al primo risultato utile in ordine di priorità).
