@@ -51,13 +51,19 @@
     if ((m = /^api\/approvazioni\/(.+)$/.exec(path))) { MOCKDB.appr = MOCKDB.appr.filter(function (x) { return x.id !== decodeURIComponent(m[1]); }); return { ok: true }; }
     throw new Error('Percorso sconosciuto: ' + path);
   }
-  function api(method, path, body, raw) {
+  function errTesto(j, st) {   // il server manda un testo, oppure (errori di formato) un elenco di oggetti
+    var d = j && (j.errore || j.detail || j.error);
+    if (Array.isArray(d)) d = d.map(function (x) { return x && x.msg ? ((x.loc || []).slice(1).join('.') + ' ' + x.msg).trim() : String(x); }).join('; ');
+    return (d && typeof d === 'object') ? JSON.stringify(d) : (d || ('Errore ' + st));
+  }
+  function api(method, path, body, raw, form) {
     if (MOCK) return new Promise(function (res, rej) { setTimeout(function () { try { res(mockApi(method, path, raw ? null : body)); } catch (e) { rej(e); } }, 120); });
     var opt = { method: method, headers: {} };
+    if (form) opt.body = form;
     if (raw) { opt.body = raw; opt.headers['Content-Type'] = raw.type || 'application/octet-stream'; }
     else if (body !== undefined) { opt.body = JSON.stringify(body); opt.headers['Content-Type'] = 'application/json'; }
     return fetch('./' + path, opt).then(function (r) {
-      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { throw new Error((j && (j.errore || j.detail || j.error)) || ('Errore ' + r.status)); });
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(errTesto(j, r.status)); });
       return r.json();
     });
   }
@@ -143,7 +149,7 @@
     api('GET', 'api/cerca/' + bc).then(function (r) {
       if (my !== lookupSeq) return;
       if (r && r.found) { st.prop = r; showProp(bc, r); note($('hint'), 'Trovato su ' + r.fonte + ': controlla e conferma.', 'ok'); }
-      else note($('hint'), 'Non trovato nei database. ' + NOTA_NUOVO, 'warn');
+      else note($('hint'), 'Non trovato nei database' + (r && r.errori && r.errori.length ? ' (alcuni non hanno risposto: ' + r.errori.join(', ') + ')' : '') + '. ' + NOTA_NUOVO, 'warn');
     }).catch(function () { if (my === lookupSeq) note($('hint'), 'Ricerca nei database non riuscita. ' + NOTA_NUOVO, 'warn'); });
     if (!st.cats) api('GET', 'api/categorie').then(function (c) { st.cats = c || []; }).catch(function () { st.cats = []; });
     if (!st.tipi) api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; var dl = $('tipi-dl'); if (dl) { dl.textContent = ''; st.tipi.forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); } }).catch(function () { st.tipi = []; });
@@ -256,7 +262,7 @@
     var go = st.known === null ? lookup() : Promise.resolve();
     go.then(function () {
       if (st.known === false && !st.fotoBlob) { toast('Per un codice nuovo serve la foto.', true); throw new Error('stop'); }
-      return st.known === false ? api('POST', 'api/foto', undefined, st.fotoBlob).then(function (r) { return r.id || r.url || ''; }) : '';
+      return st.known === false ? api('POST', 'api/foto', undefined, undefined, (function () { var fd = new FormData(); fd.append('barcode', bc); fd.append('file', st.fotoBlob, 'foto.jpg'); return fd; })()).then(function (r) { return String(r.url || r.id || ''); }) : '';
     }).then(function (foto) {
       var tipoVal = TIPI.filter(function (t) { return t[0] === st.tipo; })[0][1];
       var body = { barcode: bc, tipo: tipoVal, location: st.luogo, quantita: st.qta, prodotto: $('pr').value.trim(), foto: foto || undefined };
@@ -308,15 +314,24 @@
     var useNative = 'BarcodeDetector' in window;
     var prep = useNative ? Promise.resolve(null) : loadZX();
     prep.then(function (Z) {
-      var reader = Z ? zxReader(Z) : null, cv = document.createElement('canvas');
+      var reader = Z ? zxReader(Z) : null, cv = document.createElement('canvas'), busy = false, fr = 0;
       if (useNative) detector = detector || new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] });
-      return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }).then(function (s) {
+      return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }).then(function (s) {
         stream = s; var v = $('vid'); v.srcObject = s; $('scanbox').hidden = false; v.play();
+        try { var tr = s.getVideoTracks()[0]; if (tr && tr.applyConstraints) tr.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {}); } catch (e) { /* ok */ }
+        note($('hint'), 'Inquadra il codice a barre, tenendolo fermo e ben illuminato.', '');
         scanTimer = setInterval(function () {
           if (useNative) { detector.detect(v).then(function (c) { if (c && c.length) gotCode(c[0].rawValue); }).catch(function () {}); return; }
-          if (!v.videoWidth) return;
-          cv.width = v.videoWidth; cv.height = v.videoHeight; cv.getContext('2d').drawImage(v, 0, 0);
-          try { gotCode(zxDecode(Z, reader, cv)); } catch (e) { /* nessun codice in questo fotogramma */ }
+          if (!v.videoWidth || busy) return;
+          busy = true; fr++;
+          try {   // fotogrammi alterni: fascia centrale a piena risoluzione (codice piu grande) e inquadratura intera ridotta
+            var W = v.videoWidth, H = v.videoHeight, sx = 0, sy = 0, sw = W, sh = H;
+            if (fr % 2) { sx = Math.round(W * 0.05); sw = Math.round(W * 0.9); sy = Math.round(H * 0.25); sh = Math.round(H * 0.5); }
+            var k = Math.min(1, 1280 / sw); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+            cv.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+            gotCode(zxDecode(Z, reader, cv));
+          } catch (e) { /* nessun codice in questo fotogramma */ }
+          busy = false;
         }, 250);
       });
     }).catch(function (e) {

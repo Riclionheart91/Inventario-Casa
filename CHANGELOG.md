@@ -3,6 +3,12 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.4.2 — 2026-10-27
+Corretti salvataggio con foto, lettura del codice e ricerca.
+- Salvataggio di un prodotto nuovo con foto: la foto veniva inviata in un formato non accettato dal server e l'errore era illeggibile. Ora si invia nel formato giusto e gli errori del server sono mostrati come testo.
+- Lettore del codice dalla fotocamera: risoluzione piu alta, messa a fuoco continua e lettura alternata della fascia centrale e dell'inquadratura intera.
+- Ricerca: se un database ha il prodotto ma senza nome italiano usa il nome in un'altra lingua o la marca; se un database non risponde, la schermata lo dice (e il motivo va nel log dell'app).
+
 ## 0.4.1 — 2026-10-26
 Ricerca del codice: altri database dal motore di arricchimento.
 - Nuovi, senza chiave: FoodRepo, OpenGTINDB, Datakick (con gtinsearch), Open Beer DB; per i libri OpenLibrary e Google Books (solo ISBN), per i farmaci OpenFDA.

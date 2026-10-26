@@ -1,5 +1,6 @@
 """Livello HTTP sottile (FastAPI). Non testato qui: PyPI non raggiungibile nell'ambiente di sviluppo."""
 import hmac
+import logging
 import os
 from pathlib import Path
 
@@ -133,8 +134,14 @@ def prodotto(barcode: str, x_code: str = Header(None)):
 def cerca(barcode: str, x_code: str = Header(None)):
     """Cerca il codice sui database aperti. Non scrive nulla: la proposta si conferma dalla schermata."""
     check(x_code)
+    t0 = time.time()
     r = lookup.cerca(barcode, chiavi=chiavi())
-    return dict(r, found=True) if r else {"found": False}
+    if r:
+        return dict(r, found=True)
+    errs = sorted({"%s (%s)" % (h, msg) for t, h, msg in list(lookup.ERRORI) if t >= t0})
+    if errs:
+        logging.getLogger("inventario").warning("ricerca %s: %s", barcode, "; ".join(errs))
+    return {"found": False, "errori": errs[:6]}
 
 
 class ChiediAi(BaseModel):

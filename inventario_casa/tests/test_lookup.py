@@ -134,3 +134,17 @@ class K(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNomiEErrori(unittest.TestCase):
+    def test_nome_da_lingua_straniera(self):
+        r = lookup.normalizza({"product_name_fr": "Yaourt nature", "brands": "Jaouda"}, "OFF")
+        self.assertEqual(r["nome"], "Yaourt nature")
+
+    def test_senza_nome_ma_con_marca(self):
+        r = lookup.normalizza({"brands": "Milky Food"}, "OFF")
+        self.assertEqual(r["marca"], "Milky Food")
+        self.assertEqual(r["nome"], "")
+
+    def test_nulla_di_utile(self):
+        self.assertIsNone(lookup.normalizza({}, "OFF"))

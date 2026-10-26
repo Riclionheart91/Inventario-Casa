@@ -1,7 +1,9 @@
 """Ricerca del codice a barre su piu database aperti, in parallelo (solo libreria standard)."""
 import json
 import re
+import threading
 import time
+from collections import deque
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, Dict, List, Optional
@@ -11,8 +13,9 @@ PROVIDERS = (("Open Food Facts", "world.openfoodfacts.org"),
              ("Open Beauty Facts", "world.openbeautyfacts.org"),
              ("Open Pet Food Facts", "world.openpetfoodfacts.org"),
              ("Open Products Facts", "world.openproductsfacts.org"))
-CAMPI = "code,product_name,product_name_it,brands,quantity,image_front_url,ingredients_text_it,ingredients_text,nutriments,nutriscore_grade,nova_group,categories_tags"
+CAMPI = "code,product_name,product_name_it,product_name_en,product_name_fr,product_name_ar,generic_name,generic_name_it,abbreviated_product_name,brands,quantity,image_front_url,ingredients_text_it,ingredients_text,nutriments,nutriscore_grade,nova_group,categories_tags"
 TIMEOUT_TOTALE = 6.0
+ERRORI = deque(maxlen=60)   # (istante, host, motivo): serve a spiegare perche una ricerca non ha trovato nulla
 
 
 def fetch_http(url: str, timeout: float, headers: Optional[dict] = None) -> Optional[dict]:
@@ -24,7 +27,8 @@ def fetch_http(url: str, timeout: float, headers: Optional[dict] = None) -> Opti
             return json.loads(testo)
         except ValueError:
             return {"_testo": testo}   # risposta non JSON (es. OpenGTINDB): la legge il provider
-    except Exception:
+    except Exception as e:
+        ERRORI.append((time.time(), url.split("/")[2] if "//" in url else url, "%s: %s" % (type(e).__name__, str(e)[:80])))
         return None
 
 
@@ -48,8 +52,11 @@ def _num(x):
 def normalizza(p: dict, fonte: str) -> Optional[dict]:
     """Da un prodotto Open*Facts al formato dell'app. None se non c'e nulla di utile."""
     marca = str(p.get("brands", "") or "").split(",")[0].strip()
-    nome = pulisci_nome(p.get("product_name_it") or p.get("product_name") or "", marca)
-    if not nome:
+    grezzo = next((str(p.get(c) or "").strip() for c in ("product_name_it", "product_name", "generic_name_it", "product_name_en",
+                                                          "product_name_fr", "generic_name", "abbreviated_product_name", "product_name_ar")
+                   if str(p.get(c) or "").strip()), "")
+    nome = pulisci_nome(grezzo, marca)
+    if not nome and not marca and not p.get("image_front_url"):
         return None
     nu = p.get("nutriments") or {}
     parti = []
