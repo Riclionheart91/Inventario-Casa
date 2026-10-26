@@ -97,7 +97,9 @@ class Inventory:
             if k:
                 tp = str(p.get("Tipo", "") or "").strip() or tipi_ai.get(k, "")
                 cat[k] = {"tipo": tp, "minima": scorta_tipo.get(tp.lower(), _minima(p)),
-                          "nome": str(p.get("Prodotto", "") or "").strip(), "marca": str(p.get("Marca", "") or "").strip(),
+                          "nome": str(p.get("Prodotto", "") or "").strip(),
+                          "categoria": str(p.get("Categoria", "") or "").strip(), "sotto": str(p.get("Sottocategoria", "") or "").strip(),
+                          "marca": str(p.get("Marca", "") or "").strip(),
                           "conf": str(p.get("Confezione", "") or "").strip(), "img": str(p.get("Immagine", "") or "").strip()}
         acc: Dict[tuple, dict] = {}
         for m in self._dicts(SH_MOV):
@@ -115,8 +117,8 @@ class Inventory:
             c = cat.get(k, {})
             e = acc.setdefault((k, loc), {"barcode": int(k), "nome": c.get("nome") or m.get("Prodotto", ""),
                                           "marca": c.get("marca", ""), "conf": c.get("conf", ""), "img": c.get("img", ""),
-                                          "categoria": m.get("Categoria", ""),
-                                          "sotto": m.get("Sottocategoria", ""),
+                                          "categoria": c.get("categoria") or m.get("Categoria", ""),   # la categoria vive nel prodotto
+                                          "sotto": c.get("sotto") or m.get("Sottocategoria", ""),
                                           "tipo": c.get("tipo", ""), "minima": c.get("minima", 0),
                                           "luogo": loc, "qta": 0})
             e["qta"] += d
