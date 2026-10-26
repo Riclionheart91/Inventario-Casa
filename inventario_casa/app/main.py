@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
+from . import lookup
 from .store import make_store
 
 app = FastAPI(title="Inventario Casa", docs_url=None, redoc_url=None)
@@ -76,6 +77,22 @@ class ModProd(BaseModel):
     sottocategoria: str
 
 
+class NuovoProd(BaseModel):
+    barcode: str
+    nome: str
+    marca: str = ""
+    confezione: str = ""
+    immagine: str = ""
+    categoria: str = ""
+    sottocategoria: str = ""
+    tipo: str = ""
+    dettagli: str = ""
+    composizione: str = ""
+    nutrizione: str = ""
+    punteggi: str = ""
+    fonte: str = "App"
+
+
 class Dec(BaseModel):
     azione: str
 
@@ -98,6 +115,28 @@ def prodotto(barcode: str, x_code: str = Header(None)):
     if p is None:
         return {"found": False}   # codice nuovo: non e un errore
     return dict(p, found=True)
+
+
+@app.get("/api/cerca/{barcode}")
+def cerca(barcode: str, x_code: str = Header(None)):
+    """Cerca il codice sui database aperti. Non scrive nulla: la proposta si conferma dalla schermata."""
+    check(x_code)
+    r = lookup.cerca(barcode)
+    return dict(r, found=True) if r else {"found": False}
+
+
+@app.get("/api/tipi")
+def tipi(x_code: str = Header(None)):
+    check(x_code)
+    return inv().tipi()
+
+
+@app.post("/api/prodotto")
+def crea_prodotto(m: NuovoProd, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().crea_prodotto(m.barcode, m.nome, m.marca, m.confezione, m.immagine, m.categoria, m.sottocategoria,
+                               m.tipo, m.dettagli, m.composizione, m.nutrizione, m.punteggi, m.fonte)
 
 
 @app.get("/api/categorie")

@@ -133,6 +133,45 @@ class Inventory:
                     out[c].append(sc)
         return [{"categoria": c, "sottocategorie": v} for c, v in out.items()]
 
+    def tipi(self) -> List[str]:
+        """Tipi esistenti (non rifiutati), per i suggerimenti quando si crea un prodotto."""
+        out = {}
+        for t in self._dicts(SH_AIT):
+            nome = str(t.get("Tipo", "") or "").strip()
+            if nome and str(t.get("Stato", "")).upper() != ST_NO:
+                out.setdefault(nome.lower(), nome)
+        return sorted(out.values(), key=str.casefold)
+
+    def crea_prodotto(self, barcode, nome: str, marca: str = "", confezione: str = "", immagine: str = "",
+                      categoria: str = "", sottocategoria: str = "", tipo: str = "", dettagli: str = "",
+                      composizione: str = "", nutrizione: str = "", punteggi: str = "", fonte: str = "App") -> dict:
+        """Nuovo prodotto del catalogo (una riga in prodotti). Il movimento si registra poi con movimento()."""
+        k = nbc(barcode)
+        nome, categoria, sottocategoria, tipo = (nome or "").strip(), (categoria or "").strip(), (sottocategoria or "").strip(), (tipo or "").strip()
+        if not k:
+            raise ApiError(400, "Barcode non valido: servono solo cifre")
+        if not nome:
+            raise ApiError(400, "Il nome è obbligatorio")
+        if self.prodotto(k) is not None:
+            raise ApiError(409, "Codice già presente nel catalogo")
+        ammesse = {c["categoria"]: c["sottocategorie"] for c in self.categorie()}
+        if ammesse:
+            if categoria not in ammesse:
+                raise ApiError(400, "Categoria non prevista")
+            if sottocategoria not in ammesse[categoria]:
+                raise ApiError(400, "Sottocategoria non prevista per la categoria %s" % categoria)
+        valori = {"Barcode": int(k), "Prodotto": nome, "Marca": (marca or "").strip(), "Categoria": categoria,
+                  "API Status": "✅ App (%s)" % (fonte or "App"), "Confezione": (confezione or "").strip(),
+                  "Dettagli prodotto": dettagli, "Punteggi": punteggi, "Composizione": composizione,
+                  "Nutrizione (100g)": nutrizione, "Immagine": (immagine or "").strip(),
+                  "Aggiornato il": datetime.now().strftime("%d/%m/%Y"), "Sottocategoria": sottocategoria, "Tipo": tipo}
+        riga = self.store.append_row(SH_PROD, valori)
+        if tipo and tipo.lower() not in {t.lower() for t in self.tipi()}:
+            self.store.append_row(SH_AIT, {"Tipo": tipo, "Scorta_min": 1, "Stato": ST_PENDING[SH_AIT], "Note": "creato dall'app"})
+            self._drop(SH_AIT)
+        self._drop(SH_PROD)
+        return {"ok": True, "riga": riga, "barcode": int(k)}
+
     def modifica_prodotto(self, barcode, sottocategoria: str) -> dict:
         """Cambio di sottocategoria = modifica del prodotto: aggiorna il catalogo e le righe di movimento di quel
         codice, senza toccare le quantita."""

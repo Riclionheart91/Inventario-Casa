@@ -38,6 +38,9 @@
     if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
     if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero.', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
+    if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
+    if (path === 'api/tipi') return ['Crema spalmabile', 'Latte', 'Pasta'];
+    if (method === 'POST' && path === 'api/prodotto') return { ok: true };
     if (path === 'api/config') return { url_sicuro: '', sola_lettura: false };
     if (path === 'api/categorie') return [{ categoria: 'Dispensa', sottocategorie: ['Pasta e Riso', 'Bevande', 'Snack e Dolci'] }, { categoria: 'Frigorifero', sottocategorie: ['Latticini'] }, { categoria: 'Cantina', sottocategorie: ['Bevande'] }];
     if (method === 'PATCH') return { ok: true, movimenti_aggiornati: 3 };
@@ -115,8 +118,8 @@
   var lookupSeq = 0;
   function lookup() {
     var bc = $('bc').value.trim();
-    if (!/^\d{6,14}$/.test(bc)) { setKnown(null); note($('hint'), bc ? 'Il codice deve avere solo cifre (6-14).' : '', bc ? 'warn' : ''); return Promise.resolve(); }
-    var my = ++lookupSeq;
+    if (!/^\d{6,14}$/.test(bc)) { hideProp(); setKnown(null); note($('hint'), bc ? 'Il codice deve avere solo cifre (6-14).' : '', bc ? 'warn' : ''); return Promise.resolve(); }
+    var my = ++lookupSeq; hideProp();
     note($('hint'), 'Cerco il prodotto…');
     return api('GET', 'api/prodotto/' + encodeURIComponent(bc)).then(function (r) {
       if (my !== lookupSeq) return;
@@ -126,10 +129,52 @@
         note($('hint'), 'Prodotto noto: il movimento viene salvato subito.', 'ok');
         loadGiac(bc);
       } else {
-        setKnown(false); note($('cat'), ''); st.giac = []; renderRiga();
-        note($('hint'), 'Codice nuovo: scatta una foto, il prodotto va in "Da inserire" e lo compila l\'AI.', 'warn');
+        setKnown(false); note($('cat'), ''); st.giac = []; renderRiga(); hideProp();
+        note($('hint'), 'Codice nuovo: cerco nei database…', '');
+        cercaNuovo(bc, my);
       }
     }).catch(function (e) { if (my === lookupSeq) { setKnown(null); note($('hint'), 'Ricerca non riuscita: ' + e.message, 'warn'); } });
+  }
+  /* ---------- codice nuovo: proposta dai database ---------- */
+  var NOTA_NUOVO = 'Codice nuovo: scatta una foto, il prodotto va in "Da inserire" e lo compila l\'AI.';
+  function hideProp() { $('prop').hidden = true; $('prop').textContent = ''; st.prop = null; $('save').hidden = false; }
+  function cercaNuovo(bc, my) {
+    api('GET', 'api/cerca/' + bc).then(function (r) {
+      if (my !== lookupSeq) return;
+      if (r && r.found) { st.prop = r; showProp(bc, r); note($('hint'), 'Trovato su ' + r.fonte + ': controlla e conferma.', 'ok'); }
+      else note($('hint'), 'Non trovato nei database. ' + NOTA_NUOVO, 'warn');
+    }).catch(function () { if (my === lookupSeq) note($('hint'), 'Ricerca nei database non riuscita. ' + NOTA_NUOVO, 'warn'); });
+    if (!st.cats) api('GET', 'api/categorie').then(function (c) { st.cats = c || []; }).catch(function () { st.cats = []; });
+    if (!st.tipi) api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; var dl = $('tipi-dl'); if (dl) { dl.textContent = ''; st.tipi.forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); } }).catch(function () { st.tipi = []; });
+  }
+  function showProp(bc, r) {
+    var box = $('prop'); box.textContent = ''; box.hidden = false; $('foto').hidden = true; $('save').hidden = true;
+    box.appendChild(el('h3', '', 'Proposta dai database'));
+    var ph = el('div', 'ph'), th = el('div', 'th'), tt = el('div', '');
+    if (r.immagine) thumb(th, r.immagine);
+    ph.appendChild(th); tt.appendChild(el('div', 'm', [r.marca, r.confezione].filter(Boolean).join(' · ') || 'Marca e confezione non indicate')); ph.appendChild(tt); box.appendChild(ph);
+    var nome = el('input'); nome.type = 'text'; nome.value = r.nome || ''; nome.setAttribute('aria-label', 'Nome del prodotto'); box.appendChild(nome);
+    var cat = el('select'); cat.setAttribute('aria-label', 'Categoria'); var sot = el('select'); sot.setAttribute('aria-label', 'Sottocategoria');
+    var o0 = el('option', '', 'Scegli la categoria'); o0.value = ''; cat.appendChild(o0);
+    (st.cats || []).forEach(function (c) { var o = el('option', '', c.categoria); o.value = c.categoria; cat.appendChild(o); });
+    function fillSot() { sot.textContent = ''; var c = (st.cats || []).filter(function (x) { return x.categoria === cat.value; })[0]; var o = el('option', '', cat.value ? 'Scegli la sottocategoria' : '—'); o.value = ''; sot.appendChild(o); ((c && c.sottocategorie) || []).forEach(function (s) { var p = el('option', '', s); p.value = s; sot.appendChild(p); }); }
+    cat.addEventListener('change', fillSot); fillSot(); box.appendChild(cat); box.appendChild(sot);
+    var tipo = el('input'); tipo.type = 'text'; tipo.placeholder = 'Tipo (facoltativo)'; tipo.setAttribute('list', 'tipi-dl'); tipo.setAttribute('aria-label', 'Tipo');
+    var dl = $('tipi-dl') || el('datalist'); dl.id = 'tipi-dl'; dl.textContent = ''; (st.tipi || []).forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); box.appendChild(dl); box.appendChild(tipo);
+    box.appendChild(el('div', 'm', 'Il prodotto viene creato e caricato con la quantità e la posizione scelte qui sotto.'));
+    var ok = el('button', 'btn primary', 'Conferma e salva'); ok.type = 'button'; box.appendChild(ok);
+    var alt = el('button', 'alt', 'Non è questo prodotto: usa la foto'); alt.type = 'button'; box.appendChild(alt);
+    if (st.ro) box.appendChild(el('div', 'note warn', 'L\'app è in sola lettura: il salvataggio è disattivato.'));
+    alt.addEventListener('click', function () { hideProp(); setKnown(false); note($('hint'), NOTA_NUOVO, 'warn'); });
+    ok.addEventListener('click', function () {
+      if (!nome.value.trim()) { toast('Il nome è obbligatorio.', true); nome.focus(); return; }
+      if (!cat.value || !sot.value) { toast('Scegli categoria e sottocategoria.', true); return; }
+      ok.disabled = true;
+      api('POST', 'api/prodotto', { barcode: bc, nome: nome.value.trim(), marca: r.marca, confezione: r.confezione, immagine: r.immagine, categoria: cat.value, sottocategoria: sot.value, tipo: tipo.value.trim(), composizione: r.composizione, nutrizione: r.nutrizione, punteggi: r.punteggi, fonte: r.fonte })
+        .then(function () { return api('POST', 'api/movimento', { barcode: bc, tipo: 'Carico', location: st.luogo, quantita: st.qta }); })
+        .then(function () { toast('Prodotto creato e movimento salvato.'); st.prod = null; st.stock = []; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } hideProp(); resetForm(); })
+        .catch(function (e) { toast('Non salvato: ' + e.message, true); ok.disabled = false; });
+    });
   }
   function altroLuogo(l) { return LUOGHI.filter(function (x) { return x !== l; })[0]; }
   function loadGiac(bc) {   // giacenze del prodotto: servono per Scarico, Sposta e Cambia categoria
@@ -161,7 +206,7 @@
     }
   }
   function resetForm() {
-    st.giac = []; st.riga = 0; renderRiga();
+    hideProp(); st.giac = []; st.riga = 0; renderRiga();
     $('bc').value = ''; $('pr').value = ''; setKnown(null); setQta(1);
     note($('hint'), ''); note($('cat'), ''); $('bc').focus();
   }

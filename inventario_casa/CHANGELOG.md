@@ -3,6 +3,13 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.3.0 — 2026-10-26
+Fase 3, primo passo: ricerca del codice dentro l'app.
+- Un codice nuovo viene cercato subito su Open Food Facts, Open Beauty Facts, Open Pet Food Facts e Open Products Facts, tutti insieme (massimo 6 secondi, si ferma al primo risultato utile in ordine di priorità).
+- La schermata mostra una proposta (immagine, nome modificabile, marca, confezione): scegli categoria e sottocategoria dai menu, il tipo è facoltativo con i suggerimenti dei tipi esistenti, e "Conferma e salva" crea il prodotto e registra il carico in un tocco. Un tipo nuovo entra in ai_tipi come "da approvare".
+- Se il codice non si trova, resta il flusso con la foto.
+- Il prodotto nuovo ha "API Status" = ✅ App (fonte) e la data nel formato gg/mm/aaaa. La creazione richiede la scrittura attiva.
+
 ## 0.2.3 — 2026-10-26
 - Stock e Prodotti: la barra di ricerca e i filtri restano fissi in alto durante lo scorrimento; sotto di essi resta fissa la categoria (o la lettera) in cui ti trovi, finché non arriva la successiva.
 - Pulsanti dei filtri più piccoli.

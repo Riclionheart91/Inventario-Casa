@@ -87,3 +87,10 @@ select{width:100%;height:48px;border-radius:10px;border:1px solid var(--bd);back
 .stk{position:sticky;top:-16px;z-index:5;background:var(--bg);margin:-16px -20px 4px;padding:16px 20px 2px}
 .stk .field,.stk .chips{margin-bottom:8px}
 details.g summary,.letter{position:sticky;top:calc(var(--stk,0px) - 16px);z-index:4;background:var(--bg)}
+
+.prop{border:1px solid var(--bd);background:var(--s1);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px}
+.prop h3{margin:0;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.prop .ph{display:flex;gap:12px;align-items:center}.prop .ph .th{width:64px;height:64px;flex:none}
+.prop input[type=text]{height:44px}.prop .btn{width:100%}
+.prop .alt{background:none;border:0;color:var(--acc);font-size:13px;padding:6px;cursor:pointer;text-align:center}
+.prop .th{display:flex;align-items:center;justify-content:center;background:var(--s2);border-radius:8px}.prop .th img{max-width:100%;max-height:100%}.prop .m{color:var(--mut);font-size:13px}.prop select{height:44px}
