@@ -1,0 +1,22 @@
+name: "Inventario Casa"
+version: "0.1.0"
+slug: inventario_casa
+description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
+arch: [amd64, aarch64]
+init: false
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:package-variant-closed
+panel_title: Inventario
+startup: application
+boot: auto
+options:
+  sheet_id: ""
+  drive_folder_id: ""
+  service_account_json: ""
+  shared_code: ""
+schema:
+  sheet_id: str
+  drive_folder_id: str
+  service_account_json: password
+  shared_code: password?
