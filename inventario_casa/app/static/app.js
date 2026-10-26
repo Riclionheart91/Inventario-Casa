@@ -155,25 +155,85 @@
   }
 
   /* ---------- scanner ---------- */
-  var stream = null, scanTimer = null, detector = null;
+  var stream = null, scanTimer = null, detector = null, zx = null;
+  var ZX_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+  var ZX_SRI = 'sha384-BzBxP10ZE72aitqj5UMmUsbKFliP/DZqA8Wq+BNNhlIJDGoEd1tpkMYXOg9+n6sB';
+  function loadZX() { // libreria di lettura codici: caricata solo quando serve (iPhone, app Home Assistant, foto)
+    if (window.ZXing) return Promise.resolve(window.ZXing);
+    if (zx) return zx;
+    zx = new Promise(function (ok, ko) {
+      var sc = document.createElement('script'); sc.src = ZX_URL; sc.integrity = ZX_SRI; sc.crossOrigin = 'anonymous';
+      sc.onload = function () { window.ZXing ? ok(window.ZXing) : ko(new Error('lib')); };
+      sc.onerror = function () { zx = null; ko(new Error('rete')); };
+      document.head.appendChild(sc);
+    });
+    return zx;
+  }
+  function zxReader(Z) {
+    var hints = new Map();
+    hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.QR_CODE]);
+    hints.set(Z.DecodeHintType.TRY_HARDER, true);
+    var r = new Z.MultiFormatReader(); r.setHints(hints); return r;
+  }
+  function zxDecode(Z, reader, canvas) {
+    var lum = new Z.HTMLCanvasElementLuminanceSource(canvas);
+    return reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(lum))).getText();
+  }
   function stopScan() {
     clearInterval(scanTimer); scanTimer = null;
     if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
     $('vid').srcObject = null; $('scanbox').hidden = true;
   }
+  function gotCode(txt) { $('bc').value = String(txt).replace(/\D/g, '') || txt; stopScan(); lookup(); }
+  function startLive() {
+    var useNative = 'BarcodeDetector' in window;
+    var prep = useNative ? Promise.resolve(null) : loadZX();
+    prep.then(function (Z) {
+      var reader = Z ? zxReader(Z) : null, cv = document.createElement('canvas');
+      if (useNative) detector = detector || new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] });
+      return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }).then(function (s) {
+        stream = s; var v = $('vid'); v.srcObject = s; $('scanbox').hidden = false; v.play();
+        scanTimer = setInterval(function () {
+          if (useNative) { detector.detect(v).then(function (c) { if (c && c.length) gotCode(c[0].rawValue); }).catch(function () {}); return; }
+          if (!v.videoWidth) return;
+          cv.width = v.videoWidth; cv.height = v.videoHeight; cv.getContext('2d').drawImage(v, 0, 0);
+          try { gotCode(zxDecode(Z, reader, cv)); } catch (e) { /* nessun codice in questo fotogramma */ }
+        }, 250);
+      });
+    }).catch(function (e) {
+      note($('hint'), e && e.message === 'rete' ? 'Non riesco a caricare il lettore: serve la connessione. Scatta una foto al codice.' : 'Fotocamera non disponibile o permesso negato: scatta una foto al codice.', 'warn');
+      $('scanfile').click();
+    });
+  }
   function startScan() {
-    if (!('BarcodeDetector' in window) || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      note($('hint'), 'Lo scanner della fotocamera non è disponibile su questo dispositivo o su questo indirizzo: digita il codice o usa uno scanner USB.', 'warn'); $('bc').focus(); return;
-    }
-    detector = detector || new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'] });
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }).then(function (s) {
-      stream = s; var v = $('vid'); v.srcObject = s; $('scanbox').hidden = false; v.play();
-      scanTimer = setInterval(function () {
-        detector.detect(v).then(function (codes) {
-          if (codes && codes.length) { $('bc').value = codes[0].rawValue; stopScan(); lookup(); }
-        }).catch(function () {});
-      }, 300);
-    }).catch(function () { note($('hint'), 'Permesso alla fotocamera negato o fotocamera non disponibile.', 'warn'); });
+    var live = window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+    if (live) { startLive(); return; }
+    note($('hint'), 'Fotocamera dal vivo solo con l\'indirizzo sicuro (https). Intanto scatta una foto al codice a barre.', 'warn');
+    api('GET', 'api/config').then(function (c) {
+      if (c && c.url_sicuro) { var a = el('a', 'btn ghost', 'Apri con l\'indirizzo sicuro'); a.href = c.url_sicuro; a.target = '_top'; $('hint').appendChild(document.createElement('br')); $('hint').appendChild(a); }
+    }).catch(function () {});
+    $('scanfile').click();
+  }
+  function scanPhoto(file) { // legge il codice da una foto, senza bisogno di https
+    if (!file) return;
+    note($('hint'), 'Leggo il codice…', '');
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function () {
+      loadZX().then(function (Z) {
+        var reader = zxReader(Z), cv = document.createElement('canvas'), done = false;
+        [1600, 1000, 640].forEach(function (max) {
+          if (done) return;
+          var k = Math.min(1, max / Math.max(img.width, img.height));
+          cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          try { var t = zxDecode(Z, reader, cv); done = true; note($('hint'), '', ''); gotCode(t); } catch (e) { /* riprova con un'altra dimensione */ }
+        });
+        if (!done) note($('hint'), 'Codice non riconosciuto: avvicinati, tieni il codice dritto e ben illuminato, poi riprova.', 'warn');
+      }).catch(function () { note($('hint'), 'Non riesco a caricare il lettore: serve la connessione. Digita il codice.', 'warn'); })
+        .then(function () { URL.revokeObjectURL(url); $('scanfile').value = ''; });
+    };
+    img.onerror = function () { note($('hint'), 'Foto non leggibile.', 'warn'); URL.revokeObjectURL(url); };
+    img.src = url;
   }
 
   /* ---------- stock ---------- */
@@ -196,14 +256,18 @@
     st.stock.filter(function (r) {
       if (st.filtro === 'Casa' || st.filtro === 'Cantina') { if (r.luogo !== st.filtro) return false; }
       if (st.filtro === 'Sotto scorta' && !isLow(r)) return false;
-      return !q || [r.nome, r.categoria, r.sotto, r.tipo].join(' ').toLowerCase().indexOf(q) >= 0;
+      return !q || [r.nome, r.marca, r.categoria, r.sotto, r.tipo].join(' ').toLowerCase().indexOf(q) >= 0;
     }).forEach(function (r) { var g = r.categoria || 'Altro'; if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(r); });
     if (!order.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto trovato.')); return; }
     order.forEach(function (g) {
       var d = el('details', 'g'); d.open = true; d.appendChild(el('summary', '', g + ' (' + groups[g].length + ')'));
       groups[g].forEach(function (r) {
-        var it = el('div', 'item'), n = el('div', 'n');
-        n.appendChild(el('b', '', r.nome)); if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.luogo].filter(Boolean).join(' · ')));
+        var it = el('div', 'item'), n = el('div', 'n'), th = el('div', 'th');
+        if (r.img) { var im = document.createElement('img'); im.src = r.img; im.alt = ''; im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; im.addEventListener('error', function () { im.remove(); }); th.appendChild(im); }
+        it.appendChild(th);
+        n.appendChild(el('b', '', r.nome));
+        var sub = [r.marca, r.conf].filter(Boolean).join(' · '); if (sub) n.appendChild(el('span', 'sub2', sub));
+        if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.luogo].filter(Boolean).join(' · ')));
         it.appendChild(n); it.appendChild(el('span', 'badge' + (isLow(r) ? ' low' : ''), isLow(r) ? 'Sotto scorta' : 'Ok'));
         it.appendChild(el('div', 'qta', String(r.qta))); d.appendChild(it);
       });
@@ -242,7 +306,7 @@
     buildNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
     $('qp').addEventListener('click', function () { setQta(st.qta + 1); });
-    $('scan').addEventListener('click', startScan); $('scanstop').addEventListener('click', stopScan);
+    $('scan').addEventListener('click', startScan); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
     $('cancel').addEventListener('click', function () { stopScan(); resetForm(); });
     $('f').addEventListener('submit', save);
     var dbt;

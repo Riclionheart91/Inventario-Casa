@@ -5,5 +5,6 @@ export DRIVE_FOLDER_ID="$(bashio::config 'drive_folder_id')"
 export SERVICE_ACCOUNT_JSON="$(bashio::config 'service_account_json')"
 export SHARED_CODE="$(bashio::config 'shared_code')"
 export READ_ONLY="$(bashio::config 'sola_lettura')"
+export SECURE_URL="$(bashio::config 'url_sicuro')"
 cd /srv
 exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8099

@@ -50,3 +50,8 @@ nav button[aria-current=page]{color:var(--acc);font-weight:700}
 #toast.on{opacity:1}#toast.err{border-color:var(--bad)}
 
 .item .n .tipo{display:inline-block;margin:3px 6px 0 0;padding:1px 9px;border-radius:10px;background:#1c2a33;border:1px solid #274456;color:#9fd0ee;font-size:11px}
+
+.item .th{width:48px;height:48px;flex:none;border-radius:8px;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.item .th:empty{background:var(--s2);border:1px solid var(--bd)}
+.item .th img{width:100%;height:100%;object-fit:contain}
+.item .n .sub2{display:block;color:var(--mut);font-size:12px}

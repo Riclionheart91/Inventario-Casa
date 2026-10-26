@@ -53,6 +53,11 @@ class Dec(BaseModel):
     azione: str
 
 
+@app.get("/api/config")
+def config():
+    return {"url_sicuro": os.environ.get("SECURE_URL", "").strip(), "sola_lettura": READ_ONLY}
+
+
 @app.get("/api/stock")
 def stock(x_code: str = Header(None)):
     check(x_code)

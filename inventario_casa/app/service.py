@@ -96,7 +96,9 @@ class Inventory:
             k = nbc(p.get("Barcode"))
             if k:
                 tp = str(p.get("Tipo", "") or "").strip() or tipi_ai.get(k, "")
-                cat[k] = {"tipo": tp, "minima": scorta_tipo.get(tp.lower(), _minima(p))}
+                cat[k] = {"tipo": tp, "minima": scorta_tipo.get(tp.lower(), _minima(p)),
+                          "nome": str(p.get("Prodotto", "") or "").strip(), "marca": str(p.get("Marca", "") or "").strip(),
+                          "conf": str(p.get("Confezione", "") or "").strip(), "img": str(p.get("Immagine", "") or "").strip()}
         acc: Dict[tuple, dict] = {}
         for m in self._dicts(SH_MOV):
             k = nbc(m.get("Barcode"))
@@ -111,7 +113,8 @@ class Inventory:
             else:
                 continue
             c = cat.get(k, {})
-            e = acc.setdefault((k, loc), {"barcode": int(k), "nome": m.get("Prodotto", ""),
+            e = acc.setdefault((k, loc), {"barcode": int(k), "nome": c.get("nome") or m.get("Prodotto", ""),
+                                          "marca": c.get("marca", ""), "conf": c.get("conf", ""), "img": c.get("img", ""),
                                           "categoria": m.get("Categoria", ""),
                                           "sotto": m.get("Sottocategoria", ""),
                                           "tipo": c.get("tipo", ""), "minima": c.get("minima", 0),
