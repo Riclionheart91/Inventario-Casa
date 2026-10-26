@@ -29,8 +29,8 @@ input:focus-visible,button:focus-visible,label.btn:focus-within{outline:2px soli
 #scanbox{display:flex;flex-direction:column;gap:8px}#vid{width:100%;border-radius:10px;background:#000;max-height:240px;object-fit:cover}
 #prev{max-width:100%;max-height:200px;border-radius:10px;object-fit:cover}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-.chip{min-height:44px;padding:0 14px;border-radius:22px;border:1px solid var(--bd);background:var(--s2);font-size:13px;cursor:pointer}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip{min-height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--bd);background:var(--s2);font-size:12px;cursor:pointer}
 .chip[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#06222f;font-weight:700}
 details.g{border-bottom:1px solid #20272c}
 details.g summary{padding:12px 0;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);cursor:pointer;min-height:44px;display:flex;align-items:center}
@@ -82,3 +82,8 @@ nav button[aria-current=page]{color:var(--acc);font-weight:700}
 .seg.one button{height:auto;min-height:48px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left}
 select{width:100%;height:48px;border-radius:10px;border:1px solid var(--bd);background:var(--s2);color:inherit;font-size:16px;padding:0 12px}
 .sc-edit{display:flex;gap:8px;align-items:center;margin-top:8px}.sc-edit select{flex:1}.sc-edit .btn{flex:none;padding:0 16px;height:48px}
+
+/* ricerca e filtri restano fissi in alto; sotto, la categoria (o la lettera) corrente resta fissa finche non arriva la successiva */
+.stk{position:sticky;top:-16px;z-index:5;background:var(--bg);margin:-16px -20px 4px;padding:16px 20px 2px}
+.stk .field,.stk .chips{margin-bottom:8px}
+details.g summary,.letter{position:sticky;top:calc(var(--stk,0px) - 16px);z-index:4;background:var(--bg)}

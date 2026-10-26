@@ -3,6 +3,10 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.2.3 — 2026-10-26
+- Stock e Prodotti: la barra di ricerca e i filtri restano fissi in alto durante lo scorrimento; sotto di essi resta fissa la categoria (o la lettera) in cui ti trovi, finché non arriva la successiva.
+- Pulsanti dei filtri più piccoli.
+
 ## 0.2.2 — 2026-10-26
 - Stock e Prodotti molto più veloci da aprire: il server legge insieme tutti i fogli con una sola richiesta a Google e li tiene aggiornati in background ogni 20 secondi, quindi le richieste rispondono dalla memoria invece di rileggere il foglio ogni volta.
 - Anche lo Stock mostra subito l'ultima copia salvata sul telefono e si aggiorna in background.

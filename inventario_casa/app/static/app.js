@@ -75,6 +75,10 @@
       nav.appendChild(b);
     });
   }
+  function setStk() {   // altezza della barra fissa della pagina visibile: da li partono le categorie fisse
+    var v = document.querySelector('.view:not([hidden]) .stk');
+    document.documentElement.style.setProperty('--stk', (v ? v.offsetHeight : 0) + 'px');
+  }
   function show(tab) {
     st.tab = tab;
     TABS.forEach(function (t) {
@@ -87,6 +91,7 @@
     if (tab === 'prod') loadProd();
     if (tab === 'appr') loadAppr();
     if (tab === 'mov') $('bc').focus();
+    setStk();
   }
 
   /* ---------- form +/- ---------- */
@@ -478,6 +483,7 @@
   /* ---------- avvio ---------- */
   function init() {
     api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; }).catch(function () { st.ro = true; });
+    window.addEventListener('resize', setStk); window.addEventListener('load', setStk);
     buildNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
     $('qp').addEventListener('click', function () { setQta(st.qta + 1); });
