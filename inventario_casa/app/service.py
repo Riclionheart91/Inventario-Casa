@@ -6,7 +6,8 @@ from typing import Dict, List, Optional
 
 # TODO: verificare sul foglio reale i nomi esatti di colonne e valori (vedi README).
 SH_MOV, SH_PROD, SH_AIP, SH_AIT, SH_AIC, SH_CODA = "movimenti", "prodotti", "ai_prodotti", "ai_tipi", "ai_categorie", "coda"
-TIPI_MOV = ("Carico", "Scarico", "Sposta", "Rettifica")   # TODO: confermare i valori usati da AppSheet
+TIPI_MOV = ("Carico", "Scarico", "Move", "Cng")           # vocabolario del foglio
+ALIAS_MOV = {"Sposta": "Move", "Rettifica": "Cng"}        # nomi alternativi accettati dall'app
 LUOGHI = ("Casa", "Cantina")                              # TODO: leggerli dal foglio
 ST_PENDING = {SH_AIP: "DA_APPROVARE", SH_AIT: "DA_APPROVARE", SH_AIC: "PROPOSTA"}
 ST_OK = {SH_AIP: "APPROVATO", SH_AIT: "APPROVATO", SH_AIC: "APPROVATA"}   # TODO: stati finali letti da aiApplyApproved
@@ -85,11 +86,17 @@ class Inventory:
             t = str(a.get("Tipo", "") or "").strip()
             if k and t and str(a.get("Stato", "")).upper() != "RIFIUTATO":
                 tipi_ai[k] = t
+        scorta_tipo: Dict[str, float] = {}   # la scorta minima vive in ai_tipi (una per tipo)
+        for t in self._dicts(SH_AIT):
+            nome = str(t.get("Tipo", "") or "").strip().lower()
+            if nome and str(t.get("Stato", "")).upper() != "RIFIUTATO":
+                scorta_tipo[nome] = _num(t.get("Scorta_min", t.get("Scorta min", 0)))
         cat: Dict[str, dict] = {}
         for p in self._dicts(SH_PROD):
             k = nbc(p.get("Barcode"))
             if k:
-                cat[k] = {"tipo": str(p.get("Tipo", "") or "").strip() or tipi_ai.get(k, ""), "minima": _minima(p)}
+                tp = str(p.get("Tipo", "") or "").strip() or tipi_ai.get(k, "")
+                cat[k] = {"tipo": tp, "minima": scorta_tipo.get(tp.lower(), _minima(p))}
         acc: Dict[tuple, dict] = {}
         for m in self._dicts(SH_MOV):
             k = nbc(m.get("Barcode"))
@@ -120,6 +127,7 @@ class Inventory:
         k = nbc(barcode)
         if not k:
             raise ApiError(400, "Barcode non valido: servono solo cifre")
+        tipo = ALIAS_MOV.get(tipo, tipo)
         if tipo not in TIPI_MOV:
             raise ApiError(400, "Tipo non valido")
         if location not in LUOGHI:
