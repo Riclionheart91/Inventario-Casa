@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
-from . import lookup
+from . import ai, lookup
 from .store import make_store
 
 app = FastAPI(title="Inventario Casa", docs_url=None, redoc_url=None)
@@ -36,6 +36,18 @@ def _avvio():
 _inv = None
 SHARED = os.environ.get("SHARED_CODE", "")
 READ_ONLY = os.environ.get("READ_ONLY", "true").lower() != "false"
+# Chiavi dalle opzioni dell'app (variabili d'ambiente): restano sul server, non vanno mai al frontend ne nei log.
+CHIAVI_PROVIDER = ("BARCODELOOKUP_KEY", "UPCDATABASE_KEY", "GOUPC_TOKEN", "SPOONACULAR_KEY", "NUTRITIONIX_APP_ID", "NUTRITIONIX_APP_KEY",
+                   "EDAMAM_APP_ID", "EDAMAM_APP_KEY", "ICECAT_SHOP", "ICECAT_API_TOKEN", "GS1_API_URL", "GS1_API_KEY")
+
+
+def _env(k):
+    v = os.environ.get(k, "").strip()
+    return "" if v.lower() == "null" else v
+
+
+def chiavi():
+    return {k: _env(k) for k in CHIAVI_PROVIDER if _env(k)}
 
 
 def inv() -> Inventory:
@@ -99,7 +111,7 @@ class Dec(BaseModel):
 
 @app.get("/api/config")
 def config():
-    return {"url_sicuro": os.environ.get("SECURE_URL", "").strip(), "sola_lettura": READ_ONLY}
+    return {"url_sicuro": os.environ.get("SECURE_URL", "").strip(), "sola_lettura": READ_ONLY, "ai": bool(_env("GEMINI_API_KEY"))}
 
 
 @app.get("/api/stock")
@@ -121,8 +133,25 @@ def prodotto(barcode: str, x_code: str = Header(None)):
 def cerca(barcode: str, x_code: str = Header(None)):
     """Cerca il codice sui database aperti. Non scrive nulla: la proposta si conferma dalla schermata."""
     check(x_code)
-    r = lookup.cerca(barcode)
+    r = lookup.cerca(barcode, chiavi=chiavi())
     return dict(r, found=True) if r else {"found": False}
+
+
+class ChiediAi(BaseModel):
+    nome: str
+    marca: str = ""
+    confezione: str = ""
+
+
+@app.post("/api/suggerisci")
+def suggerisci(m: ChiediAi, x_code: str = Header(None)):
+    """Suggerimento AI di categoria, sottocategoria e tipo. Non scrive nulla; senza chiave o se Gemini non risponde: ai=False."""
+    check(x_code)
+    if not _env("GEMINI_API_KEY"):
+        return {"ai": False, "motivo": "chiave"}
+    s = ai.suggerisci(m.nome, m.marca, m.confezione, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"),
+                      _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+    return dict(s, ai=True) if s else {"ai": False, "motivo": "risposta"}
 
 
 @app.get("/api/tipi")

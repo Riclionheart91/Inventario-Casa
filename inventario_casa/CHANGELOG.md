@@ -3,6 +3,14 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.4.0 — 2026-10-26
+L'AI suggerisce categoria, sottocategoria e tipo quando crei un prodotto nuovo.
+- Dopo la proposta dai database, Gemini propone categoria, sottocategoria e tipo; i menu arrivano già compilati e li correggi prima di "Conferma e salva". Non viene registrata nessuna proposta del prodotto (niente righe in ai_prodotti).
+- Il tipo viene preso tra quelli esistenti; se nessuno calza ne propone uno nuovo, che entra in ai_tipi come "DA_APPROVARE" con scorta minima 0: compare in Approvazioni, dove definisci la scorta minima e approvi o correggi.
+- Senza chiave o se Gemini non risponde, tutto funziona come prima (menu vuoti) con una nota discreta.
+- Nuove opzioni dell'app (tutte facoltative): chiave Gemini, modello e modello di riserva; chiavi dei servizi di ricerca usati come ripiego dal motore: BarcodeLookup, UPCDatabase, Go-UPC, Spoonacular, Nutritionix, Edamam, Icecat, GS1. Un servizio senza chiave viene saltato. Le chiavi restano sul server.
+- Non ancora fatti: USDA, Untappd, Google Books, OpenFDA, Amazon.
+
 ## 0.3.1 — 2026-10-26
 Corretto: nello Scarico poteva comparire "Nessuna giacenza" anche con prodotto in magazzino.
 - Se la scheda del prodotto non risponde, la giacenza viene letta dall'elenco Stock.

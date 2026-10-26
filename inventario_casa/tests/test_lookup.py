@@ -58,7 +58,10 @@ class P(unittest.TestCase):
         self.assertEqual(row["API Status"], "✅ App (Open Food Facts)")
         self.assertRegex(row["Aggiornato il"], r"^\d\d/\d\d/\d{4}$")
         self.assertIn("Crema spalmabile", inv.tipi())                  # il tipo nuovo entra in ai_tipi
-        ai = st.sheets["ai_tipi"]; self.assertEqual(dict(zip(ai[0], ai[-1]))["Stato"], "DA_APPROVARE")
+        ai = st.sheets["ai_tipi"]; riga = dict(zip(ai[0], ai[-1]))
+        self.assertEqual(riga["Stato"], "DA_APPROVARE")   # tipo nuovo: sempre in coda Approvazioni
+        self.assertEqual(riga["Scorta_min"], 0)           # scorta minima 0 finche non la definisci
+        self.assertFalse([r for r in st.sheets["ai_prodotti"][1:] if "Crema" in str(r)])   # nessuna proposta registrata
         self.assertEqual(inv.movimento("8004613310367", "Carico", "Casa", 2)["noto"], True)
 
     def test_crea_prodotto_validazioni(self):
@@ -69,6 +72,31 @@ class P(unittest.TestCase):
                    {"barcode": "1", "nome": "x", "categoria": "Dispensa", "sottocategoria": "Latticini"}):
             with self.assertRaises(ApiError):
                 inv.crea_prodotto(**kw)
+
+
+class K(unittest.TestCase):
+    def test_provider_a_chiave_solo_se_c_e_la_chiave(self):
+        visti = []
+        def fetch(u, t, h=None):
+            visti.append(u)
+            if "barcodelookup" in u:
+                return {"products": [{"product_name": "Biscotti Frollini", "brand": "Mulino", "images": ["http://i/1.jpg"]}]}
+            if "go-upc" in u:
+                return {"product": {"name": "Altro", "brand": "Z"}}
+            return {"status": 0}
+        self.assertIsNone(lookup.cerca("123456", fetch=fetch))
+        self.assertFalse([u for u in visti if "barcodelookup" in u or "go-upc" in u])
+        r = lookup.cerca("123456", fetch=fetch, chiavi={"BARCODELOOKUP_KEY": "k1", "GOUPC_TOKEN": "t"})
+        self.assertEqual((r["nome"], r["marca"], r["fonte"]), ("Biscotti Frollini", "Mulino", "BarcodeLookup"))   # vince il piu prioritario
+
+    def test_provider_a_chiave_con_intestazioni_e_chiavi_doppie(self):
+        viste = {}
+        def fetch(u, t, h=None):
+            viste[u.split("/")[2]] = h
+            return {"foods": [{"food_name": "yogurt greco", "brand_name": "Fage"}]} if "nutritionix" in u else {"status": 0}
+        self.assertIsNone(lookup.cerca("9", fetch=fetch, chiavi={"NUTRITIONIX_APP_ID": "a"}))   # manca la seconda chiave: saltato
+        r = lookup.cerca("9", fetch=fetch, chiavi={"NUTRITIONIX_APP_ID": "a", "NUTRITIONIX_APP_KEY": "b"})
+        self.assertEqual(r["fonte"], "Nutritionix"); self.assertEqual(viste["trackapi.nutritionix.com"], {"x-app-id": "a", "x-app-key": "b"})
 
 
 if __name__ == "__main__":

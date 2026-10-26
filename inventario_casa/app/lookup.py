@@ -15,8 +15,8 @@ CAMPI = "code,product_name,product_name_it,brands,quantity,image_front_url,ingre
 TIMEOUT_TOTALE = 6.0
 
 
-def fetch_http(url: str, timeout: float) -> Optional[dict]:
-    req = urllib.request.Request(url, headers={"User-Agent": "InventarioCasa/0.3 (home assistant add-on)"})
+def fetch_http(url: str, timeout: float, headers: Optional[dict] = None) -> Optional[dict]:
+    req = urllib.request.Request(url, headers=dict({"User-Agent": "InventarioCasa/0.4 (home assistant add-on)"}, **(headers or {})))
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.loads(r.read().decode("utf-8", "replace"))
@@ -74,17 +74,94 @@ def _un_provider(bc: str, fonte: str, host: str, fetch: Callable, timeout: float
     return normalizza(d["product"], fonte)
 
 
-def cerca(barcode: str, fetch: Callable = fetch_http, providers=PROVIDERS, timeout_totale: float = TIMEOUT_TOTALE) -> Optional[dict]:
+# ---- provider a chiave (opzionali): si usano solo se la chiave e nelle opzioni dell'app; stessi del motore Apps Script ----
+def _min(nome, marca, immagine, fonte, ing="") -> Optional[dict]:
+    marca = str(marca or "").strip()
+    nome = pulisci_nome(str(nome or ""), marca)
+    if not nome:
+        return None
+    return {"nome": nome, "marca": marca, "confezione": "", "immagine": str(immagine or "").strip(), "fonte": fonte,
+            "categoria_suggerita": None, "dettagli": "", "composizione": ("🧪 Ingredienti: " + ing) if ing else "",
+            "nutrizione": "", "punteggi": ""}
+
+
+def _barcodelookup(bc, k, f, t):
+    d = f("https://api.barcodelookup.com/v3/products?barcode=%s&key=%s" % (bc, k["BARCODELOOKUP_KEY"]), t)
+    p = (d or {}).get("products") or []
+    if not p:
+        return None
+    p = p[0]; im = p.get("images") or []
+    return _min(p.get("product_name") or p.get("title"), p.get("brand") or p.get("manufacturer"), im[0] if im else "", "BarcodeLookup")
+
+
+def _upcdatabase(bc, k, f, t):
+    d = f("https://upcdatabase.org/api/%s/product/%s" % (k["UPCDATABASE_KEY"], bc), t) or {}
+    return _min(d.get("title") or d.get("itemname") or d.get("productname") or d.get("description"),
+                d.get("brand") or d.get("manufacturer"), "", "UPCDatabase")
+
+
+def _goupc(bc, k, f, t):
+    d = (f("https://go-upc.com/api/v1/code/%s" % bc, t, {"Authorization": "Bearer " + k["GOUPC_TOKEN"]}) or {}).get("product")
+    return _min(d.get("name") or d.get("title"), d.get("brand"), d.get("image"), "Go-UPC", d.get("ingredients") or "") if d else None
+
+
+def _spoonacular(bc, k, f, t):
+    d = f("https://api.spoonacular.com/food/products/upc/%s?apiKey=%s" % (bc, k["SPOONACULAR_KEY"]), t) or {}
+    return _min(d.get("title") or d.get("name"), d.get("brand"), d.get("image"), "Spoonacular")
+
+
+def _nutritionix(bc, k, f, t):
+    d = f("https://trackapi.nutritionix.com/v2/search/item?upc=" + bc, t,
+          {"x-app-id": k["NUTRITIONIX_APP_ID"], "x-app-key": k["NUTRITIONIX_APP_KEY"]}) or {}
+    foods = d.get("foods") or []
+    it = foods[0] if foods else None
+    return _min(it.get("food_name") or it.get("item_name"), it.get("brand_name"), (it.get("photo") or {}).get("thumb"), "Nutritionix") if it else None
+
+
+def _edamam(bc, k, f, t):
+    d = f("https://api.edamam.com/api/food-database/v2/parser?upc=%s&app_id=%s&app_key=%s" % (bc, k["EDAMAM_APP_ID"], k["EDAMAM_APP_KEY"]), t) or {}
+    h = d.get("hints") or []
+    food = h[0].get("food") if h else None
+    return _min(food.get("label"), food.get("brand"), food.get("image"), "Edamam") if food else None
+
+
+def _icecat(bc, k, f, t):
+    d = (f("https://live.icecat.biz/api?lang=IT&shopname=%s&GTIN=%s&content=essentialinfo" % (k["ICECAT_SHOP"], bc), t,
+           {"api_token": k["ICECAT_API_TOKEN"]}) or {}).get("data")
+    if not d:
+        return None
+    b = d.get("brand")
+    return _min(d.get("title") or d.get("producttitle"), (b.get("name") or b.get("title")) if isinstance(b, dict) else b, "", "Icecat")
+
+
+def _gs1(bc, k, f, t):
+    d = f("%s/gtin/%s" % (k["GS1_API_URL"].rstrip("/"), bc), t, {"apikey": k["GS1_API_KEY"]}) or {}
+    return _min(d.get("labelDescription") or d.get("shortDescription"), d.get("brandName"), "", "Verified by GS1")
+
+
+# (chiavi necessarie, funzione): dopo i database aperti nell'ordine di priorita, come nel motore
+CON_CHIAVE = ((("BARCODELOOKUP_KEY",), _barcodelookup), (("UPCDATABASE_KEY",), _upcdatabase), (("GOUPC_TOKEN",), _goupc),
+              (("SPOONACULAR_KEY",), _spoonacular), (("NUTRITIONIX_APP_ID", "NUTRITIONIX_APP_KEY"), _nutritionix),
+              (("EDAMAM_APP_ID", "EDAMAM_APP_KEY"), _edamam), (("ICECAT_SHOP", "ICECAT_API_TOKEN"), _icecat),
+              (("GS1_API_URL", "GS1_API_KEY"), _gs1))
+
+
+def cerca(barcode: str, fetch: Callable = fetch_http, providers=PROVIDERS, timeout_totale: float = TIMEOUT_TOTALE,
+          chiavi: Optional[Dict[str, str]] = None) -> Optional[dict]:
     """Interroga tutti i provider insieme e restituisce il primo risultato utile, rispettando l'ordine di priorita
     se piu provider rispondono entro il tempo massimo."""
     bc = re.sub(r"\D", "", str(barcode))
     if not bc:
         return None
-    t0 = time.time()
     risultati: Dict[int, Optional[dict]] = {}
-    ex = ThreadPoolExecutor(max_workers=len(providers))
+    chiavi = {k: v for k, v in (chiavi or {}).items() if v}
+    lavori = [(lambda f=f, h=h: _un_provider(bc, f, h, fetch, timeout_totale)) for f, h in providers]
+    for needs, fn in CON_CHIAVE:   # solo i provider di cui c'e la chiave
+        if all(n in chiavi for n in needs):
+            lavori.append(lambda fn=fn: fn(bc, chiavi, fetch, timeout_totale))
+    ex = ThreadPoolExecutor(max_workers=len(lavori))
     try:
-        fut = {ex.submit(_un_provider, bc, f, h, fetch, timeout_totale): i for i, (f, h) in enumerate(providers)}
+        fut = {ex.submit(w): i for i, w in enumerate(lavori)}
         try:
             for f in as_completed(fut, timeout=timeout_totale):
                 i = fut[f]

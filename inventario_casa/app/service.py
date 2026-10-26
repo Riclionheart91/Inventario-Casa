@@ -167,7 +167,8 @@ class Inventory:
                   "Aggiornato il": datetime.now().strftime("%d/%m/%Y"), "Sottocategoria": sottocategoria, "Tipo": tipo}
         riga = self.store.append_row(SH_PROD, valori)
         if tipo and tipo.lower() not in {t.lower() for t in self.tipi()}:
-            self.store.append_row(SH_AIT, {"Tipo": tipo, "Scorta_min": 1, "Stato": ST_PENDING[SH_AIT], "Note": "creato dall'app"})
+            # tipo nuovo: sempre in coda Approvazioni, dove si definisce la scorta minima (0 finche non la imposti) e si approva o corregge
+            self.store.append_row(SH_AIT, {"Tipo": tipo, "Scorta_min": 0, "Stato": ST_PENDING[SH_AIT], "Note": "creato dall'app"})
             self._drop(SH_AIT)
         self._drop(SH_PROD)
         return {"ok": True, "riga": riga, "barcode": int(k)}

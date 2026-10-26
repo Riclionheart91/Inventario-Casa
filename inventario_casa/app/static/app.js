@@ -41,7 +41,8 @@
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
     if (path === 'api/tipi') return ['Crema spalmabile', 'Latte', 'Pasta'];
     if (method === 'POST' && path === 'api/prodotto') return { ok: true };
-    if (path === 'api/config') return { url_sicuro: '', sola_lettura: false };
+    if (path === 'api/config') return { url_sicuro: '', sola_lettura: false, ai: true };
+    if (path === 'api/suggerisci') return { ai: true, categoria: 'Dispensa', sottocategoria: 'Snack e Dolci', tipo: 'Crema spalmabile', tipo_nuovo: false };
     if (path === 'api/categorie') return [{ categoria: 'Dispensa', sottocategorie: ['Pasta e Riso', 'Bevande', 'Snack e Dolci'] }, { categoria: 'Frigorifero', sottocategorie: ['Latticini'] }, { categoria: 'Cantina', sottocategorie: ['Bevande'] }];
     if (method === 'PATCH') return { ok: true, movimenti_aggiornati: 3 };
     if (path === 'api/movimento') return { ok: true, nuovo: !!(body && body.foto) };
@@ -155,12 +156,25 @@
     ph.appendChild(th); tt.appendChild(el('div', 'm', [r.marca, r.confezione].filter(Boolean).join(' · ') || 'Marca e confezione non indicate')); ph.appendChild(tt); box.appendChild(ph);
     var nome = el('input'); nome.type = 'text'; nome.value = r.nome || ''; nome.setAttribute('aria-label', 'Nome del prodotto'); box.appendChild(nome);
     var cat = el('select'); cat.setAttribute('aria-label', 'Categoria'); var sot = el('select'); sot.setAttribute('aria-label', 'Sottocategoria');
+    var ainote = el('div', 'note', ''); box.appendChild(ainote);
     var o0 = el('option', '', 'Scegli la categoria'); o0.value = ''; cat.appendChild(o0);
     (st.cats || []).forEach(function (c) { var o = el('option', '', c.categoria); o.value = c.categoria; cat.appendChild(o); });
     function fillSot() { sot.textContent = ''; var c = (st.cats || []).filter(function (x) { return x.categoria === cat.value; })[0]; var o = el('option', '', cat.value ? 'Scegli la sottocategoria' : '—'); o.value = ''; sot.appendChild(o); ((c && c.sottocategorie) || []).forEach(function (s) { var p = el('option', '', s); p.value = s; sot.appendChild(p); }); }
     cat.addEventListener('change', fillSot); fillSot(); box.appendChild(cat); box.appendChild(sot);
     var tipo = el('input'); tipo.type = 'text'; tipo.placeholder = 'Tipo (facoltativo)'; tipo.setAttribute('list', 'tipi-dl'); tipo.setAttribute('aria-label', 'Tipo');
     var dl = $('tipi-dl') || el('datalist'); dl.id = 'tipi-dl'; dl.textContent = ''; (st.tipi || []).forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); box.appendChild(dl); box.appendChild(tipo);
+    var toccato = false; [cat, sot, tipo].forEach(function (x) { x.addEventListener('input', function () { toccato = true; }); x.addEventListener('change', function () { toccato = true; }); });
+    if (st.ai) {   // suggerimento AI: riempie i menu, l'utente rivede e corregge prima di salvare
+      note(ainote, 'L\'AI sta suggerendo categoria e tipo…');
+      api('POST', 'api/suggerisci', { nome: r.nome || '', marca: r.marca || '', confezione: r.confezione || '' }).then(function (a) {
+        if ($('bc').value.trim() !== bc || box.hidden) return;
+        if (!a || !a.ai) { note(ainote, 'Suggerimento AI non disponibile: scegli tu categoria e tipo.'); return; }
+        if (toccato) { note(ainote, ''); return; }   // l'utente ha gia scelto qualcosa: non si sovrascrive
+        if (a.categoria) { cat.value = a.categoria; fillSot(); if (a.sottocategoria) sot.value = a.sottocategoria; }
+        if (a.tipo) tipo.value = a.tipo;
+        note(ainote, 'Suggerito dall\'AI: controlla e correggi se serve.' + (a.tipo_nuovo ? ' Il tipo «' + a.tipo + '» è nuovo: finirà in Approvazioni per la scorta minima.' : ''), 'ok');
+      }).catch(function () { note(ainote, 'Suggerimento AI non disponibile: scegli tu categoria e tipo.'); });
+    }
     box.appendChild(el('div', 'm', 'Il prodotto viene creato e caricato con la quantità e la posizione scelte qui sotto.'));
     var ok = el('button', 'btn primary', 'Conferma e salva'); ok.type = 'button'; box.appendChild(ok);
     var alt = el('button', 'alt', 'Non è questo prodotto: usa la foto'); alt.type = 'button'; box.appendChild(alt);
@@ -536,7 +550,7 @@
 
   /* ---------- avvio ---------- */
   function init() {
-    api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; }).catch(function () { st.ro = true; });
+    api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; st.ai = !!(c && c.ai); }).catch(function () { st.ro = true; });
     window.addEventListener('resize', setStk); window.addEventListener('load', setStk);
     buildNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
