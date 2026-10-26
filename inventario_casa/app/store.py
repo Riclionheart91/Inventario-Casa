@@ -12,6 +12,10 @@ class SheetsStore:
         """Aggiunge una riga mappando i valori sulle intestazioni. Ritorna il numero di riga (1-based)."""
         raise NotImplementedError
 
+    def get_many(self, sheets):
+        """Legge piu fogli in una volta: {nome: (intestazioni, righe)}. Il default li legge uno alla volta."""
+        return {n: self.get_rows(n) for n in sheets}
+
     def update_cell(self, sheet: str, row: int, header: str, value) -> None:
         raise NotImplementedError
 
@@ -88,6 +92,16 @@ class GoogleStore(SheetsStore):
         if not vals:
             return [], []
         return [str(h) for h in vals[0]], vals[1:]
+
+    def get_many(self, sheets):
+        sheets = list(sheets)
+        res = self.sheets.values().batchGet(spreadsheetId=self.sheet_id, ranges=["'%s'" % n for n in sheets],
+                                            valueRenderOption="UNFORMATTED_VALUE").execute()
+        out = {}
+        for n, vr in zip(sheets, res.get("valueRanges", [])):
+            vals = vr.get("values", [])
+            out[n] = ([str(h) for h in vals[0]], vals[1:]) if vals else ([], [])
+        return out
 
     def append_row(self, sheet, values):
         headers, rows = self.get_rows(sheet)

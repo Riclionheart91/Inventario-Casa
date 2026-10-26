@@ -364,7 +364,7 @@
     });
     ok.addEventListener('click', function () {
       ok.disabled = true;
-      api('PATCH', 'api/prodotto/' + p.barcode, { sottocategoria: sel.value }).then(function (r) { toast('Sottocategoria cambiata (' + r.movimenti_aggiornati + ' movimenti aggiornati).'); st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); } catch (e) { /* ok */ } openScheda(p.barcode); })
+      api('PATCH', 'api/prodotto/' + p.barcode, { sottocategoria: sel.value }).then(function (r) { toast('Sottocategoria cambiata (' + r.movimenti_aggiornati + ' movimenti aggiornati).'); st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } openScheda(p.barcode); })
         .catch(function (e) { toast('Non salvato: ' + e.message, true); }).then(function () { ok.disabled = false; });
     });
   }
@@ -372,8 +372,13 @@
 
   /* ---------- stock ---------- */
   function loadStock() {
-    api('GET', 'api/stock').then(function (r) { st.stock = r || []; renderStock(); $('sub').textContent = st.stock.length + ' prodotti'; })
-      .catch(function (e) { toast('Stock non caricato: ' + e.message, true); });
+    if (!st.stock || !st.stock.length) { try { st.stock = JSON.parse(localStorage.getItem('stockCache') || 'null') || []; } catch (e) { st.stock = []; } if (st.stock.length) renderStock(); }   // subito la copia salvata
+    api('GET', 'api/stock').then(function (r) {
+      r = r || []; var nuovo = JSON.stringify(r), vecchio = JSON.stringify(st.stock || []);
+      st.stock = r; $('sub').textContent = r.length + ' prodotti';
+      if (nuovo !== vecchio || !$('stock').children.length) renderStock();   // non ridisegna se non e cambiato nulla
+      try { localStorage.setItem('stockCache', nuovo); } catch (e) { /* spazio pieno: pazienza */ }
+    }).catch(function (e) { toast('Stock non caricato: ' + e.message, true); });
   }
   function buildChips() {
     var box = $('chips'); box.textContent = '';

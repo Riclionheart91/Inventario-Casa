@@ -3,7 +3,11 @@ import hmac
 import os
 from pathlib import Path
 
+import threading
+import time
+
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -12,6 +16,22 @@ from .service import ApiError, Inventory
 from .store import make_store
 
 app = FastAPI(title="Inventario Casa", docs_url=None, redoc_url=None)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+def _tieni_fresco():
+    """Rilegge i fogli ogni 20 secondi in background: cosi Stock e Prodotti rispondono dalla memoria."""
+    while True:
+        try:
+            inv().refresh()
+        except Exception:   # rete o quota di Google: si riprova al giro dopo
+            pass
+        time.sleep(20)
+
+
+@app.on_event("startup")
+def _avvio():
+    threading.Thread(target=_tieni_fresco, daemon=True).start()
 _inv = None
 SHARED = os.environ.get("SHARED_CODE", "")
 READ_ONLY = os.environ.get("READ_ONLY", "true").lower() != "false"
@@ -20,7 +40,7 @@ READ_ONLY = os.environ.get("READ_ONLY", "true").lower() != "false"
 def inv() -> Inventory:
     global _inv
     if _inv is None:
-        _inv = Inventory(make_store())
+        _inv = Inventory(make_store(), ttl=90)   # le richieste rispondono dalla memoria; il ciclo sotto la tiene fresca
     return _inv
 
 

@@ -1,5 +1,6 @@
 """Logica dell'inventario (solo libreria standard, testabile senza rete)."""
 import re
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -69,17 +70,36 @@ def _minima(p: dict) -> float:
 class Inventory:
     def __init__(self, store, ttl: int = CACHE_TTL, clock=time.time):
         self._memo = {}
+        self._lock = threading.RLock()
         self.store, self.ttl, self.clock = store, ttl, clock
         self._cache: Dict[str, tuple] = {}
+
+    CORE = (SH_AIP, SH_AIT, SH_PROD, SH_MOV)   # i fogli che servono a Stock e Prodotti: si leggono insieme
 
     def _rows(self, sheet: str, fresh: bool = False):
         hit = self._cache.get(sheet)
         if hit and not fresh and self.clock() - hit[0] < self.ttl:
             return hit[1], hit[2]
+        if sheet in self.CORE and not fresh:
+            self.refresh()
+            return self._cache[sheet][1], self._cache[sheet][2]
         h, r = self.store.get_rows(sheet)
-        self._cache[sheet] = (self.clock(), h, r)
-        self._memo.clear()   # dati riletti: i calcoli derivati vanno rifatti
+        self._put(sheet, h, r)
         return h, r
+
+    def _put(self, sheet, h, r):
+        old = self._cache.get(sheet)
+        self._cache[sheet] = (self.clock(), h, r)
+        if not old or old[1] != h or old[2] != r:
+            self._memo.clear()   # dati cambiati: i calcoli derivati vanno rifatti
+
+    def refresh(self):
+        """Rilegge insieme i fogli principali (una sola chiamata a Google). Usata anche dal ciclo in background."""
+        with self._lock:
+            for n, (h, r) in self.store.get_many(self.CORE).items():
+                self._put(n, h, r)
+            self.stock()
+            self.elenco_prodotti()
 
     def _drop(self, *sheets):
         self._memo.clear()
@@ -144,7 +164,13 @@ class Inventory:
         return {"ok": True, "movimenti_aggiornati": n}
 
     def elenco_prodotti(self) -> List[dict]:
-        """Tutti i prodotti del catalogo in ordine alfabetico, anche quelli con giacenza zero."""
+        """Tutti i prodotti del catalogo in ordine alfabetico, anche quelli con giacenza zero (calcolato una volta per ciclo)."""
+        self.stock()   # rilegge i fogli scaduti e svuota la memoria se i dati sono cambiati
+        if "elenco" not in self._memo:
+            self._memo["elenco"] = self._elenco()
+        return self._memo["elenco"]
+
+    def _elenco(self) -> List[dict]:
         tot: Dict[str, float] = {}
         minima: Dict[str, float] = {}
         for e in self.stock():

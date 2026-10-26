@@ -115,6 +115,15 @@ class T(unittest.TestCase):
         self.assertEqual(data_it("21/3/2026 4.45.20"), "21/03/2026")
         self.assertEqual(data_it(""), "")
 
+    def test_refresh_rilegge_subito(self):
+        st, inv, _ = make()
+        inv.stock()
+        st.sheets["movimenti"].append([8002795002995, "Carico", "Casa", 10, "", "", "", ""])
+        self.assertEqual(inv.stock()[0]["qta"], 4)       # ancora in cache
+        inv.refresh()                                     # il ciclo in background
+        self.assertEqual(inv.stock()[0]["qta"], 14)
+        self.assertEqual(inv.elenco_prodotti()[0]["qta"], 14)
+
     def test_categorie(self):
         _, inv, _ = make()
         self.assertEqual(inv.categorie(), [{"categoria": "Dispensa", "sottocategorie": ["Bevande", "Snack e Dolci"]},
