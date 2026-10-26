@@ -3,8 +3,12 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.1.8 — 2026-10-26
+- Stock: la giacenza si conta per prodotto, posizione e categoria (lo stesso prodotto può stare in categorie e posizioni diverse). La categoria torna a essere quella della riga di stock; la sottocategoria è del prodotto.
+- Movimenti `Move` (cambio posizione) e `Cng` (cambio categoria): come i bot di AppSheet, si scrivono come coppia di righe nette (Scarico dalla situazione vecchia, Carico nella nuova), con controllo della giacenza disponibile. Ancora non attivi: l'app è in sola lettura.
+
 ## 0.1.7 — 2026-10-26
-- Stock: categoria e sottocategoria si leggono dal prodotto (non dalla riga del movimento), così un cambio di categoria si vede subito senza righe duplicate.
+- (sostituita dalla 0.1.8) Categoria letta dal prodotto.
 
 ## 0.1.6 — 2026-10-26
 - Stock: miniatura del prodotto, marca e confezione sotto al nome (utile per distinguere prodotti con lo stesso nome).

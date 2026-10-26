@@ -47,6 +47,9 @@ class Mov(BaseModel):
     quantita: float = 1
     prodotto: str = ""
     foto: str = ""
+    destinazione: str = ""
+    categoria: str = ""
+    categoria_new: str = ""
 
 
 class Dec(BaseModel):
@@ -77,7 +80,8 @@ def prodotto(barcode: str, x_code: str = Header(None)):
 def movimento(m: Mov, x_code: str = Header(None)):
     check(x_code)
     writable()
-    return inv().movimento(m.barcode, m.tipo, m.location, m.quantita, m.prodotto, m.foto)
+    return inv().movimento(m.barcode, m.tipo, m.location, m.quantita, m.prodotto, m.foto,
+                          m.destinazione, m.categoria, m.categoria_new)
 
 
 @app.get("/api/approvazioni")

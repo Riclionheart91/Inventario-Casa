@@ -27,6 +27,24 @@ class T(unittest.TestCase):
         self.assertEqual(len(s), 1)
         self.assertEqual(s[0]["qta"], 4)
 
+    def test_move_e_cng_sono_coppie_nette(self):
+        st, inv, _ = make()
+        inv.movimento(8002795002995, "Move", "Casa", 1, destinazione="Cantina", categoria="Dispensa")
+        self.assertEqual({(e["luogo"], e["qta"]) for e in inv.stock()}, {("Casa", 3), ("Cantina", 1)})
+        inv.movimento(8002795002995, "Cng", "Casa", 1, categoria="Dispensa", categoria_new="Cantina e Bevande")
+        s = {(e["luogo"], e["categoria"]): e["qta"] for e in inv.stock()}
+        self.assertEqual(s, {("Casa", "Dispensa"): 2, ("Casa", "Cantina e Bevande"): 1, ("Cantina", "Dispensa"): 1})
+        self.assertEqual(sum(s.values()), 4)   # lo spostamento non crea ne perde pezzi
+
+    def test_move_e_cng_validazioni(self):
+        _, inv, _ = make()
+        with self.assertRaises(ApiError):
+            inv.movimento(8002795002995, "Move", "Casa", 9, destinazione="Cantina", categoria="Dispensa")
+        with self.assertRaises(ApiError):
+            inv.movimento(8002795002995, "Move", "Casa", 1, destinazione="Casa", categoria="Dispensa")
+        with self.assertRaises(ApiError):
+            inv.movimento(8002795002995, "Cng", "Casa", 1, categoria="Dispensa", categoria_new="Dispensa")
+
     def test_prodotto_barcode_misto(self):
         _, inv, _ = make()
         self.assertEqual(inv.prodotto("08002795002995")["prodotto"], "Latte UHT")

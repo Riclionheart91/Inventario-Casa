@@ -115,10 +115,11 @@ class Inventory:
             else:
                 continue
             c = cat.get(k, {})
-            e = acc.setdefault((k, loc), {"barcode": int(k), "nome": c.get("nome") or m.get("Prodotto", ""),
+            catm = str(m.get("Categoria", "") or "").strip() or c.get("categoria", "")   # riga senza categoria: vale quella del prodotto
+            e = acc.setdefault((k, loc, catm), {"barcode": int(k), "nome": c.get("nome") or m.get("Prodotto", ""),
                                           "marca": c.get("marca", ""), "conf": c.get("conf", ""), "img": c.get("img", ""),
-                                          "categoria": c.get("categoria") or m.get("Categoria", ""),   # la categoria vive nel prodotto
-                                          "sotto": c.get("sotto") or m.get("Sottocategoria", ""),
+                                          "categoria": catm,   # la categoria appartiene alla riga di stock (stesso prodotto, categorie diverse)
+                                          "sotto": c.get("sotto") or m.get("Sottocategoria", ""),   # la sottocategoria e del prodotto
                                           "tipo": c.get("tipo", ""), "minima": c.get("minima", 0),
                                           "luogo": loc, "qta": 0})
             e["qta"] += d
@@ -128,7 +129,23 @@ class Inventory:
         return sorted(out, key=lambda e: (e["categoria"], e["nome"], e["luogo"]))
 
     # --- movimenti ------------------------------------------------------
-    def movimento(self, barcode, tipo: str, location: str, quantita, prodotto: str = "", foto: str = "") -> dict:
+    def _giacenza(self, k: str, loc: str, cat: str) -> float:
+        tot = 0.0
+        pc = (self.prodotto(k) or {}).get("categoria", "")
+        for m in self._dicts(SH_MOV, fresh=True):
+            if nbc(m.get("Barcode")) != k or str(m.get("Location", "")).strip() != loc:
+                continue
+            if (str(m.get("Categoria", "") or "").strip() or pc) != cat:
+                continue
+            q = _num(m.get("Quantità", m.get("Quantita", 0)))
+            t = str(m.get("Tipo", "")).strip()
+            tot += q if t == "Carico" else -q if t == "Scarico" else 0
+        return tot
+
+    def movimento(self, barcode, tipo: str, location: str, quantita, prodotto: str = "", foto: str = "",
+                  destinazione: str = "", categoria: str = "", categoria_new: str = "") -> dict:
+        """Carico/Scarico = una riga. Move (cambio posizione) e Cng (cambio categoria) = coppia di righe nette:
+        Scarico alla situazione vecchia + Carico alla nuova, come fanno i bot di AppSheet (la riga Move/Cng non resta nel foglio)."""
         k = nbc(barcode)
         if not k:
             raise ApiError(400, "Barcode non valido: servono solo cifre")
@@ -140,17 +157,36 @@ class Inventory:
         q = _num(quantita)
         if q <= 0:
             raise ApiError(400, "La quantità deve essere maggiore di zero")
+        qv = int(q) if float(q).is_integer() else q
         p = self.prodotto(k)
         if p is None and not foto:
             raise ApiError(409, "Codice sconosciuto: serve una foto per creare la bozza")
-        row = {"Barcode": int(k), "Tipo": tipo, "Location": location,
-               "Quantità": int(q) if q.is_integer() else q,
-               "Prodotto": (p["prodotto"] if p else prodotto), "Categoria": p["categoria"] if p else "",
-               "Sottocategoria": p["sottocategoria"] if p else "", "Foto": foto,
-               "Data": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  # TODO: colonna data reale
-        n = self.store.append_row(SH_MOV, row)
+        cat0 = (categoria or (p["categoria"] if p else "")).strip()
+        base = {"Barcode": int(k), "Quantità": qv, "Prodotto": (p["prodotto"] if p else prodotto),
+                "Sottocategoria": p["sottocategoria"] if p else "", "Foto": foto,
+                "Data": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  # TODO: colonna data reale
+        righe = []
+        if tipo in ("Carico", "Scarico"):
+            righe.append(dict(base, Tipo=tipo, Location=location, Categoria=cat0))
+        elif tipo == "Move":
+            if destinazione not in LUOGHI or destinazione == location:
+                raise ApiError(400, "Destinazione non valida")
+            if self._giacenza(k, location, cat0) < q:
+                raise ApiError(409, "Giacenza insufficiente nella posizione di partenza")
+            righe.append(dict(base, Tipo="Scarico", Location=location, Categoria=cat0, Destinazione=destinazione))
+            righe.append(dict(base, Tipo="Carico", Location=destinazione, Categoria=cat0, Destinazione=location))
+        else:  # Cng
+            if not categoria_new or categoria_new == cat0:
+                raise ApiError(400, "Categoria nuova non valida")
+            if self._giacenza(k, location, cat0) < q:
+                raise ApiError(409, "Giacenza insufficiente nella categoria di partenza")
+            righe.append(dict(base, Tipo="Scarico", Location=location, Categoria=cat0, Categoria_NEW=categoria_new))
+            righe.append(dict(base, Tipo="Carico", Location=location, Categoria=categoria_new))
+        n = 0
+        for r in righe:
+            n = self.store.append_row(SH_MOV, r)
         self._drop(SH_MOV)
-        return {"ok": True, "riga": n, "noto": p is not None}
+        return {"ok": True, "riga": n, "righe": len(righe), "noto": p is not None}
 
     # --- approvazioni ---------------------------------------------------
     def _prima_dopo(self, a: dict):
