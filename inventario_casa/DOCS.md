@@ -24,11 +24,11 @@ Un servizio a chiave senza tutte le sue chiavi viene saltato. Le chiavi restano 
 
 ## Lista della spesa su iPhone (dalla 0.6.0)
 Nella pagina Spesa il pulsante «Aggiungi alla lista della spesa di iOS» manda a Promemoria tutte le voci da comprare che non hai ancora spuntato nel carrello, una per riga.
-- **shortcut_spesa**: nome del comando rapido da avviare (default «Spesa»).
+- **shortcut_spesa**: nome del comando rapido da avviare (default «Spesa AppSheet»).
 - Su iPhone e iPad l'app apre il comando rapido con l'elenco come testo in ingresso. Su altri dispositivi apre il foglio di condivisione, oppure copia l'elenco negli appunti.
 
 Per creare il comando rapido (una volta sola, app Comandi):
-1. Nuovo comando, chiamalo «Spesa» (o il nome che hai messo in **shortcut_spesa**).
+1. Nuovo comando, chiamalo «Spesa AppSheet» (o il nome che hai messo in **shortcut_spesa**).
 2. Azione «Dividi testo» sull'input del comando, separatore «A capo».
 3. Azione «Ripeti con ciascun elemento» sul risultato.
 4. Dentro la ripetizione: «Aggiungi nuovo promemoria» con titolo = «Elemento ripetuto», lista = «Spesa».

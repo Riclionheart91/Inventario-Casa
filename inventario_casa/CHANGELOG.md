@@ -3,10 +3,16 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.6.1 — 2026-10-28
+Scorrimento sulla barra in basso e comando rapido predefinito.
+- Scorrere la barra del menu in basso cambia pagina (verso sinistra la successiva, verso destra la precedente); un tocco sui pulsanti funziona come prima.
+- Il comando rapido iOS predefinito è «Spesa AppSheet» (opzione `shortcut_spesa`).
+- Pronta ma spenta l'infrastruttura per gli scorrimenti sulle righe: le azioni per ogni pagina le definirà l'utente.
+
 ## 0.6.0 — 2026-10-28
 Spesa più leggibile, lista della spesa su iOS, Prodotti per tipo.
 - Spesa: voci raggruppate per categoria (gruppi chiudibili), una riga per voce con spunta grande, miniatura, tipo, giacenza/scorta colorata («0 / 2») e «+1» come azione secondaria; filtro Tutti / Finiti / In esaurimento; il titolo mostra «N da comprare · M nel carrello».
-- Nuovo pulsante «Aggiungi alla lista della spesa di iOS»: avvia il comando rapido indicato nell'opzione `shortcut_spesa` (default «Spesa») con le voci non ancora nel carrello; ripiego: foglio di condivisione o copia negli appunti. Istruzioni per creare il comando in DOCS.
+- Nuovo pulsante «Aggiungi alla lista della spesa di iOS»: avvia il comando rapido indicato nell'opzione `shortcut_spesa` (default «Spesa AppSheet») con le voci non ancora nel carrello; ripiego: foglio di condivisione o copia negli appunti. Istruzioni per creare il comando in DOCS.
 - Prodotti: ordinamento A-Z o Per tipo (gruppo «Senza tipo» in fondo); tutti i gruppi si chiudono e si aprono, con «Chiudi tutti / Apri tutti»; scelta e gruppi chiusi si ricordano sul dispositivo.
 
 ## 0.5.1 — 2026-10-27

@@ -120,7 +120,7 @@ class CampiBozza(BaseModel):
 @app.get("/api/config")
 def config():
     return {"url_sicuro": os.environ.get("SECURE_URL", "").strip(), "sola_lettura": READ_ONLY, "ai": bool(_env("GEMINI_API_KEY")),
-            "shortcut_spesa": (os.environ.get("SHORTCUT_SPESA", "Spesa") or "Spesa").strip()}
+            "shortcut_spesa": (os.environ.get("SHORTCUT_SPESA", "Spesa AppSheet") or "Spesa AppSheet").strip()}
 
 
 @app.get("/api/stock")

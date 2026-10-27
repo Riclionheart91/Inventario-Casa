@@ -51,7 +51,7 @@
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
     if (path === 'api/tipi') return ['Crema spalmabile', 'Latte', 'Pasta'];
     if (method === 'POST' && path === 'api/prodotto') return { ok: true };
-    if (path === 'api/config') return { url_sicuro: '', sola_lettura: false, ai: true, shortcut_spesa: 'Spesa' };
+    if (path === 'api/config') return { url_sicuro: '', sola_lettura: false, ai: true, shortcut_spesa: 'Spesa AppSheet' };
     if (path === 'api/suggerisci') return { ai: true, categoria: 'Dispensa', sottocategoria: 'Snack e Dolci', tipo: 'Crema spalmabile', tipo_nuovo: false };
     if (path === 'api/categorie') return [{ categoria: 'Dispensa', sottocategorie: ['Pasta e Riso', 'Bevande', 'Snack e Dolci'] }, { categoria: 'Frigorifero', sottocategorie: ['Latticini'] }, { categoria: 'Cantina', sottocategorie: ['Bevande'] }];
     if (method === 'PATCH') return { ok: true, movimenti_aggiornati: 3 };
@@ -214,7 +214,9 @@
   function loadGiac(bc) {   // giacenze del prodotto: servono per Scarico, Sposta e Cambia categoria
     var fine = function (g, err) {
       if ($('bc').value.trim() !== bc) return;
-      st.giac = g.filter(function (x) { return x.qta > 0; }); st.riga = 0; st.errGiac = err || ''; renderRiga();
+      st.giac = g.filter(function (x) { return x.qta > 0; }); st.riga = 0;
+      if (st.pre) { st.giac.forEach(function (x, i) { if (x.luogo === st.pre.luogo && (x.categoria || '') === st.pre.categoria) st.riga = i; }); st.pre = null; }
+      st.errGiac = err || ''; renderRiga();
     };
     var daStock = function (err) {   // rete di sicurezza: se la scheda non risponde, la giacenza si legge dall'elenco Stock
       return api('GET', 'api/stock').then(function (r) {
@@ -518,7 +520,8 @@
         var sub = [r.marca, r.conf].filter(Boolean).join(' · '); if (sub) n.appendChild(el('span', 'sub2', sub));
         if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.luogo].filter(Boolean).join(' · ')));
         it.appendChild(n); it.appendChild(el('span', 'badge' + (isLow(r) ? ' low' : ''), isLow(r) ? 'Sotto scorta' : 'Ok'));
-        it.appendChild(el('div', 'qta', String(r.qta))); d.appendChild(it);
+        it.appendChild(el('div', 'qta', String(r.qta)));
+        d.appendChild(swipeRiga(it, { right: { label: 'Scheda', fn: function () { openScheda(r.barcode); } }, left: { label: 'Scarico', fn: function () { scaricoRapido(r); } } }));
       });
       box.appendChild(d);
     });
@@ -576,7 +579,7 @@
         it.appendChild(el('span', 'badge' + (zero ? ' zero' : low ? ' low' : ''), zero ? 'Esaurito' : low ? 'Sotto scorta' : 'Ok'));
         it.appendChild(el('div', 'qta', String(r.qta || 0)));
         (function (bc) { it.addEventListener('click', function () { openScheda(bc); }); it.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openScheda(bc); } }); })(r.barcode);
-        d.appendChild(it);
+        d.appendChild(swipeRiga(it, { right: { label: 'Scheda', fn: function () { openScheda(r.barcode); } }, left: { label: 'Scarico', fn: function () { scaricoRapido(r); } } }));
       });
       box.appendChild(d);
     });
@@ -620,6 +623,72 @@
   }
   function azzeraCache() { st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } }
 
+
+  /* ---------- scorrimenti laterali (swipe) sulle righe ---------- */
+  /* Swipe sulle righe: infrastruttura pronta ma SPENTA. Ogni pagina ha la sua definizione (azione a destra e a sinistra:
+     { label, fn, ok?, conferma? }) nel punto in cui costruisce le righe, passata a swipeRiga(). Si accende con SWIPE_RIGHE.attivo = true
+     dopo che l'utente ha deciso cosa deve fare ogni scorrimento in ogni pagina. */
+  var SWIPE_RIGHE = { attivo: /[?&]swipe=1/.test(location.search) };   // l'interruttore ?swipe=1 serve solo ai test
+  function swipeRiga(row, def) { return SWIPE_RIGHE.attivo ? swipeWrap(row, def) : row; }
+  var SW_MAX = 120, SW_SOGLIA = 76;
+  function swipeWrap(row, o) {   // o.right / o.left = { label, fn, ok?: function () { return true } } ; restituisce l'elemento da inserire al posto della riga
+    var wrap = el('div', 'sw'), bg = el('div', 'sw-bg');
+    var lr = el('span', 'sw-r', (o.right && o.right.label) || ''), ll = el('span', 'sw-l', (o.left && o.left.label) || '');
+    lr.setAttribute('aria-hidden', 'true'); ll.setAttribute('aria-hidden', 'true'); bg.appendChild(lr); bg.appendChild(ll);
+    if (row.classList.contains('card')) wrap.classList.add('sw-card');
+    row.classList.add('sw-fg'); wrap.appendChild(bg); wrap.appendChild(row);
+    var id = null, x0 = 0, y0 = 0, dx = 0, deciso = false, trascina = false, blocca = false;
+    function azione(lato) { var d = o[lato]; return d && (!d.ok || d.ok()) ? d : null; }
+    function muovi(v) { row.style.transform = v ? 'translateX(' + v + 'px)' : ''; }
+    row.addEventListener('pointerdown', function (e) {
+      if ((e.pointerType === 'mouse' && e.button !== 0) || e.target.closest('input,button,a,select,textarea,label')) return;
+      id = e.pointerId; x0 = e.clientX; y0 = e.clientY; dx = 0; deciso = false; trascina = false;
+    });
+    row.addEventListener('pointermove', function (e) {
+      if (id !== e.pointerId) return;
+      var mx = e.clientX - x0, my = e.clientY - y0;
+      if (!deciso) {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        deciso = true; trascina = Math.abs(mx) > Math.abs(my) * 1.4;   // gesto prevalentemente orizzontale: altrimenti e scroll verticale
+        if (!trascina) { id = null; return; }
+        try { row.setPointerCapture(id); } catch (err) { /* ok */ }
+        row.classList.add('drag');
+      }
+      if (!trascina) return;
+      var lato = mx > 0 ? 'right' : 'left', d = azione(lato);
+      dx = d ? Math.max(-SW_MAX, Math.min(SW_MAX, mx)) : Math.max(-14, Math.min(14, mx / 6));   // senza azione disponibile: solo un cenno
+      muovi(dx);
+      wrap.classList.toggle('mostra-r', dx > 0); wrap.classList.toggle('mostra-l', dx < 0);
+      wrap.classList.toggle('pronto', !!d && Math.abs(dx) >= SW_SOGLIA);
+    });
+    function fine(e) {
+      if (id !== e.pointerId) return;
+      var era = trascina, v = dx; id = null; trascina = false; row.classList.remove('drag'); muovi(0);
+      wrap.classList.remove('mostra-r', 'mostra-l', 'pronto');
+      if (!era) return;
+      blocca = true; setTimeout(function () { blocca = false; }, 60);   // il rilascio non deve valere come tocco sulla riga
+      var d = e.type === 'pointerup' ? azione(v > 0 ? 'right' : 'left') : null;
+      if (d && Math.abs(v) >= SW_SOGLIA) { if (d.conferma) conAnnulla(d.conferma, d.fn); else d.fn(); }
+    }
+    row.addEventListener('pointerup', fine); row.addEventListener('pointercancel', fine);
+    row.addEventListener('click', function (e) { if (blocca && e.isTrusted) { e.stopPropagation(); e.preventDefault(); } }, true);
+    return wrap;
+  }
+  var undoT = null, undoFn = null;
+  function conAnnulla(msg, fn) {   // azione con 4 secondi per annullare (rifiuti e scarti trascinati per sbaglio)
+    if (undoFn) { clearTimeout(undoT); var prima = undoFn; undoFn = null; prima(); }
+    var box = $('undo'); box.textContent = ''; box.appendChild(el('span', '', msg));
+    var b = el('button', '', 'Annulla'); b.type = 'button'; box.appendChild(b); box.hidden = false;
+    undoFn = fn;
+    undoT = setTimeout(function () { box.hidden = true; var f = undoFn; undoFn = null; if (f) f(); }, 4000);
+    b.addEventListener('click', function () { clearTimeout(undoT); undoFn = null; box.hidden = true; toast('Annullato.'); });
+  }
+  function scaricoRapido(r) {   // Movimento gia impostato su Scarico con questo prodotto (e, dallo Stock, la sua posizione)
+    show('mov'); st.tipo = 'Scarico'; buildSeg('tipo', TIPI, 'tipo');
+    st.pre = r.luogo ? { luogo: r.luogo, categoria: r.categoria || '' } : null;
+    $('bc').value = String(r.barcode); lookup();
+  }
+
   /* ---------- spesa ---------- */
   function carrello() { try { return JSON.parse(localStorage.getItem('carrello') || '{}') || {}; } catch (e) { return {}; } }
   function salvaCarrello(c) { try { localStorage.setItem('carrello', JSON.stringify(c)); } catch (e) { /* ok */ } }
@@ -639,7 +708,7 @@
       toast('Il dispositivo non permette di condividere l\'elenco.', true);
     }
     if (!ios) { ripiego(); return; }
-    var a2 = document.createElement('a'); a2.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(st.shortcut || 'Spesa') + '&input=text&text=' + encodeURIComponent(testo);
+    var a2 = document.createElement('a'); a2.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(st.shortcut || 'Spesa AppSheet') + '&input=text&text=' + encodeURIComponent(testo);
     a2.target = '_top'; a2.rel = 'noopener'; document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
     toast('Aggiungo ' + righe.length + (righe.length === 1 ? ' voce' : ' voci') + ' ai Promemoria…');
   }
@@ -660,7 +729,7 @@
     var ios = el('button', 'btn ghost sp-ios', 'Aggiungi alla lista della spesa di iOS'); ios.type = 'button';
     ios.addEventListener('click', function () { listaIOS(voci); });
     box.appendChild(ios);
-    box.appendChild(el('div', 'note sp-nota', 'Manda a Promemoria le voci non ancora nel carrello, tramite il comando rapido «' + (st.shortcut || 'Spesa') + '».'));
+    box.appendChild(el('div', 'note sp-nota', 'Manda a Promemoria le voci non ancora nel carrello, tramite il comando rapido «' + (st.shortcut || 'Spesa AppSheet') + '».'));
     setStk();
     var gruppi = {}, ordine = [];
     voci.filter(function (v) { return spFiltro === 'Tutti' || (spFiltro === 'Finiti') === (v.stato === 'FINITO'); }).forEach(function (v) {
@@ -687,7 +756,9 @@
             var k = carrello(); delete k[v.tipo]; salvaCarrello(k); azzeraCache(); toast('Caricato 1 a Casa.'); loadSpesa();
           }).catch(function (e) { ok.disabled = false; toast('Non riuscito: ' + e.message, true); });
         });
-        row.appendChild(ok); d.appendChild(row);
+        row.appendChild(ok);
+        d.appendChild(swipeRiga(row, { right: { label: car[v.tipo] ? '✕ Fuori dal carrello' : '✓ Nel carrello', fn: function () { chk.click(); } },
+                                       left: { label: '+1 Comprato', ok: function () { return !ok.disabled; }, fn: function () { ok.click(); } } }));
       });
       box.appendChild(d);
     });
@@ -748,7 +819,8 @@
         blocca(true);
         api('POST', base + 'scarta', {}).then(function () { toast('Bozza scartata.'); loadBozze(); }).catch(function (e) { blocca(false); toast('Non riuscito: ' + e.message, true); });
       });
-      c.appendChild(bt); box.appendChild(c);
+      c.appendChild(bt);
+      box.appendChild(swipeRiga(c, { left: { label: 'Scarta', ok: function () { return !no.disabled; }, conferma: 'Scarto «' + (b.nome || b.barcode) + '»…', fn: function () { if (!no.disabled) no.click(); } } }));
     });
   }
 
@@ -793,15 +865,43 @@
       });
       cor.addEventListener('click', function () { form.hidden = !form.hidden; cor.textContent = form.hidden ? 'Correggi' : 'Chiudi correzione'; });
       no.addEventListener('click', function () { invia('RIFIUTA', {}, 'Rifiutata.'); });
-      c.appendChild(bt); box.appendChild(c);
+      c.appendChild(bt);
+      box.appendChild(swipeRiga(c, {
+        right: { label: '✓ Approva', ok: function () { return form.hidden && !ok.disabled; }, fn: function () { ok.click(); } },
+        left: { label: 'Rifiuta', ok: function () { return !no.disabled; }, conferma: 'Rifiuto «' + a.titolo + '»…', fn: function () { if (!no.disabled) no.click(); } } }));
     });
+  }
+
+
+  /* ---------- scorrimento sulla barra in basso: cambia pagina ---------- */
+  function swipeNav() {
+    var nav = $('nav'), id = null, x0 = 0, y0 = 0, deciso = false, orizz = false, blocca = false;
+    nav.addEventListener('pointerdown', function (e) { if (e.pointerType === 'mouse' && e.button !== 0) return; id = e.pointerId; x0 = e.clientX; y0 = e.clientY; deciso = false; orizz = false; });
+    nav.addEventListener('pointermove', function (e) {
+      if (id !== e.pointerId || deciso) return;
+      var mx = e.clientX - x0, my = e.clientY - y0;
+      if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+      deciso = true; orizz = Math.abs(mx) > Math.abs(my) * 1.2;
+      if (orizz) { try { nav.setPointerCapture(id); } catch (err) { /* ok */ } }
+    });
+    function fine(e) {
+      if (id !== e.pointerId) return;
+      var mx = e.clientX - x0, era = orizz; id = null; orizz = false;
+      if (!era) return;
+      blocca = true; setTimeout(function () { blocca = false; }, 60);
+      if (e.type !== 'pointerup' || Math.abs(mx) < 40) return;
+      var i = TABS.map(function (t) { return t[0]; }).indexOf(st.tab), n = i + (mx < 0 ? 1 : -1);   // verso sinistra = pagina successiva
+      if (n >= 0 && n < TABS.length) show(TABS[n][0]);
+    }
+    nav.addEventListener('pointerup', fine); nav.addEventListener('pointercancel', fine);
+    nav.addEventListener('click', function (e) { if (blocca && e.isTrusted) { e.stopPropagation(); e.preventDefault(); } }, true);
   }
 
   /* ---------- avvio ---------- */
   function init() {
-    api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; st.ai = !!(c && c.ai); st.shortcut = (c && c.shortcut_spesa) || 'Spesa'; }).catch(function () { st.ro = true; });
+    api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; st.ai = !!(c && c.ai); st.shortcut = (c && c.shortcut_spesa) || 'Spesa AppSheet'; }).catch(function () { st.ro = true; });
     window.addEventListener('resize', setStk); window.addEventListener('load', setStk);
-    buildNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
+    buildNav(); swipeNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
     $('qp').addEventListener('click', function () { setQta(st.qta + 1); });
     $('scan').addEventListener('click', startScan); $('sc-close').addEventListener('click', closeScheda); buildOrdProd(); $('prod-chiudi').addEventListener('click', function () { tuttiProd(false); }); $('prod-apri').addEventListener('click', function () { tuttiProd(true); }); $('qp2').addEventListener('input', renderProd); $('sc-mov').addEventListener('click', function () { var bc = st.schedaBc; closeScheda(); show('mov'); if (bc) { $('bc').value = bc; lookup(); } }); document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('scheda').hidden) closeScheda(); }); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
