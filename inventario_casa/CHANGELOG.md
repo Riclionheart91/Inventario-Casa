@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.4.6 — 2026-10-27
+Prodotto nuovo: creazione e carico in un'unica chiamata.
+- "Conferma e salva" crea il prodotto e registra subito il carico con i dati appena inseriti, senza rileggere il foglio: non serve più riscansionare il codice.
+- Se la posizione non è valida non viene creato nulla.
+
 ## 0.4.5 — 2026-10-27
 La sottocategoria vuota ora dice "Scegli prima la categoria".
 

@@ -190,8 +190,7 @@
       if (!nome.value.trim()) { toast('Il nome è obbligatorio.', true); nome.focus(); return; }
       if (!cat.value || !sot.value) { toast('Scegli categoria e sottocategoria.', true); return; }
       ok.disabled = true;
-      api('POST', 'api/prodotto', { barcode: bc, nome: nome.value.trim(), marca: r.marca, confezione: r.confezione, immagine: r.immagine, categoria: cat.value, sottocategoria: sot.value, tipo: tipo.value.trim(), composizione: r.composizione, nutrizione: r.nutrizione, punteggi: r.punteggi, fonte: r.fonte })
-        .then(function () { return api('POST', 'api/movimento', { barcode: bc, tipo: 'Carico', location: st.luogo, quantita: st.qta }); })
+      api('POST', 'api/prodotto', { barcode: bc, nome: nome.value.trim(), marca: r.marca, confezione: r.confezione, immagine: r.immagine, categoria: cat.value, sottocategoria: sot.value, tipo: tipo.value.trim(), composizione: r.composizione, nutrizione: r.nutrizione, punteggi: r.punteggi, fonte: r.fonte, location: st.luogo, quantita: st.qta })
         .then(function () { toast('Prodotto creato e movimento salvato.'); st.prod = null; st.stock = []; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } hideProp(); resetForm(); })
         .catch(function (e) { toast('Non salvato: ' + e.message, true); ok.disabled = false; });
     });

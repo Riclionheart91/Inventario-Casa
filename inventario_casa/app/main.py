@@ -104,6 +104,8 @@ class NuovoProd(BaseModel):
     nutrizione: str = ""
     punteggi: str = ""
     fonte: str = "App"
+    location: str = ""
+    quantita: float = 1
 
 
 class Dec(BaseModel):
@@ -172,7 +174,7 @@ def crea_prodotto(m: NuovoProd, x_code: str = Header(None)):
     check(x_code)
     writable()
     return inv().crea_prodotto(m.barcode, m.nome, m.marca, m.confezione, m.immagine, m.categoria, m.sottocategoria,
-                               m.tipo, m.dettagli, m.composizione, m.nutrizione, m.punteggi, m.fonte)
+                               m.tipo, m.dettagli, m.composizione, m.nutrizione, m.punteggi, m.fonte, m.location, m.quantita)
 
 
 @app.get("/api/categorie")

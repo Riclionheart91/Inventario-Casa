@@ -144,8 +144,9 @@ class Inventory:
 
     def crea_prodotto(self, barcode, nome: str, marca: str = "", confezione: str = "", immagine: str = "",
                       categoria: str = "", sottocategoria: str = "", tipo: str = "", dettagli: str = "",
-                      composizione: str = "", nutrizione: str = "", punteggi: str = "", fonte: str = "App") -> dict:
-        """Nuovo prodotto del catalogo (una riga in prodotti). Il movimento si registra poi con movimento()."""
+                      composizione: str = "", nutrizione: str = "", punteggi: str = "", fonte: str = "App",
+                      location: str = "", quantita=1) -> dict:
+        """Nuovo prodotto del catalogo (una riga in prodotti). Con `location` registra subito anche il Carico, nella stessa chiamata."""
         k = nbc(barcode)
         nome, categoria, sottocategoria, tipo = (nome or "").strip(), (categoria or "").strip(), (sottocategoria or "").strip(), (tipo or "").strip()
         if not k:
@@ -154,6 +155,8 @@ class Inventory:
             raise ApiError(400, "Il nome è obbligatorio")
         if self.prodotto(k) is not None:
             raise ApiError(409, "Codice già presente nel catalogo")
+        if location and location not in LUOGHI:
+            raise ApiError(400, "Posizione non valida")
         ammesse = {c["categoria"]: c["sottocategorie"] for c in self.categorie()}
         if ammesse:
             if categoria not in ammesse:
@@ -171,7 +174,12 @@ class Inventory:
             self.store.append_row(SH_AIT, {"Tipo": tipo, "Scorta_min": 0, "Stato": ST_PENDING[SH_AIT], "Note": "creato dall'app"})
             self._drop(SH_AIT)
         self._drop(SH_PROD)
-        return {"ok": True, "riga": riga, "barcode": int(k)}
+        out = {"ok": True, "riga": riga, "barcode": int(k), "movimento": False}
+        if location:   # il carico usa i dati appena inseriti, senza rileggere il foglio
+            self.movimento(k, "Carico", location, quantita or 1,
+                           noto={"prodotto": nome, "categoria": categoria, "sottocategoria": sottocategoria})
+            out["movimento"] = True
+        return out
 
     def modifica_prodotto(self, barcode, sottocategoria: str) -> dict:
         """Cambio di sottocategoria = modifica del prodotto: aggiorna il catalogo e le righe di movimento di quel
@@ -324,7 +332,7 @@ class Inventory:
         return tot
 
     def movimento(self, barcode, tipo: str, location: str, quantita, prodotto: str = "", foto: str = "",
-                  destinazione: str = "", categoria: str = "", categoria_new: str = "") -> dict:
+                  destinazione: str = "", categoria: str = "", categoria_new: str = "", noto: Optional[dict] = None) -> dict:
         """Carico/Scarico = una riga. Move (cambio posizione) e Cng (cambio categoria) = coppia di righe nette:
         Scarico alla situazione vecchia + Carico alla nuova, come fanno i bot di AppSheet (la riga Move/Cng non resta nel foglio)."""
         k = nbc(barcode)
@@ -339,7 +347,7 @@ class Inventory:
         if q <= 0:
             raise ApiError(400, "La quantità deve essere maggiore di zero")
         qv = int(q) if float(q).is_integer() else q
-        p = self.prodotto(k)
+        p = noto or self.prodotto(k)
         if p is None and not foto:
             raise ApiError(409, "Codice sconosciuto: serve una foto per creare la bozza")
         cat0 = (categoria or (p["categoria"] if p else "")).strip()

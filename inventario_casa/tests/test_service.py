@@ -168,3 +168,18 @@ class T(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TCreaConCarico(unittest.TestCase):
+    def test_crea_e_carica_in_una_chiamata(self):
+        _, inv, _ = make()
+        r = inv.crea_prodotto("6111246721261", "Yogurt", categoria="Dispensa", sottocategoria="Bevande", location="Casa", quantita=3)
+        self.assertTrue(r["movimento"])
+        s = [e for e in inv.stock() if str(e["barcode"]) == "6111246721261"]
+        self.assertEqual((s[0]["luogo"], s[0]["qta"], s[0]["categoria"]), ("Casa", 3, "Dispensa"))
+
+    def test_posizione_errata_non_crea_nulla(self):
+        _, inv, _ = make()
+        with self.assertRaises(ApiError):
+            inv.crea_prodotto("6111246721261", "Yogurt", categoria="Dispensa", sottocategoria="Bevande", location="Luna")
+        self.assertIsNone(inv.prodotto("6111246721261"))
