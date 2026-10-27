@@ -3,6 +3,15 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.6.2 — 2026-10-28
+Scorrimenti laterali sulle righe, come definiti dall'utente (la 0.6.0 e la 0.6.1 erano già pubblicate: serve un numero nuovo perché Home Assistant proponga l'aggiornamento).
+- Spesa: a destra «Comprato +1» (carico di 1 a Casa); a sinistra toglie la voce dalla lista per oggi, solo su questo dispositivo (c'è «Rimetti in lista»).
+- Approvazioni: a destra Approva, a sinistra Rifiuta; entrambi con «Annulla» per 5 secondi: il foglio viene scritto solo dopo.
+- Stock e Prodotti: a sinistra Scarico di 1 (solo se la giacenza è maggiore di zero), a destra Carico di 1, con «Annulla» per 5 secondi. In Stock vale la posizione e la categoria della riga; in Prodotti la riga di giacenza del prodotto, e se ce n'è più di una un piccolo menu chiede quale.
+- Da inserire: a sinistra Scarta (con «Annulla» 5 s); a destra «Aggiungi all'inventario» solo se la bozza è completa, altrimenti vibra, avvisa «Completa prima i campi» e porta al primo campo mancante.
+- Ogni gesto ha il pulsante equivalente (−1/+1, ✕ nella Spesa, Approva/Rifiuta/Scarta già presenti), funziona con mouse e trackpad e non ostacola lo scorrimento verticale. Se l'app va in secondo piano durante i 5 secondi, l'azione viene scritta subito.
+- Sempre attivo lo scorrimento sulla barra in basso per cambiare pagina.
+
 ## 0.6.1 — 2026-10-28
 Scorrimento sulla barra in basso e comando rapido predefinito.
 - Scorrere la barra del menu in basso cambia pagina (verso sinistra la successiva, verso destra la precedente); un tocco sui pulsanti funziona come prima.

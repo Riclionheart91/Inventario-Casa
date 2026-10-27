@@ -46,7 +46,7 @@
     var m;
     if (path === 'api/stock') return MOCKDB.stock;
     if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
-    if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero.', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }] };
+    if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero.', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }, { luogo: 'Cantina', categoria: 'Bevande', qta: 2, minima: 0 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
     if (path === 'api/tipi') return ['Crema spalmabile', 'Latte', 'Pasta'];
@@ -70,6 +70,7 @@
     return (d && typeof d === 'object') ? JSON.stringify(d) : (d || ('Errore ' + st));
   }
   function api(method, path, body, raw, form) {
+    if (MOCK && method !== 'GET') (window.__log = window.__log || []).push([method, path, body]);
     if (MOCK) return new Promise(function (res, rej) { setTimeout(function () { try { res(mockApi(method, path, raw ? null : body)); } catch (e) { rej(e); } }, 120); });
     var opt = { method: method, headers: {} };
     if (form) opt.body = form;
@@ -521,7 +522,9 @@
         if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.luogo].filter(Boolean).join(' · ')));
         it.appendChild(n); it.appendChild(el('span', 'badge' + (isLow(r) ? ' low' : ''), isLow(r) ? 'Sotto scorta' : 'Ok'));
         it.appendChild(el('div', 'qta', String(r.qta)));
-        d.appendChild(swipeRiga(it, { right: { label: 'Scheda', fn: function () { openScheda(r.barcode); } }, left: { label: 'Scarico', fn: function () { scaricoRapido(r); } } }));
+        it.appendChild(bottoniRapidi(r, function () { movRapidoStock('Scarico', r); }, function () { movRapidoStock('Carico', r); }, st.ro));
+        d.appendChild(swipeRiga(it, { right: { label: '+1 Carico', ok: function () { return !st.ro; }, fn: function () { movRapidoStock('Carico', r); } },
+                                      left: { label: '−1 Scarico', ok: function () { return !st.ro && r.qta > 0; }, fn: function () { movRapidoStock('Scarico', r); } } }));
       });
       box.appendChild(d);
     });
@@ -578,8 +581,10 @@
         var zero = !r.qta, low = !zero && r.minima > 0 && r.qta <= r.minima;
         it.appendChild(el('span', 'badge' + (zero ? ' zero' : low ? ' low' : ''), zero ? 'Esaurito' : low ? 'Sotto scorta' : 'Ok'));
         it.appendChild(el('div', 'qta', String(r.qta || 0)));
+        it.appendChild(bottoniRapidi({ nome: r.nome, qta: r.qta }, function () { movRapidoProd('Scarico', r); }, function () { movRapidoProd('Carico', r); }, st.ro));
         (function (bc) { it.addEventListener('click', function () { openScheda(bc); }); it.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openScheda(bc); } }); })(r.barcode);
-        d.appendChild(swipeRiga(it, { right: { label: 'Scheda', fn: function () { openScheda(r.barcode); } }, left: { label: 'Scarico', fn: function () { scaricoRapido(r); } } }));
+        d.appendChild(swipeRiga(it, { right: { label: '+1 Carico', ok: function () { return !st.ro; }, fn: function () { movRapidoProd('Carico', r); } },
+                                      left: { label: '−1 Scarico', ok: function () { return !st.ro && r.qta > 0; }, fn: function () { movRapidoProd('Scarico', r); } } }));
       });
       box.appendChild(d);
     });
@@ -625,10 +630,11 @@
 
 
   /* ---------- scorrimenti laterali (swipe) sulle righe ---------- */
-  /* Swipe sulle righe: infrastruttura pronta ma SPENTA. Ogni pagina ha la sua definizione (azione a destra e a sinistra:
-     { label, fn, ok?, conferma? }) nel punto in cui costruisce le righe, passata a swipeRiga(). Si accende con SWIPE_RIGHE.attivo = true
-     dopo che l'utente ha deciso cosa deve fare ogni scorrimento in ogni pagina. */
-  var SWIPE_RIGHE = { attivo: /[?&]swipe=1/.test(location.search) };   // l'interruttore ?swipe=1 serve solo ai test
+  /* Swipe sulle righe, definiti dall'utente. Ogni pagina ha la sua definizione (azione a destra e a sinistra:
+     { label, fn, ok?, prima?, conferma? }) nel punto in cui costruisce le righe, passata a swipeRiga().
+     ok = l'azione e disponibile; prima = controllo prima dell'annulla (false = ferma); conferma = testo dell'annulla di 5 secondi,
+     la scrittura sul foglio parte solo allo scadere. Ogni gesto ha anche un pulsante equivalente. */
+  var SWIPE_RIGHE = { attivo: true };
   function swipeRiga(row, def) { return SWIPE_RIGHE.attivo ? swipeWrap(row, def) : row; }
   var SW_MAX = 120, SW_SOGLIA = 76;
   function swipeWrap(row, o) {   // o.right / o.left = { label, fn, ok?: function () { return true } } ; restituisce l'elemento da inserire al posto della riga
@@ -668,25 +674,63 @@
       if (!era) return;
       blocca = true; setTimeout(function () { blocca = false; }, 60);   // il rilascio non deve valere come tocco sulla riga
       var d = e.type === 'pointerup' ? azione(v > 0 ? 'right' : 'left') : null;
-      if (d && Math.abs(v) >= SW_SOGLIA) { if (d.conferma) conAnnulla(d.conferma, d.fn); else d.fn(); }
+      if (d && Math.abs(v) >= SW_SOGLIA) { if (d.prima && d.prima() === false) return; if (d.conferma) conAnnulla(d.conferma, d.fn); else d.fn(); }
     }
     row.addEventListener('pointerup', fine); row.addEventListener('pointercancel', fine);
     row.addEventListener('click', function (e) { if (blocca && e.isTrusted) { e.stopPropagation(); e.preventDefault(); } }, true);
     return wrap;
   }
   var undoT = null, undoFn = null;
-  function conAnnulla(msg, fn) {   // azione con 4 secondi per annullare (rifiuti e scarti trascinati per sbaglio)
+  function conAnnulla(msg, fn) {   // azione con 5 secondi per annullare: la scrittura sul foglio parte solo se non si annulla
     if (undoFn) { clearTimeout(undoT); var prima = undoFn; undoFn = null; prima(); }
     var box = $('undo'); box.textContent = ''; box.appendChild(el('span', '', msg));
     var b = el('button', '', 'Annulla'); b.type = 'button'; box.appendChild(b); box.hidden = false;
     undoFn = fn;
-    undoT = setTimeout(function () { box.hidden = true; var f = undoFn; undoFn = null; if (f) f(); }, 4000);
+    undoT = setTimeout(function () { box.hidden = true; var f = undoFn; undoFn = null; if (f) f(); }, 5000);
     b.addEventListener('click', function () { clearTimeout(undoT); undoFn = null; box.hidden = true; toast('Annullato.'); });
   }
-  function scaricoRapido(r) {   // Movimento gia impostato su Scarico con questo prodotto (e, dallo Stock, la sua posizione)
-    show('mov'); st.tipo = 'Scarico'; buildSeg('tipo', TIPI, 'tipo');
-    st.pre = r.luogo ? { luogo: r.luogo, categoria: r.categoria || '' } : null;
-    $('bc').value = String(r.barcode); lookup();
+
+
+  document.addEventListener('visibilitychange', function () { if (document.hidden && undoFn) { clearTimeout(undoT); var f = undoFn; undoFn = null; $('undo').hidden = true; f(); } });   // l'app va in secondo piano: meglio scrivere subito che perdere l'azione
+  function scegli(titolo, voci, cb) {   // piccolo menu per scegliere una voce (es. in quale posizione scaricare)
+    var vecchio = document.getElementById('pick'); if (vecchio) vecchio.remove();
+    var bg = el('div', ''); bg.id = 'pick'; bg.setAttribute('role', 'dialog'); bg.setAttribute('aria-label', titolo);
+    var box = el('div', 'pk'); box.appendChild(el('h3', '', titolo));
+    function chiudi() { bg.remove(); }
+    voci.forEach(function (v) { var b = el('button', 'btn', v.label); b.type = 'button'; b.addEventListener('click', function () { chiudi(); cb(v.valore); }); box.appendChild(b); });
+    var x = el('button', 'btn ghost', 'Chiudi'); x.type = 'button'; x.addEventListener('click', chiudi); box.appendChild(x);
+    bg.addEventListener('click', function (e) { if (e.target === bg) chiudi(); });
+    bg.appendChild(box); document.body.appendChild(bg); var p = box.querySelector('button'); if (p) p.focus();
+  }
+  function scriviMov(tipo, r) {   // Carico/Scarico di 1 sulla riga di stock r {barcode, luogo, categoria, nome}
+    return api('POST', 'api/movimento', { barcode: String(r.barcode), tipo: tipo, location: r.luogo || 'Casa', quantita: 1, categoria: r.categoria || '', prodotto: r.nome || '' })
+      .then(function () { azzeraCache(); toast((tipo === 'Carico' ? 'Caricato 1' : 'Scaricato 1') + (r.nome ? ' · ' + r.nome : '') + '.'); if (st.tab === 'stock') loadStock(); else if (st.tab === 'prod') loadProd(); })
+      .catch(function (e) { toast('Non riuscito: ' + e.message, true); });
+  }
+  function movRapidoStock(tipo, r) {   // riga di stock nota: 5 secondi per annullare, poi scrive
+    if (st.ro) { toast('Sola lettura: nessuna modifica.', true); return; }
+    if (tipo === 'Scarico' && !(r.qta > 0)) { toast('Giacenza a zero: niente da scaricare.', true); return; }
+    conAnnulla((tipo === 'Carico' ? 'Carico 1 · ' : 'Scarico 1 · ') + r.nome + (r.luogo ? ' (' + [r.luogo, r.categoria].filter(Boolean).join(' · ') + ')' : '') + '…', function () { scriviMov(tipo, r); });
+  }
+  function movRapidoProd(tipo, p) {   // elenco prodotti: usa la riga di stock principale; se ce ne sono piu di una chiede quale
+    if (st.ro) { toast('Sola lettura: nessuna modifica.', true); return; }
+    if (tipo === 'Scarico' && !(p.qta > 0)) { toast('Giacenza a zero: niente da scaricare.', true); return; }
+    api('GET', 'api/scheda/' + p.barcode).then(function (sc) {
+      var righe = (sc.giacenze || []).filter(function (x) { return tipo === 'Carico' || x.qta > 0; })
+        .map(function (x) { return { barcode: p.barcode, nome: p.nome, luogo: x.luogo, categoria: x.categoria, qta: x.qta }; });
+      if (!righe.length) righe = [{ barcode: p.barcode, nome: p.nome, luogo: 'Casa', categoria: p.categoria || '', qta: 0 }];   // mai stato in giacenza: carico a Casa
+      if (righe.length === 1) { movRapidoStock(tipo, righe[0]); return; }
+      scegli((tipo === 'Carico' ? 'Carica 1 dove?' : 'Scarica 1 da dove?') + ' ' + p.nome, righe.map(function (x) { return { label: [x.luogo, x.categoria].filter(Boolean).join(' · ') + ' — ' + x.qta, valore: x }; }),
+        function (x) { movRapidoStock(tipo, x); });
+    }).catch(function (e) { toast('Non riuscito: ' + e.message, true); });
+  }
+  function bottoniRapidi(riga, onMeno, onPiu, dis) {   // pulsanti equivalenti ai due scorrimenti
+    var w = el('div', 'rapidi'), m = el('button', 'rp', '−1'), p = el('button', 'rp', '+1');
+    m.type = p.type = 'button'; m.title = 'Scarica 1'; p.title = 'Carica 1'; m.setAttribute('aria-label', 'Scarica 1: ' + riga.nome); p.setAttribute('aria-label', 'Carica 1: ' + riga.nome);
+    m.disabled = !!dis || !(riga.qta > 0); p.disabled = !!dis;
+    m.addEventListener('click', function (e) { e.stopPropagation(); onMeno(); }); p.addEventListener('click', function (e) { e.stopPropagation(); onPiu(); });
+    m.addEventListener('keydown', function (e) { e.stopPropagation(); }); p.addEventListener('keydown', function (e) { e.stopPropagation(); });
+    w.appendChild(m); w.appendChild(p); return w;
   }
 
   /* ---------- spesa ---------- */
@@ -712,14 +756,25 @@
     a2.target = '_top'; a2.rel = 'noopener'; document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
     toast('Aggiungo ' + righe.length + (righe.length === 1 ? ' voce' : ' voci') + ' ai Promemoria…');
   }
+  function oggi() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function nascosteOggi() { try { var o = JSON.parse(localStorage.getItem('spesaNascoste') || 'null'); return (o && o.g === oggi() && Array.isArray(o.t)) ? o.t : []; } catch (e) { return []; } }
+  function salvaNascoste(t) { try { localStorage.setItem('spesaNascoste', JSON.stringify({ g: oggi(), t: t })); } catch (e) { /* ok */ } }
   function chiusiSpesa() { try { return JSON.parse(localStorage.getItem('spesaChiusi') || '[]') || []; } catch (e) { return []; } }
   function renderSpesa(s) {
     var box = $('spesa-list'), top = $('spesa-top'), car = carrello(); box.textContent = ''; top.textContent = '';
-    var voci = s.voci || [];
+    var tutte = s.voci || [], nasc = nascosteOggi();
+    var voci = tutte.filter(function (v) { return nasc.indexOf(v.tipo) < 0; });
+    s = Object.assign({}, s, { voci: voci, finiti: voci.filter(function (v) { return v.stato === 'FINITO'; }).length, in_esaurimento: voci.filter(function (v) { return v.stato !== 'FINITO'; }).length });
     var nCar = voci.filter(function (v) { return car[v.tipo]; }).length, nDa = voci.length - nCar;
     $('sub').textContent = voci.length ? nDa + ' da comprare' + (nCar ? ' · ' + nCar + ' nel carrello' : '') : 'Niente da comprare';
     setStk();
-    if (!voci.length) { box.appendChild(el('p', 'empty', 'Scorte a posto: niente da comprare.')); return; }
+    var nNasc = tutte.length - voci.length;
+    function ripristina() {
+      if (!nNasc) return null;
+      var b = el('button', 'btn ghost sp-ripr', 'Rimetti in lista le ' + nNasc + ' tolte oggi'); b.type = 'button';
+      b.addEventListener('click', function () { salvaNascoste([]); renderSpesa(Object.assign({}, s, { voci: tutte })); loadSpesa(); }); return b;
+    }
+    if (!voci.length) { box.appendChild(el('p', 'empty', nNasc ? 'Hai tolto tutto dalla lista per oggi.' : 'Scorte a posto: niente da comprare.')); var rp0 = ripristina(); if (rp0) box.appendChild(rp0); return; }
     var ch = el('div', 'chips'); ch.setAttribute('role', 'group'); ch.setAttribute('aria-label', 'Filtro');
     [['Tutti', voci.length], ['Finiti', s.finiti || 0], ['In esaurimento', s.in_esaurimento || 0]].forEach(function (f) {
       var b = el('button', 'chip', f[0] + ' ' + f[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(spFiltro === f[0]));
@@ -757,12 +812,16 @@
           }).catch(function (e) { ok.disabled = false; toast('Non riuscito: ' + e.message, true); });
         });
         row.appendChild(ok);
-        d.appendChild(swipeRiga(row, { right: { label: car[v.tipo] ? '✕ Fuori dal carrello' : '✓ Nel carrello', fn: function () { chk.click(); } },
-                                       left: { label: '+1 Comprato', ok: function () { return !ok.disabled; }, fn: function () { ok.click(); } } }));
+        var x = el('button', 'sp-x', '✕'); x.type = 'button'; x.title = 'Togli dalla lista per oggi'; x.setAttribute('aria-label', 'Togli dalla lista per oggi: ' + v.tipo);
+        function togli() { var n = nascosteOggi(); if (n.indexOf(v.tipo) < 0) n.push(v.tipo); salvaNascoste(n); toast('«' + v.tipo + '» tolto dalla lista per oggi.'); renderSpesa(s); }
+        x.addEventListener('click', togli); row.appendChild(x);
+        d.appendChild(swipeRiga(row, { right: { label: '+1 Comprato', ok: function () { return !ok.disabled; }, fn: function () { ok.click(); } },
+                                       left: { label: 'Togli per oggi', fn: togli } }));
       });
       box.appendChild(d);
     });
     if (!ordine.length) box.appendChild(el('p', 'empty', 'Nessuna voce in questo filtro.'));
+    var rp = ripristina(); if (rp) box.appendChild(rp);
   }
 
   /* ---------- da inserire (bozze) ---------- */
@@ -820,7 +879,13 @@
         api('POST', base + 'scarta', {}).then(function () { toast('Bozza scartata.'); loadBozze(); }).catch(function (e) { blocca(false); toast('Non riuscito: ' + e.message, true); });
       });
       c.appendChild(bt);
-      box.appendChild(swipeRiga(c, { left: { label: 'Scarta', ok: function () { return !no.disabled; }, conferma: 'Scarto «' + (b.nome || b.barcode) + '»…', fn: function () { if (!no.disabled) no.click(); } } }));
+      function aggiungiSwipe() {   // completa = nome, categoria e sottocategoria; altrimenti avvisa e porta al primo campo mancante
+        var mancante = !nome.value.trim() ? nome : !f.cat.value ? f.cat : !f.sot.value ? f.sot : null;
+        if (mancante) { if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) { /* ok */ } } toast('Completa prima i campi.', true); try { mancante.scrollIntoView({ block: 'center' }); mancante.focus(); } catch (e) { /* ok */ } return; }
+        if (!ok.disabled) ok.click();
+      }
+      box.appendChild(swipeRiga(c, { right: { label: '＋ Aggiungi all\'inventario', ok: function () { return !st.ro; }, fn: aggiungiSwipe },
+                                     left: { label: 'Scarta', ok: function () { return !no.disabled; }, conferma: 'Scarto «' + (b.nome || b.barcode) + '»…', fn: function () { if (!no.disabled) no.click(); } } }));
     });
   }
 
@@ -858,16 +923,17 @@
           toast(msg); azzeraCache(); loadAppr();
         }).catch(function (e) { [ok, cor, no].forEach(function (x) { x.disabled = false; }); toast('Non riuscito: ' + e.message, true); });
       }
-      ok.addEventListener('click', function () {
-        if (a.genere === 'T' && !(Number(scorta.value) >= 0)) { toast('La scorta minima non può essere negativa.', true); form.hidden = false; return; }
-        if (a.genere === 'P' && (!f.cat.value || !f.sot.value)) { toast('Scegli categoria e sottocategoria (tocca Correggi).', true); form.hidden = false; return; }
-        invia('APPROVA', leggi(), 'Approvata.');
-      });
+      function valido() {
+        if (a.genere === 'T' && !(Number(scorta.value) >= 0)) { toast('La scorta minima non può essere negativa.', true); form.hidden = false; return false; }
+        if (a.genere === 'P' && (!f.cat.value || !f.sot.value)) { toast('Scegli categoria e sottocategoria (tocca Correggi).', true); form.hidden = false; return false; }
+        return true;
+      }
+      ok.addEventListener('click', function () { if (valido()) invia('APPROVA', leggi(), 'Approvata.'); });
       cor.addEventListener('click', function () { form.hidden = !form.hidden; cor.textContent = form.hidden ? 'Correggi' : 'Chiudi correzione'; });
       no.addEventListener('click', function () { invia('RIFIUTA', {}, 'Rifiutata.'); });
       c.appendChild(bt);
       box.appendChild(swipeRiga(c, {
-        right: { label: '✓ Approva', ok: function () { return form.hidden && !ok.disabled; }, fn: function () { ok.click(); } },
+        right: { label: '✓ Approva', ok: function () { return !ok.disabled; }, prima: valido, conferma: 'Approvo «' + a.titolo + '»…', fn: function () { if (!ok.disabled) invia('APPROVA', leggi(), 'Approvata.'); } },
         left: { label: 'Rifiuta', ok: function () { return !no.disabled; }, conferma: 'Rifiuto «' + a.titolo + '»…', fn: function () { if (!no.disabled) no.click(); } } }));
     });
   }
