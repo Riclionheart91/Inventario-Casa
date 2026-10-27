@@ -135,3 +135,19 @@ details.g summary,.letter{position:sticky;top:calc(var(--stk,0px) - 16px);z-inde
 #pick{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
 #pick .pk{width:100%;max-width:520px;background:var(--s2);border-top:1px solid var(--bd);border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
 #pick h3{margin:0 0 4px;font-size:15px}#pick .btn{min-height:48px;text-align:left}
+
+/* Prodotti: vista unica per tipo */
+details.g summary{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+details.g summary .gn{font-weight:600}
+details.g summary .gc{font-size:12px;color:var(--mut);white-space:nowrap}
+details.g summary .gc b{color:var(--tx);font-weight:700}
+.item.pr{gap:10px;padding:8px 0}
+.item.pr .th{width:40px;height:40px}
+.item.pr .n b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item.pr .n .m1,.item.pr .n .m2{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+.item.pr .n .m2{font-size:11px;opacity:.75}
+.qp{min-width:46px;text-align:right;line-height:1.1}
+.qp b{font-size:18px;font-weight:700}.qp small{font-size:11px;color:var(--mut);margin-left:2px}
+.qp i{display:block;font-style:normal;font-size:10px;color:var(--mut)}
+.qp.zero b{color:var(--bad)}.qp.low b{color:var(--warn)}.qp.low i{color:var(--warn)}.qp.zero i{color:var(--bad)}
+#prod-sum{margin:4px 0 2px;font-size:12px;color:var(--mut)}

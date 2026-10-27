@@ -221,10 +221,13 @@ class Inventory:
     def _elenco(self) -> List[dict]:
         tot: Dict[str, float] = {}
         minima: Dict[str, float] = {}
+        posti: Dict[str, Dict[str, float]] = {}
         for e in self.stock():
             k = str(e["barcode"])
             tot[k] = tot.get(k, 0) + e["qta"]
             minima[k] = e["minima"]
+            posti.setdefault(k, {})[e["luogo"]] = posti.get(k, {}).get(e["luogo"], 0) + e["qta"]
+        scorte = self._scorte_tipo()
         out = []
         for p in self._dicts(SH_PROD):
             k = nbc(p.get("Barcode"))
@@ -233,7 +236,9 @@ class Inventory:
             g = lambda n: str(p.get(n, "") or "").strip()
             out.append({"barcode": int(k), "nome": g("Prodotto") or "(senza nome)", "marca": g("Marca"), "conf": g("Confezione"),
                         "tipo": g("Tipo"), "categoria": g("Categoria"), "sotto": g("Sottocategoria"), "img": g("Immagine"),
-                        "qta": tot.get(str(int(k)), 0), "minima": minima.get(str(int(k)), 0)})
+                        "qta": tot.get(str(int(k)), 0),
+                        "minima": minima.get(str(int(k)), scorte.get(g("Tipo").lower(), 0)),   # anche per i prodotti senza giacenza
+                        "posti": [{"luogo": l, "qta": q} for l, q in sorted(posti.get(str(int(k)), {}).items()) if q]})
         return sorted(out, key=lambda e: (e["nome"].casefold(), e["marca"].casefold()))
 
     def scheda(self, barcode) -> Optional[dict]:
@@ -266,6 +271,15 @@ class Inventory:
             self._memo["stock"] = self._stock()
         return self._memo["stock"]
 
+    def _scorte_tipo(self) -> Dict[str, float]:
+        """Scorta minima per tipo (minuscolo), da ai_tipi: una per tipo, esclusi i rifiutati."""
+        scorta_tipo: Dict[str, float] = {}
+        for t in self._dicts(SH_AIT):
+            nome = str(t.get("Tipo", "") or "").strip().lower()
+            if nome and str(t.get("Stato", "")).upper() != "RIFIUTATO":
+                scorta_tipo[nome] = _num(t.get("Scorta_min", t.get("Scorta min", 0)))
+        return scorta_tipo
+
     def _stock(self, zeri: bool = False) -> List[dict]:
         """Giacenza per prodotto e luogo, calcolata dai movimenti, con tipo e scorta minima presi dal catalogo.
         TODO: leggere Stock_ByLoc (foglio a formule) se si vuole identica a AppSheet; semantica di Sposta/Rettifica da confermare."""
@@ -275,11 +289,7 @@ class Inventory:
             t = str(a.get("Tipo", "") or "").strip()
             if k and t and str(a.get("Stato", "")).upper() != "RIFIUTATO":
                 tipi_ai[k] = t
-        scorta_tipo: Dict[str, float] = {}   # la scorta minima vive in ai_tipi (una per tipo)
-        for t in self._dicts(SH_AIT):
-            nome = str(t.get("Tipo", "") or "").strip().lower()
-            if nome and str(t.get("Stato", "")).upper() != "RIFIUTATO":
-                scorta_tipo[nome] = _num(t.get("Scorta_min", t.get("Scorta min", 0)))
+        scorta_tipo = self._scorte_tipo()
         cat: Dict[str, dict] = {}
         for p in self._dicts(SH_PROD):
             k = nbc(p.get("Barcode"))

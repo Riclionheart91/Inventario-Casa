@@ -45,7 +45,7 @@
     var m;
     var m;
     if (path === 'api/stock') return MOCKDB.stock;
-    if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
+    if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta, posti: [{ luogo: e.luogo, qta: e.qta }].concat(e.nome.length % 2 ? [{ luogo: 'Cantina', qta: 1 }] : []) }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
     if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero.', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }, { luogo: 'Cantina', categoria: 'Bevande', qta: 2, minima: 0 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
@@ -541,53 +541,63 @@
       try { localStorage.setItem('prodCache', nuovo); } catch (e) { /* spazio pieno: pazienza */ }
     }).catch(function (e) { toast('Elenco non caricato: ' + e.message, true); });
   }
-  var prodOrd = (function () { try { return localStorage.getItem('prodOrd') === 'tipo' ? 'tipo' : 'az'; } catch (e) { return 'az'; } })();
+  var FILTRI_PROD = [['tutti', 'Tutti'], ['casa', 'In casa'], ['esauriti', 'Esauriti'], ['sotto', 'Sotto scorta']];
+  var prodFiltro = (function () { try { var f = localStorage.getItem('prodFiltro'); return FILTRI_PROD.some(function (x) { return x[0] === f; }) ? f : 'tutti'; } catch (e) { return 'tutti'; } })();
   function chiusiProd() { try { return JSON.parse(localStorage.getItem('prodChiusi') || '[]') || []; } catch (e) { return []; } }
   function salvaChiusiProd(k) { try { localStorage.setItem('prodChiusi', JSON.stringify(k)); } catch (e) { /* ok */ } }
-  function buildOrdProd() {
-    var box = $('prod-ord'); box.textContent = '';
-    [['az', 'A-Z'], ['tipo', 'Per tipo']].forEach(function (o) {
-      var b = el('button', 'chip', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(prodOrd === o[0]));
-      b.addEventListener('click', function () { prodOrd = o[0]; try { localStorage.setItem('prodOrd', o[0]); } catch (e) { /* ok */ } buildOrdProd(); renderProd(); }); box.appendChild(b);
+  function buildFiltriProd() {
+    var box = $('prod-flt'); box.textContent = '';
+    FILTRI_PROD.forEach(function (o) {
+      var b = el('button', 'chip', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(prodFiltro === o[0]));
+      b.addEventListener('click', function () { prodFiltro = o[0]; try { localStorage.setItem('prodFiltro', o[0]); } catch (e) { /* ok */ } buildFiltriProd(); renderProd(); }); box.appendChild(b);
     });
   }
-  function renderProd() {
+  function sottoScorta(r) { return r.minima > 0 && (r.qta || 0) <= r.minima; }
+  function righePosti(r) { return (r.posti || []).map(function (p) { return p.luogo + ' ' + p.qta; }).join(' · '); }
+  function renderProd() {   // una sola vista: gruppi per tipo (A-Z, "Senza tipo" in fondo), prodotti in ordine alfabetico dentro il gruppo
     var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist');
     box.textContent = '';
-    var list = (st.prod || []).filter(function (r) { return !q || [r.nome, r.marca, r.categoria, r.sotto, r.tipo, String(r.barcode)].join(' ').toLowerCase().indexOf(q) >= 0; });
+    var list = (st.prod || []).filter(function (r) {
+      if (prodFiltro === 'casa' && !(r.qta > 0)) return false;
+      if (prodFiltro === 'esauriti' && r.qta > 0) return false;
+      if (prodFiltro === 'sotto' && !sottoScorta(r)) return false;
+      return !q || [r.nome, r.marca, r.conf, r.categoria, r.sotto, r.tipo, String(r.barcode)].join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+    var pezzi = 0, sotto = 0; list.forEach(function (r) { pezzi += r.qta || 0; if (sottoScorta(r)) sotto++; });
+    $('prod-sum').textContent = list.length + ' prodotti · ' + pezzi + ' pezzi in casa' + (sotto ? ' · ' + sotto + ' sotto scorta' : '');
     if (!list.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto trovato.')); return; }
     var gruppi = {}, chiavi = [];
-    list.forEach(function (r) {
-      var k;
-      if (prodOrd === 'tipo') k = (r.tipo || '').trim() || 'Senza tipo';
-      else { k = (r.nome.charAt(0) || '#').toUpperCase(); if (!/[A-Z]/.test(k)) k = '#'; }
-      if (!gruppi[k]) { gruppi[k] = []; chiavi.push(k); }
-      gruppi[k].push(r);
-    });
-    if (prodOrd === 'tipo') chiavi.sort(function (x, y) { if (x === 'Senza tipo') return 1; if (y === 'Senza tipo') return -1; return x.localeCompare(y, 'it'); });
-    var chiusi = chiusiProd();
+    list.forEach(function (r) { var k = (r.tipo || '').trim() || 'Senza tipo'; if (!gruppi[k]) { gruppi[k] = []; chiavi.push(k); } gruppi[k].push(r); });
+    chiavi.sort(function (x, y) { if (x === 'Senza tipo') return 1; if (y === 'Senza tipo') return -1; return x.localeCompare(y, 'it'); });
+    var chiusi = chiusiProd(), frag = document.createDocumentFragment();
     chiavi.forEach(function (k) {
-      var id = prodOrd + ':' + k, d = el('details', 'g'); d.open = !!q || chiusi.indexOf(id) < 0; d.dataset.k = id;
-      d.appendChild(el('summary', '', k + ' (' + gruppi[k].length + ')'));
+      var id = 'tipo:' + k, d = el('details', 'g'); d.open = !!q || chiusi.indexOf(id) < 0; d.dataset.k = id;
+      var tot = 0; gruppi[k].forEach(function (r) { tot += r.qta || 0; });
+      var sm = el('summary', ''); sm.appendChild(el('span', 'gn', k));
+      var cn = el('span', 'gc', ''); cn.appendChild(el('b', '', tot + ' pz')); cn.appendChild(document.createTextNode(' · ' + gruppi[k].length + (gruppi[k].length === 1 ? ' prodotto' : ' prodotti'))); sm.appendChild(cn);
+      d.appendChild(sm);
       d.addEventListener('toggle', function () { if (q) return; var c = chiusiProd().filter(function (x) { return x !== id; }); if (!d.open) c.push(id); salvaChiusiProd(c); });
       gruppi[k].forEach(function (r) {
-        var it = el('div', 'item'), n = el('div', 'n'), th = el('div', 'th');
+        var it = el('div', 'item pr'), n = el('div', 'n'), th = el('div', 'th');
         if (r.img) thumbLazy(th, r.img);
         it.appendChild(th); it.tabIndex = 0; it.setAttribute('role', 'button'); it.setAttribute('aria-label', 'Apri la scheda di ' + r.nome);
         n.appendChild(el('b', '', r.nome));
-        var sub = [r.marca, r.conf].filter(Boolean).join(' · '); if (sub) n.appendChild(el('span', 'sub2', sub));
-        if (r.tipo && prodOrd !== 'tipo') n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.categoria].filter(Boolean).join(' · ')));
+        var l2 = [[r.marca, r.conf].filter(Boolean).join(' · '), righePosti(r)].filter(Boolean).join('  ·  ');
+        if (l2) n.appendChild(el('span', 'm1', l2));
+        var cs = [r.categoria, r.sotto].filter(Boolean).join(' › '); if (cs) n.appendChild(el('span', 'm2', cs));
         it.appendChild(n);
-        var zero = !r.qta, low = !zero && r.minima > 0 && r.qta <= r.minima;
-        it.appendChild(el('span', 'badge' + (zero ? ' zero' : low ? ' low' : ''), zero ? 'Esaurito' : low ? 'Sotto scorta' : 'Ok'));
-        it.appendChild(el('div', 'qta', String(r.qta || 0)));
+        var zero = !r.qta, low = !zero && sottoScorta(r), q2 = el('div', 'qp ' + (zero ? 'zero' : low ? 'low' : 'ok'));
+        q2.appendChild(el('b', '', String(r.qta || 0))); q2.appendChild(el('small', '', 'pz'));
+        if ((zero || low) && r.minima > 0) q2.appendChild(el('i', '', 'da comprare'));
+        it.appendChild(q2);
         it.appendChild(bottoniRapidi({ nome: r.nome, qta: r.qta }, function () { movRapidoProd('Scarico', r); }, function () { movRapidoProd('Carico', r); }, st.ro));
         (function (bc) { it.addEventListener('click', function () { openScheda(bc); }); it.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openScheda(bc); } }); })(r.barcode);
         d.appendChild(swipeRiga(it, { right: { label: '+1 Carico', ok: function () { return !st.ro; }, fn: function () { movRapidoProd('Carico', r); } },
                                       left: { label: '−1 Scarico', ok: function () { return !st.ro && r.qta > 0; }, fn: function () { movRapidoProd('Scarico', r); } } }));
       });
-      box.appendChild(d);
+      frag.appendChild(d);
     });
+    box.appendChild(frag);
   }
   function tuttiProd(apri) {
     var tutti = [];
@@ -970,7 +980,7 @@
     buildNav(); swipeNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
     $('qp').addEventListener('click', function () { setQta(st.qta + 1); });
-    $('scan').addEventListener('click', startScan); $('sc-close').addEventListener('click', closeScheda); buildOrdProd(); $('prod-chiudi').addEventListener('click', function () { tuttiProd(false); }); $('prod-apri').addEventListener('click', function () { tuttiProd(true); }); $('qp2').addEventListener('input', renderProd); $('sc-mov').addEventListener('click', function () { var bc = st.schedaBc; closeScheda(); show('mov'); if (bc) { $('bc').value = bc; lookup(); } }); document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('scheda').hidden) closeScheda(); }); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
+    $('scan').addEventListener('click', startScan); $('sc-close').addEventListener('click', closeScheda); buildFiltriProd(); $('prod-chiudi').addEventListener('click', function () { tuttiProd(false); }); $('prod-apri').addEventListener('click', function () { tuttiProd(true); }); $('qp2').addEventListener('input', renderProd); $('sc-mov').addEventListener('click', function () { var bc = st.schedaBc; closeScheda(); show('mov'); if (bc) { $('bc').value = bc; lookup(); } }); document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('scheda').hidden) closeScheda(); }); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
     $('cancel').addEventListener('click', function () { stopScan(); resetForm(); });
     $('f').addEventListener('submit', save);
     var dbt;

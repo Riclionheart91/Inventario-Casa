@@ -183,3 +183,14 @@ class TCreaConCarico(unittest.TestCase):
         with self.assertRaises(ApiError):
             inv.crea_prodotto("6111246721261", "Yogurt", categoria="Dispensa", sottocategoria="Bevande", location="Luna")
         self.assertIsNone(inv.prodotto("6111246721261"))
+
+
+class TElencoPosti(unittest.TestCase):
+    def test_posti_e_minima_senza_giacenza(self):
+        _, inv, _ = make()
+        inv.movimento(8002795002995, "Carico", "Cantina", 2)
+        e = {x["barcode"]: x for x in inv.elenco_prodotti()}
+        latte = e[8002795002995]
+        self.assertEqual(latte["qta"], 6)
+        self.assertEqual({(p["luogo"], p["qta"]) for p in latte["posti"]}, {("Casa", 4), ("Cantina", 2)})
+        self.assertEqual(e[9000000000001]["posti"], [])

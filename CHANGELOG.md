@@ -3,6 +3,14 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.6.3 — 2026-10-28
+Pagina Prodotti: una sola vista, più informazioni.
+- Le due viste (A-Z e Per tipo) sono unite: gruppi per tipo in ordine alfabetico ("Senza tipo" in fondo) e prodotti in ordine alfabetico dentro ogni gruppo.
+- Il numero nell'intestazione del gruppo sono i pezzi che hai in casa (con in piccolo quanti prodotti), non il numero di prodotti.
+- Ogni riga mostra marca e confezione, dove si trova (Casa/Cantina con le quantità), categoria › sottocategoria, i pezzi con colore (rosso 0, giallo sotto scorta) e "da comprare".
+- Riepilogo in alto (prodotti · pezzi in casa · sotto scorta) e filtri rapidi Tutti / In casa / Esauriti / Sotto scorta; la ricerca cerca anche in marca, confezione e tipo.
+- L'elenco prodotti del server include le posizioni con quantità e la scorta minima anche per i prodotti senza giacenza.
+
 ## 0.6.2 — 2026-10-28
 Scorrimenti laterali sulle righe, come definiti dall'utente (la 0.6.0 e la 0.6.1 erano già pubblicate: serve un numero nuovo perché Home Assistant proponga l'aggiornamento).
 - Spesa: a destra «Comprato +1» (carico di 1 a Casa); a sinistra toglie la voce dalla lista per oggi, solo su questo dispositivo (c'è «Rimetti in lista»).
