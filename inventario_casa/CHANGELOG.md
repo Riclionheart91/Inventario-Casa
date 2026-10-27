@@ -3,6 +3,13 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.5.0 — 2026-10-27
+Tre nuove pagine: Spesa, Da inserire, Approvazioni complete.
+- Spesa: i tipi sotto la scorta minima (da ai_tipi), con stato Finito / In esaurimento; spunta "nel carrello" e "Comprato +1" (carico a Casa).
+- Da inserire: le bozze di prodotti nuovi si completano in app (nome, categoria, sottocategoria, tipo), con ricerca nei database e suggerimento AI; "Aggiungi all'inventario" crea il prodotto.
+- Approvazioni: Approva, Correggi (nome, categoria, sottocategoria, tipo; scorta minima per i nuovi tipi, default 0) e Rifiuta, con stato scritto come fanno AppSheet e il motore.
+- Il cambio di categoria non modifica il prodotto; se la ricerca non trova nulla il prodotto non cambia.
+
 ## 0.4.6 — 2026-10-27
 Prodotto nuovo: creazione e carico in un'unica chiamata.
 - "Conferma e salva" crea il prodotto e registra subito il carico con i dati appena inseriti, senza rileggere il foglio: non serve più riscansionare il codice.

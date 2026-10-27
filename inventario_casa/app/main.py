@@ -110,6 +110,11 @@ class NuovoProd(BaseModel):
 
 class Dec(BaseModel):
     azione: str
+    campi: dict = {}
+
+
+class CampiBozza(BaseModel):
+    campi: dict = {}
 
 
 @app.get("/api/config")
@@ -223,7 +228,40 @@ def approvazioni(x_code: str = Header(None)):
 def decidi(id_: str, d: Dec, x_code: str = Header(None)):
     check(x_code)
     writable()
-    return inv().decidi(id_, d.azione)
+    return inv().decidi(id_, d.azione, d.campi)
+
+
+@app.get("/api/spesa")
+def spesa(x_code: str = Header(None)):
+    check(x_code)
+    return inv().spesa()
+
+
+@app.get("/api/bozze")
+def bozze(x_code: str = Header(None)):
+    check(x_code)
+    return inv().bozze()
+
+
+@app.post("/api/bozze/{id_}/salva")
+def bozza_salva(id_: str, d: CampiBozza, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().bozza_salva(id_, d.campi)
+
+
+@app.post("/api/bozze/{id_}/conferma")
+def bozza_conferma(id_: str, d: CampiBozza, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().bozza_conferma(id_, d.campi)
+
+
+@app.post("/api/bozze/{id_}/scarta")
+def bozza_scarta(id_: str, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().bozza_scarta(id_)
 
 
 @app.post("/api/foto")

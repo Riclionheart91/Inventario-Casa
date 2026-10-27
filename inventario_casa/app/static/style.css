@@ -94,3 +94,12 @@ details.g summary,.letter{position:sticky;top:calc(var(--stk,0px) - 16px);z-inde
 .prop input[type=text]{height:44px}.prop .btn{width:100%}
 .prop .alt{background:none;border:0;color:var(--acc);font-size:13px;padding:6px;cursor:pointer;text-align:center}
 .prop .th{display:flex;align-items:center;justify-content:center;background:var(--s2);border-radius:8px}.prop .th img{max-width:100%;max-height:100%}.prop .m{color:var(--mut);font-size:13px}.prop select{height:44px}
+
+/* fase 4: spesa, da inserire, approvazioni */
+.row{display:flex;gap:10px;align-items:flex-start}.row .grow{flex:1;min-width:0}
+.row input[type=checkbox]{width:22px;height:22px;margin-top:4px}
+.card.done{opacity:.55}
+.fld{display:block;margin:8px 0}.fld>span{display:block;font-size:.8rem;opacity:.7;margin-bottom:2px}
+.fld input,.fld select{width:100%;box-sizing:border-box}
+.edit{margin:8px 0}
+.btns{flex-wrap:wrap}.btns .btn{flex:1 1 40%}.fld{margin:4px 0}.card .m{text-align:left}

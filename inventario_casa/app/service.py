@@ -266,7 +266,7 @@ class Inventory:
             self._memo["stock"] = self._stock()
         return self._memo["stock"]
 
-    def _stock(self) -> List[dict]:
+    def _stock(self, zeri: bool = False) -> List[dict]:
         """Giacenza per prodotto e luogo, calcolata dai movimenti, con tipo e scorta minima presi dal catalogo.
         TODO: leggere Stock_ByLoc (foglio a formule) se si vuole identica a AppSheet; semantica di Sposta/Rettifica da confermare."""
         tipi_ai: Dict[str, str] = {}
@@ -312,7 +312,7 @@ class Inventory:
                                           "tipo": c.get("tipo", ""), "minima": c.get("minima", 0),
                                           "luogo": loc, "qta": 0})
             e["qta"] += d
-        out = [e for e in acc.values() if e["qta"] != 0]
+        out = [e for e in acc.values() if zeri or e["qta"] != 0]
         for e in out:
             e["qta"] = int(e["qta"]) if float(e["qta"]).is_integer() else e["qta"]
         return sorted(out, key=lambda e: (e["categoria"], e["nome"], e["luogo"]))
@@ -378,45 +378,203 @@ class Inventory:
         self._drop(SH_MOV)
         return {"ok": True, "riga": n, "righe": len(righe), "noto": p is not None}
 
-    # --- approvazioni ---------------------------------------------------
-    def _prima_dopo(self, a: dict):
-        cur = str(a.get("Prodotto_Attuale", "") or "")
-        sug = str(a.get("Nome_Suggerito", "") or "")
-        pr = self.prodotto(a.get("Barcode")) or {}
-        cat_old = " › ".join(x for x in (pr.get("categoria"), pr.get("sottocategoria")) if x)
-        cat_new = " › ".join(x for x in (a.get("Categoria_Suggerita"), a.get("Sottocategoria_Suggerita")) if x)
-        t_new = str(a.get("Tipo", "") or "") or pr.get("tipo", "")
-        j = lambda xs: " · ".join(x for x in xs if x)
-        return (j([cur or "(nome vuoto)", cat_old, ("tipo " + pr["tipo"]) if pr.get("tipo") else ""]),
-                j([sug or cur or "(nome vuoto)", cat_new or cat_old, ("tipo " + t_new) if t_new else ""]))
+    # --- fogli facoltativi ----------------------------------------------
+    def _opz(self, sheet: str, fresh: bool = False):
+        """Righe di un foglio che puo non esistere (bozze, log_ai): se manca, elenco vuoto."""
+        try:
+            return self._dicts(sheet, fresh)
+        except Exception:
+            return []
 
-    def approvazioni(self) -> List[dict]:
-        out = []
-        for i, a in enumerate(self._dicts(SH_AIP, True)):
-            if str(a.get("Stato", "")) != ST_PENDING[SH_AIP]:
+    def _scrivi(self, sheet: str, riga: int, campi: dict, headers=None):
+        """Scrive solo le colonne che esistono nel foglio."""
+        h = headers if headers is not None else self._rows(sheet, True)[0]
+        items = [(riga, k, v) for k, v in campi.items() if k in h]
+        if items:
+            self.store.update_cells(sheet, items)
+
+    def _log_ai(self, barcode, campo, prima, dopo, fonte="APPROVATO", conf="", modo="MANUALE"):
+        try:
+            self.store.append_row("log_ai", {"Quando": datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "Barcode": int(nbc(barcode)),
+                                             "Campo": campo, "Prima": prima, "Dopo": dopo, "Fonte": fonte, "Confidenza": conf,
+                                             "Modo": modo, "Annullato": ""})
+        except Exception:
+            pass   # il registro e un di piu: se il foglio manca non blocca la decisione
+
+    def _coppia_valida(self, categoria: str, sottocategoria: str) -> bool:
+        ammesse = {c["categoria"]: c["sottocategorie"] for c in self.categorie()}
+        return not ammesse or sottocategoria in ammesse.get(categoria, [])
+
+    # --- spesa ----------------------------------------------------------
+    SPESA_CONFRONTO = "LE"   # come nel motore: in spesa se giacenza <= scorta minima del tipo ("LT" = solo se sotto)
+
+    def spesa(self) -> dict:
+        """Cosa comprare: giacenza totale per TIPO contro la scorta minima del tipo (ai_tipi). Stessa logica di aiBuildShoppingList."""
+        scorta: Dict[str, float] = {}
+        for t in self._dicts(SH_AIT):
+            nome = str(t.get("Tipo", "") or "").strip().lower()
+            if nome and str(t.get("Stato", "")).upper() != ST_NO:
+                scorta[nome] = _num(t.get("Scorta_min", t.get("Scorta min", 0)))
+        ultimo: Dict[str, int] = {}   # ultimo carico per codice (riga di movimento piu alta)
+        for i, m in enumerate(self._dicts(SH_MOV)):
+            if str(m.get("Tipo", "")).strip() == "Carico":
+                ultimo[nbc(m.get("Barcode"))] = i
+        gruppi: Dict[str, dict] = {}
+        for e in self._stock(True):
+            tipo = str(e.get("tipo", "") or "").strip()
+            if not tipo or tipo.lower() not in scorta:
                 continue
-            prima, dopo = self._prima_dopo(a)
-            c = a.get("Confidenza", "")
-            pct = None if c in ("", None) else int(round(_num(c) * 100 if _num(c) <= 1 else _num(c)))
-            out.append({"id": "P_%s" % a.get("Barcode"), "gruppo": "Prodotti da correggere",
-                        "titolo": a.get("Nome_Suggerito") or a.get("Prodotto_Attuale") or str(a.get("Barcode")),
-                        "prima": prima, "dopo": dopo, "sicurezza": pct, "motivo": a.get("Motivo", "")})
-        for a in self._dicts(SH_AIT, True):
-            if str(a.get("Stato", "")) == ST_PENDING[SH_AIT]:
-                out.append({"id": "T_%s" % a.get("Tipo"), "gruppo": "Nuovi tipi", "titolo": "Nuovo tipo: %s" % a.get("Tipo"),
-                            "prima": "", "dopo": "Tipo %s" % a.get("Tipo"), "sicurezza": None,
-                            "motivo": "L'AI vuole creare questo tipo di prodotto."})
-        for i, a in enumerate(self._dicts(SH_AIC, True)):
-            if str(a.get("Stato", "")) == ST_PENDING[SH_AIC]:
-                out.append({"id": "C_%d" % (i + 2), "gruppo": "Categorie proposte",
-                            "titolo": "Categoria: %s → %s" % (a.get("Azione", ""), a.get("Nuovo_Nome") or a.get("Sottocategoria", "")),
-                            "prima": str(a.get("Sottocategoria", "")), "dopo": str(a.get("Nuovo_Nome", "")),
-                            "sicurezza": None, "motivo": a.get("Motivo", "")})
+            g = gruppi.setdefault(tipo.lower(), {"tipo": tipo, "tot": 0.0, "per": {}, "bcs": {}, "cat": e["categoria"], "sotto": e["sotto"], "img": ""})
+            g["tot"] += e["qta"]
+            g["per"][e["luogo"]] = g["per"].get(e["luogo"], 0) + e["qta"]
+            b = g["bcs"].setdefault(str(e["barcode"]), {"nome": e["nome"], "img": e.get("img", ""), "q": 0})
+            b["q"] += e["qta"]
+        voci = []
+        for k, g in gruppi.items():
+            minima = scorta[k]
+            if minima <= 0:
+                continue
+            tot = g["tot"]
+            if not (tot <= minima if self.SPESA_CONFRONTO == "LE" else tot < minima):
+                continue
+            best = max(g["bcs"], key=lambda b: ultimo.get(nbc(b), -1))
+            f = lambda x: int(x) if float(x).is_integer() else x
+            voci.append({"tipo": g["tipo"], "categoria": g["cat"], "sottocategoria": g["sotto"], "giacenza": f(tot), "minima": f(minima),
+                         "stato": "FINITO" if tot <= 0 else "STA_FINENDO",
+                         "dettaglio": " · ".join("%s %s" % (l, f(q)) for l, q in sorted(g["per"].items())) + " (%d codici)" % len(g["bcs"]),
+                         "barcode": int(best), "prodotto": g["bcs"][best]["nome"], "immagine": g["bcs"][best]["img"]})
+        voci.sort(key=lambda v: (v["stato"] != "FINITO", str(v["categoria"]), str(v["sottocategoria"]), v["tipo"].lower()))
+        return {"voci": voci, "finiti": sum(1 for v in voci if v["stato"] == "FINITO"), "in_esaurimento": sum(1 for v in voci if v["stato"] != "FINITO")}
+
+    # --- da inserire (foglio bozze) -------------------------------------
+    BOZZE_APERTE = ("", "NUOVA", "IN_ELABORAZIONE", "PRONTA", "NON_TROVATO", "ERRORE")
+
+    def bozze(self) -> List[dict]:
+        out = []
+        for i, b in enumerate(self._opz("bozze", True)):
+            if not nbc(b.get("Barcode")) or str(b.get("Stato", "") or "").strip().upper() not in self.BOZZE_APERTE:
+                continue
+            g = lambda k: str(b.get(k, "") or "").strip()
+            out.append({"id": g("ID") or "R%d" % (i + 2), "barcode": nbc(b.get("Barcode")), "foto": g("Foto"), "nome": g("Prodotto"),
+                        "marca": g("Marca"), "confezione": g("Confezione"), "categoria": g("Categoria"), "sottocategoria": g("Sottocategoria"),
+                        "tipo": g("Tipo"), "immagine": g("Immagine"), "stato": g("Stato") or "NUOVA", "fonte": g("Fonte"), "nota": g("Nota"),
+                        "location": g("Location") or "Casa", "movimento": g("Movimento") or "Carico",
+                        "quantita": _num(b.get("Quantità", b.get("Quantita", 1))) or 1})
         return out
 
-    def decidi(self, id_: str, azione: str) -> dict:
-        if azione not in ("APPROVA", "SCARTA"):
+    def _trova_bozza(self, id_: str):
+        h, rows = self._rows("bozze", True)
+        for i, r in enumerate(rows):
+            d = dict(zip(h, list(r) + [""] * (len(h) - len(r))))
+            if (str(d.get("ID", "") or "") == str(id_) or "R%d" % (i + 2) == str(id_)) and nbc(d.get("Barcode")):
+                if str(d.get("Stato", "") or "").strip().upper() not in self.BOZZE_APERTE:
+                    raise ApiError(409, "Bozza già chiusa")
+                return h, i + 2, d
+        raise ApiError(404, "Bozza non trovata")
+
+    def bozza_salva(self, id_: str, campi: dict) -> dict:
+        """Salva le correzioni a mano sulla bozza (resta in lista)."""
+        h, riga, _ = self._trova_bozza(id_)
+        ammessi = {"nome": "Prodotto", "marca": "Marca", "confezione": "Confezione", "categoria": "Categoria",
+                   "sottocategoria": "Sottocategoria", "tipo": "Tipo", "immagine": "Immagine", "nota": "Nota"}
+        val = {ammessi[k]: str(v or "").strip() for k, v in (campi or {}).items() if k in ammessi}
+        val["Aggiornato"] = datetime.now().strftime("%d/%m/%Y")
+        self._scrivi("bozze", riga, val, h)
+        self._drop("bozze")
+        return {"ok": True}
+
+    def bozza_scarta(self, id_: str) -> dict:
+        h, riga, _ = self._trova_bozza(id_)
+        self._scrivi("bozze", riga, {"Stato": "SCARTATA", "Aggiornato": datetime.now().strftime("%d/%m/%Y")}, h)
+        self._drop("bozze")
+        return {"ok": True}
+
+    def bozza_conferma(self, id_: str, campi: dict) -> dict:
+        """Aggiungi all'inventario: crea il prodotto, registra il movimento in sospeso (se non c'e gia) e chiude la bozza (INSERITA)."""
+        campi = campi or {}
+        h, riga, d = self._trova_bozza(id_)
+        pick = lambda k, col: str(campi[k] if k in campi else d.get(col, "") or "").strip()
+        nome, marca, conf = pick("nome", "Prodotto"), pick("marca", "Marca"), pick("confezione", "Confezione")
+        cat, sotto, tipo, img = pick("categoria", "Categoria"), pick("sottocategoria", "Sottocategoria"), pick("tipo", "Tipo"), pick("immagine", "Immagine")
+        k = nbc(d.get("Barcode"))
+        if not nome:
+            raise ApiError(400, "Il nome è obbligatorio")
+        if not cat or not sotto:
+            raise ApiError(400, "Scegli categoria e sottocategoria")
+        luogo = str(d.get("Location", "") or "").strip() or "Casa"
+        if luogo not in LUOGHI:
+            raise ApiError(400, "Posizione non valida")
+        mov = str(d.get("Movimento", "") or "").strip() or "Carico"
+        if mov not in ("Carico", "Scarico"):
+            mov = "Carico"
+        q = _num(d.get("Quantità", d.get("Quantita", 1))) or 1
+        if self.prodotto(k) is None:
+            self.crea_prodotto(k, nome, marca, conf, img, cat, sotto, tipo, fonte="Da inserire")
+        movs = self._dicts(SH_MOV, True)
+        esistenti = [i for i, m in enumerate(movs) if nbc(m.get("Barcode")) == k]
+        if not esistenti:   # nessun movimento in sospeso: lo crea la bozza (come addMovFromDraft_)
+            self.movimento(k, mov, luogo, q, noto={"prodotto": nome, "categoria": cat, "sottocategoria": sotto})
+        else:               # movimento in sospeso: si completa senza toccare quantita e posizione
+            hm = self._rows(SH_MOV, True)[0]
+            ups = []
+            for i in esistenti:
+                m = movs[i]
+                for col, v in (("Prodotto", nome), ("Categoria", cat), ("Sottocategoria", sotto)):
+                    if col in hm and not str(m.get(col, "") or "").strip():
+                        ups.append((i + 2, col, v))
+            if ups:
+                self.store.update_cells(SH_MOV, ups)
+        self._scrivi("bozze", riga, {"Prodotto": nome, "Marca": marca, "Confezione": conf, "Categoria": cat, "Sottocategoria": sotto,
+                                     "Tipo": tipo, "Stato": "INSERITA", "Aggiornato": datetime.now().strftime("%d/%m/%Y")}, h)
+        self._drop("bozze", SH_PROD, SH_MOV)
+        return {"ok": True, "barcode": int(k), "movimento": not esistenti}
+
+    # --- approvazioni ---------------------------------------------------
+    def approvazioni(self) -> List[dict]:
+        """Coda di approvazione: proposte AI sui prodotti, tipi nuovi, categorie proposte. Stesse regole di aiRebuildCoda."""
+        out = []
+        j = lambda xs: " · ".join(x for x in xs if x)
+        for a in self._dicts(SH_AIP, True):
+            if str(a.get("Stato", "")) != ST_PENDING[SH_AIP]:
+                continue
+            pr = self.prodotto(a.get("Barcode")) or {}
+            cur, sug = str(a.get("Prodotto_Attuale", "") or ""), str(a.get("Nome_Suggerito", "") or "")
+            cat_old = " › ".join(x for x in (pr.get("categoria"), pr.get("sottocategoria")) if x)
+            cat_new = " › ".join(x for x in (a.get("Categoria_Suggerita"), a.get("Sottocategoria_Suggerita")) if x)
+            t_new = str(a.get("Tipo", "") or "")
+            c = a.get("Confidenza", "")
+            pct = None if c in ("", None) else int(round(_num(c) * 100 if _num(c) <= 1 else _num(c)))
+            out.append({"id": "P_%s" % a.get("Barcode"), "gruppo": "Prodotti da correggere", "genere": "P",
+                        "titolo": sug or cur or str(a.get("Barcode")), "barcode": nbc(a.get("Barcode")),
+                        "prima": j([cur or "(nome vuoto)", cat_old, ("tipo " + pr["tipo"]) if pr.get("tipo") else ""]),
+                        "dopo": j([sug or cur or "(nome vuoto)", cat_new or cat_old, ("tipo " + (t_new or pr.get("tipo", ""))) if (t_new or pr.get("tipo")) else ""]),
+                        "sicurezza": pct, "motivo": a.get("Motivo", ""),
+                        "campi": {"nome": sug or cur, "categoria": str(a.get("Categoria_Suggerita", "") or pr.get("categoria", "")),
+                                  "sottocategoria": str(a.get("Sottocategoria_Suggerita", "") or pr.get("sottocategoria", "")),
+                                  "tipo": t_new or pr.get("tipo", "")}})
+        for a in self._dicts(SH_AIT, True):
+            if str(a.get("Stato", "")) == ST_PENDING[SH_AIT]:
+                sm = a.get("Scorta_min", a.get("Scorta min", ""))
+                out.append({"id": "T_%s" % a.get("Tipo"), "gruppo": "Nuovi tipi", "genere": "T", "titolo": "Nuovo tipo: %s" % a.get("Tipo"),
+                            "prima": "", "dopo": "Tipo %s" % a.get("Tipo"), "sicurezza": None,
+                            "motivo": a.get("Note", "") or "L'AI vuole creare questo tipo di prodotto. Imposta la scorta minima e approva.",
+                            "campi": {"tipo": str(a.get("Tipo", "")), "scorta_min": _num(sm)}})
+        for i, a in enumerate(self._dicts(SH_AIC, True)):
+            if str(a.get("Stato", "")) == ST_PENDING[SH_AIC]:
+                out.append({"id": "C_%d" % (i + 2), "gruppo": "Categorie proposte", "genere": "C",
+                            "titolo": "Categoria: %s → %s" % (a.get("Azione", ""), a.get("Nuovo_Nome") or a.get("Sottocategoria", "")),
+                            "prima": str(a.get("Sottocategoria", "")), "dopo": str(a.get("Nuovo_Nome", "")),
+                            "sicurezza": None, "motivo": a.get("Motivo", ""), "campi": {}})
+        return out
+
+    def decidi(self, id_: str, azione: str, campi: Optional[dict] = None) -> dict:
+        """APPROVA (con eventuali correzioni in `campi`) oppure RIFIUTA. Gli stati sono quelli del motore:
+        ai_prodotti DA_APPROVARE -> APPLICATO (la modifica al prodotto la fa subito l'app, come aiApplyApproved) o RIFIUTATO;
+        ai_tipi -> APPROVATO (+ Scorta_min) o RIFIUTATO; ai_categorie PROPOSTA -> APPROVATA (la applica il motore) o RIFIUTATO."""
+        azione = {"SCARTA": "RIFIUTA", "CORREGGI": "APPROVA"}.get(str(azione).upper(), str(azione).upper())
+        if azione not in ("APPROVA", "RIFIUTA"):
             raise ApiError(400, "Azione non valida")
+        campi = campi or {}
         kind, _, key = str(id_).partition("_")
         sheet = {"P": SH_AIP, "T": SH_AIT, "C": SH_AIC}.get(kind)
         if not sheet or not key:
@@ -424,24 +582,78 @@ class Inventory:
         h, rows = self._rows(sheet, True)
         if "Stato" not in h:
             raise ApiError(500, "Colonna Stato mancante in %s" % sheet)
-        idx = None
+        idx, decisa = None, False
         for i, r in enumerate(rows):
-            d = dict(zip(h, r))
-            if kind == "P" and nbc(d.get("Barcode")) == nbc(key):
+            d = dict(zip(h, list(r) + [""] * (len(h) - len(r))))
+            if kind == "C":
+                stessa = i + 2 == int(key if key.isdigit() else -1)
+            elif kind == "T":
+                stessa = str(d.get("Tipo")) == key
+            else:
+                stessa = nbc(d.get("Barcode")) == nbc(key)
+            if not stessa:
+                continue
+            if str(d.get("Stato", "")) == ST_PENDING[sheet]:   # lo stesso codice puo avere piu righe: conta quella in attesa
                 idx = i
-            elif kind == "T" and str(d.get("Tipo")) == key:
-                idx = i
-            elif kind == "C" and i + 2 == int(key if key.isdigit() else -1):
-                idx = i
-            if idx is not None:
                 break
+            decisa = True
         if idx is None:
-            raise ApiError(404, "Proposta non trovata")
-        if str(dict(zip(h, rows[idx])).get("Stato", "")) != ST_PENDING[sheet]:
+            raise ApiError(409 if decisa else 404, "Proposta già decisa" if decisa else "Proposta non trovata")
+        d = dict(zip(h, list(rows[idx]) + [""] * (len(h) - len(rows[idx]))))
+        if str(d.get("Stato", "")) != ST_PENDING[sheet]:
             raise ApiError(409, "Proposta già decisa")
-        self.store.update_cell(sheet, idx + 2, "Stato", ST_OK[sheet] if azione == "APPROVA" else ST_NO)
-        self._drop(sheet)
-        return {"ok": True, "stato": ST_OK[sheet] if azione == "APPROVA" else ST_NO}
+        riga = idx + 2
+        oggi = datetime.now().strftime("%d/%m/%Y")
+        if azione == "RIFIUTA":
+            self._scrivi(sheet, riga, {"Stato": ST_NO, "Aggiornato": oggi}, h)
+            self._drop(sheet)
+            return {"ok": True, "stato": ST_NO}
+        if kind == "T":
+            sm = campi.get("scorta_min", d.get("Scorta_min", 0))
+            if _num(sm) < 0:
+                raise ApiError(400, "La scorta minima non può essere negativa")
+            self._scrivi(sheet, riga, {"Stato": ST_OK[sheet], "Scorta_min": int(_num(sm)) if float(_num(sm)).is_integer() else _num(sm)}, h)
+            self._drop(sheet)
+            return {"ok": True, "stato": ST_OK[sheet]}
+        if kind == "C":
+            self._scrivi(sheet, riga, {"Stato": ST_OK[sheet], "Aggiornato": oggi}, h)
+            self._drop(sheet)
+            return {"ok": True, "stato": ST_OK[sheet], "nota": "La applica il motore (aiApplyCategories)"}
+        # prodotto: valori finali = correzioni oppure proposta
+        pick = lambda k, col: str(campi[k] if k in campi else d.get(col, "") or "").strip()
+        nome, cat, sotto, tipo = pick("nome", "Nome_Suggerito"), pick("categoria", "Categoria_Suggerita"), pick("sottocategoria", "Sottocategoria_Suggerita"), pick("tipo", "Tipo")
+        k = nbc(d.get("Barcode"))
+        p = self.prodotto(k)
+        if p is None:
+            raise ApiError(404, "Il prodotto non è nel catalogo")
+        cat = cat or p["categoria"]
+        sotto = sotto or p["sottocategoria"]
+        if not self._coppia_valida(cat, sotto):
+            raise ApiError(400, "Categoria e sottocategoria non corrispondono all'elenco")
+        conf = d.get("Confidenza", "")
+        hp, rp = self._rows(SH_PROD, True)
+        ip = next((i for i, r in enumerate(rp) if nbc(dict(zip(hp, r)).get("Barcode")) == k), None)
+        pd = dict(zip(hp, rp[ip])) if ip is not None else {}
+        ups = []
+        if cat and cat != p["categoria"]:
+            ups.append((ip + 2, "Categoria", cat)); self._log_ai(k, "Categoria", p["categoria"], cat, conf=conf)
+        if nome and nome != str(pd.get("Prodotto", "") or "").strip() and not str(pd.get("API Status", "") or "").startswith("✅"):
+            ups.append((ip + 2, "Prodotto", nome)); self._log_ai(k, "Prodotto", pd.get("Prodotto", ""), nome, conf=conf)   # come il motore: il nome non si tocca se il prodotto e ✅
+        if tipo and "Tipo" in hp and tipo != str(pd.get("Tipo", "") or "").strip():
+            ups.append((ip + 2, "Tipo", tipo))
+        if ups:
+            self.store.update_cells(SH_PROD, ups)
+        self._drop(SH_PROD)
+        if sotto and sotto != p["sottocategoria"]:   # la sottocategoria e una modifica del prodotto: aggiorna anche i movimenti
+            self.modifica_prodotto(k, sotto)
+            self._log_ai(k, "Sottocategoria", p["sottocategoria"], sotto, conf=conf)
+        if tipo and tipo.lower() not in {t.lower() for t in self.tipi()}:   # tipo nuovo: in coda, con scorta 0
+            self.store.append_row(SH_AIT, {"Tipo": tipo, "Scorta_min": 0, "Stato": ST_PENDING[SH_AIT], "Note": "creato dall'app"})
+            self._drop(SH_AIT)
+        self._scrivi(sheet, riga, {"Nome_Suggerito": nome, "Categoria_Suggerita": cat, "Sottocategoria_Suggerita": sotto, "Tipo": tipo,
+                                   "Stato": "APPLICATO", "Aggiornato": oggi}, h)
+        self._drop(sheet, SH_PROD)
+        return {"ok": True, "stato": "APPLICATO"}
 
     # --- foto -----------------------------------------------------------
     def foto(self, barcode, data: bytes, mime: str) -> dict:

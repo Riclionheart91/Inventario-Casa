@@ -28,11 +28,21 @@
       { nome: 'Birra', categoria: 'Cantina', sotto: 'Bevande', luogo: 'Cantina', qta: 8, minima: 0 }
     ],
     appr: [
-      { id: 'P_1', titolo: 'Si & No Mais · sicura al 100%', prima: 'Dispensa › Snack e Dolci', dopo: 'Dispensa › Snack e Dolci · tipo Galletta', motivo: 'Snack a base di mais soffiato, classificabile come galletta.' },
-      { id: 'P_2', titolo: "Latte UHT · sicura all'82%", prima: 'Dispensa › Bevande', dopo: 'Frigorifero › Latticini', motivo: 'Attenzione: il latte UHT chiuso resta in dispensa.' }
+      { id: 'P_1', genere: 'P', gruppo: 'Prodotti da correggere', titolo: 'Si & No Mais', prima: 'Si & No Mais · Dispensa › Snack e Dolci', dopo: 'Gallette di mais · Dispensa › Snack e Dolci · tipo Galletta', sicurezza: 100, motivo: 'Snack a base di mais soffiato, classificabile come galletta.', campi: { nome: 'Gallette di mais', categoria: 'Dispensa', sottocategoria: 'Snack e Dolci', tipo: 'Galletta' } },
+      { id: 'P_2', genere: 'P', gruppo: 'Prodotti da correggere', titolo: 'Latte UHT', prima: 'Latte UHT · Dispensa › Bevande', dopo: 'Latte UHT · Frigorifero › Latticini', sicurezza: 82, motivo: 'Attenzione: il latte UHT chiuso resta in dispensa.', campi: { nome: 'Latte UHT', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte' } },
+      { id: 'T_Uova', genere: 'T', gruppo: 'Nuovi tipi', titolo: 'Nuovo tipo: Uova', prima: '', dopo: 'Tipo Uova', sicurezza: null, motivo: "L'AI vuole creare questo tipo di prodotto.", campi: { tipo: 'Uova', scorta_min: 0 } }
+    ],
+    spesa: { finiti: 1, in_esaurimento: 1, voci: [
+      { tipo: 'Burro', categoria: 'Frigorifero', sottocategoria: 'Latticini', giacenza: 0, minima: 2, stato: 'FINITO', dettaglio: 'Casa 0 (1 codice)', barcode: 8002795002995, prodotto: 'Burro', immagine: '' },
+      { tipo: 'Latte', categoria: 'Dispensa', sottocategoria: 'Bevande', giacenza: 2, minima: 2, stato: 'STA_FINENDO', dettaglio: 'Casa 2 (2 codici)', barcode: 8002795002995, prodotto: 'Latte UHT intero', immagine: '' }
+    ] },
+    bozze: [
+      { id: 'b1', barcode: '8004444444444', foto: 'https://drive.example/foto', nome: 'Biscotti frollini', marca: 'Mulino', confezione: '300 g', categoria: 'Dispensa', sottocategoria: 'Snack e Dolci', tipo: 'Biscotti', immagine: '', stato: 'PRONTA', fonte: 'Foto (AI)', nota: '', location: 'Casa', movimento: 'Carico', quantita: 2 },
+      { id: 'b2', barcode: '8005555555555', foto: '', nome: '', marca: '', confezione: '', categoria: '', sottocategoria: '', tipo: '', immagine: '', stato: 'NON_TROVATO', fonte: '', nota: 'Codice non trovato. Aggiungi una foto o scrivi a mano.', location: 'Cantina', movimento: 'Carico', quantita: 1 }
     ]
   };
   function mockApi(method, path, body) {
+    var m;
     var m;
     if (path === 'api/stock') return MOCKDB.stock;
     if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
@@ -49,6 +59,9 @@
     if (path === 'api/foto') return { ok: true, id: 'mock-foto' };
     if (path === 'api/approvazioni') return MOCKDB.appr.slice();
     if ((m = /^api\/approvazioni\/(.+)$/.exec(path))) { MOCKDB.appr = MOCKDB.appr.filter(function (x) { return x.id !== decodeURIComponent(m[1]); }); return { ok: true }; }
+    if (path === 'api/spesa') return MOCKDB.spesa;
+    if (path === 'api/bozze') return MOCKDB.bozze.slice();
+    if ((m = /^api\/bozze\/([^/]+)\/(salva|conferma|scarta)$/.exec(path))) { if (m[2] !== 'salva') MOCKDB.bozze = MOCKDB.bozze.filter(function (x) { return x.id !== m[1]; }); return { ok: true }; }
     throw new Error('Percorso sconosciuto: ' + path);
   }
   function errTesto(j, st) {   // il server manda un testo, oppure (errori di formato) un elenco di oggetti
@@ -100,6 +113,8 @@
     if (tab === 'stock') loadStock();
     if (tab === 'prod') loadProd();
     if (tab === 'appr') loadAppr();
+    if (tab === 'spesa') loadSpesa();
+    if (tab === 'bozze') loadBozze();
     if (tab === 'mov') $('bc').focus();
     setStk();
   }
@@ -536,9 +551,138 @@
     });
   }
 
+  /* ---------- campi condivisi: categoria > sottocategoria, tipo ---------- */
+  function ensureRef() {
+    var a = st.cats ? Promise.resolve() : api('GET', 'api/categorie').then(function (c) { st.cats = c || []; }).catch(function () { st.cats = []; });
+    var b = st.tipi ? Promise.resolve() : api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; }).catch(function () { st.tipi = []; });
+    return Promise.all([a, b]);
+  }
+  function campoTesto(box, label, val) {
+    var w = el('label', 'fld'); w.appendChild(el('span', '', label));
+    var i = el('input'); i.type = 'text'; i.value = val || ''; i.setAttribute('aria-label', label); w.appendChild(i); box.appendChild(w); return i;
+  }
+  function campiCatSot(box, cat0, sot0, tipo0) {   // ritorna {cat, sot, tipo}
+    var wc = el('label', 'fld'); wc.appendChild(el('span', '', 'Categoria'));
+    var cat = el('select'); cat.setAttribute('aria-label', 'Categoria'); wc.appendChild(cat);
+    var ws = el('label', 'fld'); ws.appendChild(el('span', '', 'Sottocategoria'));
+    var sot = el('select'); sot.setAttribute('aria-label', 'Sottocategoria'); ws.appendChild(sot);
+    var o0 = el('option', '', 'Scegli la categoria'); o0.value = ''; cat.appendChild(o0);
+    (st.cats || []).forEach(function (c) { var o = el('option', '', c.categoria); o.value = c.categoria; cat.appendChild(o); });
+    function fill() {
+      sot.textContent = '';
+      var c = (st.cats || []).filter(function (x) { return x.categoria === cat.value; })[0];
+      var o = el('option', '', cat.value ? 'Scegli la sottocategoria' : 'Scegli prima la categoria'); o.value = ''; sot.appendChild(o);
+      ((c && c.sottocategorie) || []).forEach(function (s) { var p = el('option', '', s); p.value = s; sot.appendChild(p); });
+    }
+    cat.addEventListener('change', fill);
+    cat.value = cat0 || ''; fill(); sot.value = sot0 || '';
+    box.appendChild(wc); box.appendChild(ws);
+    var tipo = campoTesto(box, 'Tipo', tipo0); tipo.setAttribute('list', 'tipi-dl');
+    var dl = $('tipi-dl') || el('datalist'); dl.id = 'tipi-dl'; dl.textContent = '';
+    (st.tipi || []).forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); box.appendChild(dl);
+    return { cat: cat, sot: sot, tipo: tipo, fill: fill };
+  }
+  function azzeraCache() { st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } }
+
+  /* ---------- spesa ---------- */
+  function carrello() { try { return JSON.parse(localStorage.getItem('carrello') || '{}') || {}; } catch (e) { return {}; } }
+  function salvaCarrello(c) { try { localStorage.setItem('carrello', JSON.stringify(c)); } catch (e) { /* ok */ } }
+  function loadSpesa() {
+    api('GET', 'api/spesa').then(function (s) { renderSpesa(s || { voci: [] }); })
+      .catch(function (e) { toast('Spesa non caricata: ' + e.message, true); });
+  }
+  function renderSpesa(s) {
+    var box = $('spesa-list'), car = carrello(); box.textContent = '';
+    var voci = s.voci || [];
+    $('sub').textContent = voci.length ? voci.length + (voci.length === 1 ? ' prodotto da comprare' : ' prodotti da comprare') : 'Niente da comprare';
+    if (!voci.length) { box.appendChild(el('p', 'empty', 'Scorte a posto: niente da comprare.')); return; }
+    box.appendChild(el('p', 'note', (s.finiti || 0) + ' finiti · ' + (s.in_esaurimento || 0) + ' in esaurimento. Spunta quello che hai nel carrello; «Comprato +1» lo carica a Casa.'));
+    voci.forEach(function (v) {
+      var c = el('article', 'card item' + (car[v.tipo] ? ' done' : ''));
+      var top = el('div', 'row');
+      var chk = el('input'); chk.type = 'checkbox'; chk.checked = !!car[v.tipo]; chk.setAttribute('aria-label', 'Nel carrello: ' + v.tipo);
+      chk.addEventListener('change', function () { var k = carrello(); if (chk.checked) k[v.tipo] = 1; else delete k[v.tipo]; salvaCarrello(k); c.className = 'card item' + (chk.checked ? ' done' : ''); });
+      top.appendChild(chk);
+      var tx = el('div', 'grow'); tx.appendChild(el('h2', '', v.tipo));
+      tx.appendChild(el('div', 'm', [v.categoria, v.sottocategoria].filter(Boolean).join(' › ')));
+      tx.appendChild(el('div', 'm', 'Giacenza ' + v.giacenza + ' · scorta minima ' + v.minima + (v.dettaglio ? ' · ' + v.dettaglio : '')));
+      top.appendChild(tx);
+      top.appendChild(el('span', 'badge ' + (v.stato === 'FINITO' ? 'zero' : 'low'), v.stato === 'FINITO' ? 'Finito' : 'In esaurimento'));
+      c.appendChild(top);
+      if (v.prodotto) c.appendChild(el('div', 'm', 'Ultimo acquistato: ' + v.prodotto));
+      var bt = el('div', 'btns'), ok = el('button', 'btn ok', 'Comprato +1'); ok.type = 'button';
+      ok.disabled = st.ro || !v.barcode;
+      ok.addEventListener('click', function () {
+        ok.disabled = true;
+        api('POST', 'api/movimento', { barcode: String(v.barcode), tipo: 'Carico', location: 'Casa', quantita: 1, prodotto: v.prodotto || '' }).then(function () {
+          var k = carrello(); delete k[v.tipo]; salvaCarrello(k); azzeraCache(); toast('Caricato 1 a Casa.'); loadSpesa();
+        }).catch(function (e) { ok.disabled = false; toast('Non riuscito: ' + e.message, true); });
+      });
+      bt.appendChild(ok); c.appendChild(bt); box.appendChild(c);
+    });
+  }
+
+  /* ---------- da inserire (bozze) ---------- */
+  function loadBozze() {
+    ensureRef().then(function () { return api('GET', 'api/bozze'); }).then(function (l) { renderBozze(l || []); })
+      .catch(function (e) { toast('Bozze non caricate: ' + e.message, true); });
+  }
+  function renderBozze(list) {
+    var box = $('bozze-list'); box.textContent = '';
+    $('sub').textContent = list.length ? list.length + (list.length === 1 ? ' prodotto da completare' : ' prodotti da completare') : 'Niente da inserire';
+    if (!list.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto in attesa di essere inserito.')); return; }
+    list.forEach(function (b) {
+      var c = el('article', 'card');
+      c.appendChild(el('h2', '', b.nome || ('Codice ' + b.barcode)));
+      c.appendChild(el('div', 'm', 'Codice ' + b.barcode + ' · ' + b.movimento + ' ' + b.quantita + ' a ' + b.location + (b.fonte ? ' · ' + b.fonte : '')));
+      if (b.nota) c.appendChild(el('div', 'why', b.nota));
+      if (b.foto) { var a = el('a', 'm', 'Apri la foto'); a.href = b.foto; a.target = '_blank'; a.rel = 'noopener'; c.appendChild(a); }
+      var nome = campoTesto(c, 'Nome', b.nome), marca = campoTesto(c, 'Marca', b.marca), conf = campoTesto(c, 'Confezione', b.confezione);
+      var f = campiCatSot(c, b.categoria, b.sottocategoria, b.tipo);
+      var nt = el('div', 'note', ''); c.appendChild(nt);
+      function campi() { return { nome: nome.value.trim(), marca: marca.value.trim(), confezione: conf.value.trim(), categoria: f.cat.value, sottocategoria: f.sot.value, tipo: f.tipo.value.trim() }; }
+      var bt = el('div', 'btns'), cerca = el('button', 'btn', 'Cerca e suggerisci'), salva = el('button', 'btn', 'Salva bozza'),
+        ok = el('button', 'btn ok', "Aggiungi all'inventario"), no = el('button', 'btn bad', 'Scarta');
+      [cerca, salva, ok, no].forEach(function (x) { x.type = 'button'; bt.appendChild(x); });
+      ok.disabled = salva.disabled = no.disabled = st.ro;
+      var base = 'api/bozze/' + encodeURIComponent(b.id) + '/';
+      function blocca(v) { [cerca, salva, ok, no].forEach(function (x) { x.disabled = v || (st.ro && x !== cerca); }); }
+      cerca.addEventListener('click', function () {   // completa solo i campi vuoti; se non trova nulla non cambia niente
+        blocca(true); note(nt, 'Cerco nei database e chiedo all\'AI…');
+        api('GET', 'api/cerca/' + encodeURIComponent(b.barcode)).catch(function () { return { found: false }; }).then(function (r) {
+          if (r && r.found) { if (!nome.value.trim() && r.nome) nome.value = r.nome; if (!marca.value.trim() && r.marca) marca.value = r.marca; if (!conf.value.trim() && r.confezione) conf.value = r.confezione; }
+          return api('POST', 'api/suggerisci', { nome: nome.value.trim(), marca: marca.value.trim(), confezione: conf.value.trim() }).then(function (a) {
+            if (a && a.ai) {
+              if (!f.cat.value && a.categoria) { f.cat.value = a.categoria; f.fill(); if (!f.sot.value && a.sottocategoria) f.sot.value = a.sottocategoria; }
+              if (!f.tipo.value.trim() && a.tipo) f.tipo.value = a.tipo;
+              note(nt, (r && r.found ? 'Trovato su ' + r.fonte + '. ' : 'Non trovato nei database. ') + 'Suggerimento AI inserito: controlla.', 'ok');
+            } else note(nt, (r && r.found ? 'Trovato su ' + r.fonte + '. ' : 'Non trovato nei database. ') + 'L\'AI non ha risposto: completa a mano.', 'warn');
+          });
+        }).catch(function (e) { note(nt, 'Ricerca non riuscita: ' + e.message, 'warn'); }).then(function () { blocca(false); });
+      });
+      salva.addEventListener('click', function () {
+        blocca(true);
+        api('POST', base + 'salva', { campi: campi() }).then(function () { toast('Bozza salvata.'); }).catch(function (e) { toast('Non salvata: ' + e.message, true); }).then(function () { blocca(false); });
+      });
+      ok.addEventListener('click', function () {
+        var k = campi();
+        if (!k.nome) { toast('Il nome è obbligatorio.', true); nome.focus(); return; }
+        if (!k.categoria || !k.sottocategoria) { toast('Scegli categoria e sottocategoria.', true); return; }
+        blocca(true);
+        api('POST', base + 'conferma', { campi: k }).then(function () { toast('Prodotto inserito.'); azzeraCache(); loadBozze(); })
+          .catch(function (e) { blocca(false); toast('Non inserito: ' + e.message, true); });
+      });
+      no.addEventListener('click', function () {
+        blocca(true);
+        api('POST', base + 'scarta', {}).then(function () { toast('Bozza scartata.'); loadBozze(); }).catch(function (e) { blocca(false); toast('Non riuscito: ' + e.message, true); });
+      });
+      c.appendChild(bt); box.appendChild(c);
+    });
+  }
+
   /* ---------- approvazioni ---------- */
   function loadAppr() {
-    api('GET', 'api/approvazioni').then(function (list) { renderAppr(list || []); })
+    ensureRef().then(function () { return api('GET', 'api/approvazioni'); }).then(function (list) { renderAppr(list || []); })
       .catch(function (e) { toast('Approvazioni non caricate: ' + e.message, true); });
   }
   function renderAppr(list) {
@@ -547,18 +691,37 @@
     if (!list.length) { box.appendChild(el('p', 'empty', 'Tutto approvato.')); return; }
     list.forEach(function (a) {
       var c = el('article', 'card'), pd = function (cls, k, v) { var r = el('div', 'pd ' + cls); r.appendChild(el('div', 'k', k)); r.appendChild(el('div', 'v', v)); return r; };
-      c.appendChild(el('h2', '', a.titolo)); c.appendChild(pd('prima', 'PRIMA', a.prima)); c.appendChild(pd('dopo', 'DOPO', a.dopo));
+      c.appendChild(el('h2', '', a.titolo + (a.sicurezza != null ? ' · sicura al ' + a.sicurezza + '%' : '')));
+      if (a.prima) c.appendChild(pd('prima', 'ATTUALE', a.prima));
+      c.appendChild(pd('dopo', 'NUOVO', a.dopo));
       if (a.motivo) c.appendChild(el('div', 'why', a.motivo));
-      var bt = el('div', 'btns'), ok = el('button', 'btn ok', 'Approva'), no = el('button', 'btn bad', 'Scarta');
-      ok.type = no.type = 'button';
-      function act(azione) {
-        ok.disabled = no.disabled = true;
-        api('POST', 'api/approvazioni/' + encodeURIComponent(a.id), { azione: azione }).then(function () {
-          toast(azione === 'approva' ? 'Approvata.' : 'Scartata.'); loadAppr();
-        }).catch(function (e) { ok.disabled = no.disabled = false; toast('Non riuscito: ' + e.message, true); });
+      var K = a.campi || {}, ed = null, nome, f, scorta;
+      var form = el('div', 'edit'); form.hidden = true;
+      if (a.genere === 'P') { nome = campoTesto(form, 'Nome', K.nome); f = campiCatSot(form, K.categoria, K.sottocategoria, K.tipo); }
+      else if (a.genere === 'T') { scorta = campoTesto(form, 'Scorta minima', K.scorta_min == null ? 0 : K.scorta_min); scorta.type = 'number'; scorta.min = '0'; }
+      c.appendChild(form);
+      var bt = el('div', 'btns'), ok = el('button', 'btn ok', 'Approva'), cor = el('button', 'btn', 'Correggi'), no = el('button', 'btn bad', 'Rifiuta');
+      [ok, cor, no].forEach(function (x) { x.type = 'button'; bt.appendChild(x); });
+      if (a.genere === 'C') cor.hidden = true;
+      function leggi() {
+        if (a.genere === 'P') return { nome: nome.value.trim(), categoria: f.cat.value, sottocategoria: f.sot.value, tipo: f.tipo.value.trim() };
+        if (a.genere === 'T') return { scorta_min: Number(scorta.value || 0) };
+        return {};
       }
-      ok.addEventListener('click', function () { act('approva'); }); no.addEventListener('click', function () { act('scarta'); });
-      bt.appendChild(ok); bt.appendChild(no); c.appendChild(bt); box.appendChild(c);
+      function invia(azione, campi, msg) {
+        [ok, cor, no].forEach(function (x) { x.disabled = true; });
+        api('POST', 'api/approvazioni/' + encodeURIComponent(a.id), { azione: azione, campi: campi }).then(function () {
+          toast(msg); azzeraCache(); loadAppr();
+        }).catch(function (e) { [ok, cor, no].forEach(function (x) { x.disabled = false; }); toast('Non riuscito: ' + e.message, true); });
+      }
+      ok.addEventListener('click', function () {
+        if (a.genere === 'T' && !(Number(scorta.value) >= 0)) { toast('La scorta minima non può essere negativa.', true); form.hidden = false; return; }
+        if (a.genere === 'P' && (!f.cat.value || !f.sot.value)) { toast('Scegli categoria e sottocategoria (tocca Correggi).', true); form.hidden = false; return; }
+        invia('APPROVA', leggi(), 'Approvata.');
+      });
+      cor.addEventListener('click', function () { form.hidden = !form.hidden; cor.textContent = form.hidden ? 'Correggi' : 'Chiudi correzione'; });
+      no.addEventListener('click', function () { invia('RIFIUTA', {}, 'Rifiutata.'); });
+      c.appendChild(bt); box.appendChild(c);
     });
   }
 
