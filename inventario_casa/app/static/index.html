@@ -43,11 +43,12 @@
 </section>
 
 <section id="v-prod" class="view" hidden>
-<div class="stk"><div class="field"><label for="qp2" class="sr">Cerca un prodotto</label><input id="qp2" type="search" placeholder="Cerca tra tutti i prodotti"></div></div>
+<div class="stk"><div class="field"><label for="qp2" class="sr">Cerca un prodotto</label><input id="qp2" type="search" placeholder="Cerca tra tutti i prodotti"></div>
+<div class="bar"><div class="chips" id="prod-ord" role="group" aria-label="Ordina"></div><div class="chips"><button type="button" class="chip" id="prod-chiudi">Chiudi tutti</button><button type="button" class="chip" id="prod-apri">Apri tutti</button></div></div></div>
 <div id="prodlist"></div>
 </section>
 
-<section id="v-spesa" class="view" hidden><div id="spesa-list"></div></section>
+<section id="v-spesa" class="view" hidden><div class="stk" id="spesa-top"></div><div id="spesa-list"></div></section>
 <section id="v-bozze" class="view" hidden><div id="bozze-list"></div></section>
 <section id="v-appr" class="view" hidden><div id="appr"></div></section>
 </main>

@@ -21,3 +21,16 @@ Open Food Facts e gli altri database aperti non richiedono chiavi. Se inserisci 
 Sempre attivi e senza chiave, subito dopo i quattro Open*Facts: FoodRepo, OpenGTINDB, Datakick (e gtinsearch), Open Beer DB, OpenLibrary e Google Books (solo ISBN), OpenFDA.
 Chiavi facoltative che alzano i limiti: **google_books_key**, **openfda_key**.
 Un servizio a chiave senza tutte le sue chiavi viene saltato. Le chiavi restano sul server e non vengono mai mostrate nell'app né scritte nei log.
+
+## Lista della spesa su iPhone (dalla 0.6.0)
+Nella pagina Spesa il pulsante «Aggiungi alla lista della spesa di iOS» manda a Promemoria tutte le voci da comprare che non hai ancora spuntato nel carrello, una per riga.
+- **shortcut_spesa**: nome del comando rapido da avviare (default «Spesa»).
+- Su iPhone e iPad l'app apre il comando rapido con l'elenco come testo in ingresso. Su altri dispositivi apre il foglio di condivisione, oppure copia l'elenco negli appunti.
+
+Per creare il comando rapido (una volta sola, app Comandi):
+1. Nuovo comando, chiamalo «Spesa» (o il nome che hai messo in **shortcut_spesa**).
+2. Azione «Dividi testo» sull'input del comando, separatore «A capo».
+3. Azione «Ripeti con ciascun elemento» sul risultato.
+4. Dentro la ripetizione: «Aggiungi nuovo promemoria» con titolo = «Elemento ripetuto», lista = «Spesa».
+5. Nelle impostazioni del comando, attiva «Accetta input» di tipo testo.
+La prima volta iOS chiede il permesso di eseguire il comando dall'app.

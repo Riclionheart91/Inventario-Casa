@@ -51,7 +51,7 @@
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
     if (path === 'api/tipi') return ['Crema spalmabile', 'Latte', 'Pasta'];
     if (method === 'POST' && path === 'api/prodotto') return { ok: true };
-    if (path === 'api/config') return { url_sicuro: '', sola_lettura: false, ai: true };
+    if (path === 'api/config') return { url_sicuro: '', sola_lettura: false, ai: true, shortcut_spesa: 'Spesa' };
     if (path === 'api/suggerisci') return { ai: true, categoria: 'Dispensa', sottocategoria: 'Snack e Dolci', tipo: 'Crema spalmabile', tipo_nuovo: false };
     if (path === 'api/categorie') return [{ categoria: 'Dispensa', sottocategorie: ['Pasta e Riso', 'Bevande', 'Snack e Dolci'] }, { categoria: 'Frigorifero', sottocategorie: ['Latticini'] }, { categoria: 'Cantina', sottocategorie: ['Bevande'] }];
     if (method === 'PATCH') return { ok: true, movimenti_aggiornati: 3 };
@@ -535,27 +535,56 @@
       try { localStorage.setItem('prodCache', nuovo); } catch (e) { /* spazio pieno: pazienza */ }
     }).catch(function (e) { toast('Elenco non caricato: ' + e.message, true); });
   }
+  var prodOrd = (function () { try { return localStorage.getItem('prodOrd') === 'tipo' ? 'tipo' : 'az'; } catch (e) { return 'az'; } })();
+  function chiusiProd() { try { return JSON.parse(localStorage.getItem('prodChiusi') || '[]') || []; } catch (e) { return []; } }
+  function salvaChiusiProd(k) { try { localStorage.setItem('prodChiusi', JSON.stringify(k)); } catch (e) { /* ok */ } }
+  function buildOrdProd() {
+    var box = $('prod-ord'); box.textContent = '';
+    [['az', 'A-Z'], ['tipo', 'Per tipo']].forEach(function (o) {
+      var b = el('button', 'chip', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(prodOrd === o[0]));
+      b.addEventListener('click', function () { prodOrd = o[0]; try { localStorage.setItem('prodOrd', o[0]); } catch (e) { /* ok */ } buildOrdProd(); renderProd(); }); box.appendChild(b);
+    });
+  }
   function renderProd() {
-    var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist'), last = '';
+    var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist');
     box.textContent = '';
     var list = (st.prod || []).filter(function (r) { return !q || [r.nome, r.marca, r.categoria, r.sotto, r.tipo, String(r.barcode)].join(' ').toLowerCase().indexOf(q) >= 0; });
     if (!list.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto trovato.')); return; }
+    var gruppi = {}, chiavi = [];
     list.forEach(function (r) {
-      var L = (r.nome.charAt(0) || '#').toUpperCase(); if (!/[A-Z]/.test(L)) L = '#';
-      if (L !== last) { box.appendChild(el('div', 'letter', L)); last = L; }
-      var it = el('div', 'item'), n = el('div', 'n'), th = el('div', 'th');
-      if (r.img) thumbLazy(th, r.img);
-      it.appendChild(th); it.tabIndex = 0; it.setAttribute('role', 'button'); it.setAttribute('aria-label', 'Apri la scheda di ' + r.nome);
-      n.appendChild(el('b', '', r.nome));
-      var sub = [r.marca, r.conf].filter(Boolean).join(' · '); if (sub) n.appendChild(el('span', 'sub2', sub));
-      if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.categoria].filter(Boolean).join(' · ')));
-      it.appendChild(n);
-      var zero = !r.qta, low = !zero && r.minima > 0 && r.qta <= r.minima;
-      it.appendChild(el('span', 'badge' + (zero ? ' zero' : low ? ' low' : ''), zero ? 'Esaurito' : low ? 'Sotto scorta' : 'Ok'));
-      it.appendChild(el('div', 'qta', String(r.qta || 0)));
-      (function (bc) { it.addEventListener('click', function () { openScheda(bc); }); it.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openScheda(bc); } }); })(r.barcode);
-      box.appendChild(it);
+      var k;
+      if (prodOrd === 'tipo') k = (r.tipo || '').trim() || 'Senza tipo';
+      else { k = (r.nome.charAt(0) || '#').toUpperCase(); if (!/[A-Z]/.test(k)) k = '#'; }
+      if (!gruppi[k]) { gruppi[k] = []; chiavi.push(k); }
+      gruppi[k].push(r);
     });
+    if (prodOrd === 'tipo') chiavi.sort(function (x, y) { if (x === 'Senza tipo') return 1; if (y === 'Senza tipo') return -1; return x.localeCompare(y, 'it'); });
+    var chiusi = chiusiProd();
+    chiavi.forEach(function (k) {
+      var id = prodOrd + ':' + k, d = el('details', 'g'); d.open = !!q || chiusi.indexOf(id) < 0; d.dataset.k = id;
+      d.appendChild(el('summary', '', k + ' (' + gruppi[k].length + ')'));
+      d.addEventListener('toggle', function () { if (q) return; var c = chiusiProd().filter(function (x) { return x !== id; }); if (!d.open) c.push(id); salvaChiusiProd(c); });
+      gruppi[k].forEach(function (r) {
+        var it = el('div', 'item'), n = el('div', 'n'), th = el('div', 'th');
+        if (r.img) thumbLazy(th, r.img);
+        it.appendChild(th); it.tabIndex = 0; it.setAttribute('role', 'button'); it.setAttribute('aria-label', 'Apri la scheda di ' + r.nome);
+        n.appendChild(el('b', '', r.nome));
+        var sub = [r.marca, r.conf].filter(Boolean).join(' · '); if (sub) n.appendChild(el('span', 'sub2', sub));
+        if (r.tipo && prodOrd !== 'tipo') n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.categoria].filter(Boolean).join(' · ')));
+        it.appendChild(n);
+        var zero = !r.qta, low = !zero && r.minima > 0 && r.qta <= r.minima;
+        it.appendChild(el('span', 'badge' + (zero ? ' zero' : low ? ' low' : ''), zero ? 'Esaurito' : low ? 'Sotto scorta' : 'Ok'));
+        it.appendChild(el('div', 'qta', String(r.qta || 0)));
+        (function (bc) { it.addEventListener('click', function () { openScheda(bc); }); it.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openScheda(bc); } }); })(r.barcode);
+        d.appendChild(it);
+      });
+      box.appendChild(d);
+    });
+  }
+  function tuttiProd(apri) {
+    var tutti = [];
+    document.querySelectorAll('#prodlist details.g').forEach(function (d) { d.open = apri; if (!apri) tutti.push(d.dataset.k); });
+    salvaChiusiProd(apri ? [] : tutti);
   }
 
   /* ---------- campi condivisi: categoria > sottocategoria, tipo ---------- */
@@ -598,35 +627,71 @@
     api('GET', 'api/spesa').then(function (s) { renderSpesa(s || { voci: [] }); })
       .catch(function (e) { toast('Spesa non caricata: ' + e.message, true); });
   }
+  var spFiltro = 'Tutti';
+  function listaIOS(voci) {   // tutte le voci da comprare e non ancora nel carrello, una per riga
+    var car = carrello(), righe = voci.filter(function (v) { return !car[v.tipo]; }).map(function (v) { return v.tipo; });
+    if (!righe.length) { toast('Niente da aggiungere: tutto è già nel carrello.'); return; }
+    var testo = righe.join('\n');
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    function ripiego() {
+      if (navigator.share) { navigator.share({ title: 'Lista della spesa', text: testo }).catch(function () { /* annullato */ }); return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(testo).then(function () { toast('Elenco copiato: incollalo in Promemoria.'); }, function () { toast('Non riesco a copiare l\'elenco.', true); }); return; }
+      toast('Il dispositivo non permette di condividere l\'elenco.', true);
+    }
+    if (!ios) { ripiego(); return; }
+    var a2 = document.createElement('a'); a2.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(st.shortcut || 'Spesa') + '&input=text&text=' + encodeURIComponent(testo);
+    a2.target = '_top'; a2.rel = 'noopener'; document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+    toast('Aggiungo ' + righe.length + (righe.length === 1 ? ' voce' : ' voci') + ' ai Promemoria…');
+  }
+  function chiusiSpesa() { try { return JSON.parse(localStorage.getItem('spesaChiusi') || '[]') || []; } catch (e) { return []; } }
   function renderSpesa(s) {
-    var box = $('spesa-list'), car = carrello(); box.textContent = '';
+    var box = $('spesa-list'), top = $('spesa-top'), car = carrello(); box.textContent = ''; top.textContent = '';
     var voci = s.voci || [];
-    $('sub').textContent = voci.length ? voci.length + (voci.length === 1 ? ' prodotto da comprare' : ' prodotti da comprare') : 'Niente da comprare';
+    var nCar = voci.filter(function (v) { return car[v.tipo]; }).length, nDa = voci.length - nCar;
+    $('sub').textContent = voci.length ? nDa + ' da comprare' + (nCar ? ' · ' + nCar + ' nel carrello' : '') : 'Niente da comprare';
+    setStk();
     if (!voci.length) { box.appendChild(el('p', 'empty', 'Scorte a posto: niente da comprare.')); return; }
-    box.appendChild(el('p', 'note', (s.finiti || 0) + ' finiti · ' + (s.in_esaurimento || 0) + ' in esaurimento. Spunta quello che hai nel carrello; «Comprato +1» lo carica a Casa.'));
-    voci.forEach(function (v) {
-      var c = el('article', 'card item' + (car[v.tipo] ? ' done' : ''));
-      var top = el('div', 'row');
-      var chk = el('input'); chk.type = 'checkbox'; chk.checked = !!car[v.tipo]; chk.setAttribute('aria-label', 'Nel carrello: ' + v.tipo);
-      chk.addEventListener('change', function () { var k = carrello(); if (chk.checked) k[v.tipo] = 1; else delete k[v.tipo]; salvaCarrello(k); c.className = 'card item' + (chk.checked ? ' done' : ''); });
-      top.appendChild(chk);
-      var tx = el('div', 'grow'); tx.appendChild(el('h2', '', v.tipo));
-      tx.appendChild(el('div', 'm', [v.categoria, v.sottocategoria].filter(Boolean).join(' › ')));
-      tx.appendChild(el('div', 'm', 'Giacenza ' + v.giacenza + ' · scorta minima ' + v.minima + (v.dettaglio ? ' · ' + v.dettaglio : '')));
-      top.appendChild(tx);
-      top.appendChild(el('span', 'badge ' + (v.stato === 'FINITO' ? 'zero' : 'low'), v.stato === 'FINITO' ? 'Finito' : 'In esaurimento'));
-      c.appendChild(top);
-      if (v.prodotto) c.appendChild(el('div', 'm', 'Ultimo acquistato: ' + v.prodotto));
-      var bt = el('div', 'btns'), ok = el('button', 'btn ok', 'Comprato +1'); ok.type = 'button';
-      ok.disabled = st.ro || !v.barcode;
-      ok.addEventListener('click', function () {
-        ok.disabled = true;
-        api('POST', 'api/movimento', { barcode: String(v.barcode), tipo: 'Carico', location: 'Casa', quantita: 1, prodotto: v.prodotto || '' }).then(function () {
-          var k = carrello(); delete k[v.tipo]; salvaCarrello(k); azzeraCache(); toast('Caricato 1 a Casa.'); loadSpesa();
-        }).catch(function (e) { ok.disabled = false; toast('Non riuscito: ' + e.message, true); });
-      });
-      bt.appendChild(ok); c.appendChild(bt); box.appendChild(c);
+    var ch = el('div', 'chips'); ch.setAttribute('role', 'group'); ch.setAttribute('aria-label', 'Filtro');
+    [['Tutti', voci.length], ['Finiti', s.finiti || 0], ['In esaurimento', s.in_esaurimento || 0]].forEach(function (f) {
+      var b = el('button', 'chip', f[0] + ' ' + f[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(spFiltro === f[0]));
+      b.addEventListener('click', function () { spFiltro = f[0]; renderSpesa(s); }); ch.appendChild(b);
     });
+    top.appendChild(ch);
+    var ios = el('button', 'btn ghost sp-ios', 'Aggiungi alla lista della spesa di iOS'); ios.type = 'button';
+    ios.addEventListener('click', function () { listaIOS(voci); });
+    box.appendChild(ios);
+    box.appendChild(el('div', 'note sp-nota', 'Manda a Promemoria le voci non ancora nel carrello, tramite il comando rapido «' + (st.shortcut || 'Spesa') + '».'));
+    setStk();
+    var gruppi = {}, ordine = [];
+    voci.filter(function (v) { return spFiltro === 'Tutti' || (spFiltro === 'Finiti') === (v.stato === 'FINITO'); }).forEach(function (v) {
+      var k = v.categoria || 'Altro'; if (!gruppi[k]) { gruppi[k] = []; ordine.push(k); } gruppi[k].push(v);
+    });
+    var chiusi = chiusiSpesa();
+    ordine.forEach(function (g) {
+      var d = el('details', 'g'); d.open = chiusi.indexOf(g) < 0;
+      d.appendChild(el('summary', '', g + ' (' + gruppi[g].length + ')'));
+      d.addEventListener('toggle', function () { var k = chiusiSpesa().filter(function (x) { return x !== g; }); if (!d.open) k.push(g); try { localStorage.setItem('spesaChiusi', JSON.stringify(k)); } catch (e) { /* ok */ } });
+      gruppi[g].forEach(function (v) {
+        var fin = v.stato === 'FINITO', row = el('div', 'sp-row' + (car[v.tipo] ? ' done' : ''));
+        var lab = el('label', 'sp-chk'); var chk = el('input'); chk.type = 'checkbox'; chk.checked = !!car[v.tipo]; chk.setAttribute('aria-label', 'Nel carrello: ' + v.tipo);
+        chk.addEventListener('change', function () { var k = carrello(); if (chk.checked) k[v.tipo] = 1; else delete k[v.tipo]; salvaCarrello(k); renderSpesa(s); });
+        lab.appendChild(chk); row.appendChild(lab);
+        var th = el('div', 'th'); if (v.immagine) thumbLazy(th, v.immagine); row.appendChild(th);
+        var n = el('div', 'n'); n.appendChild(el('b', '', v.tipo)); if (v.sottocategoria) n.appendChild(el('span', '', v.sottocategoria)); row.appendChild(n);
+        var q = el('span', 'sp-q ' + (fin ? 'zero' : 'low'), v.giacenza + ' / ' + v.minima); q.title = (fin ? 'Finito' : 'In esaurimento') + ' · ' + (v.dettaglio || ''); row.appendChild(q);
+        var ok = el('button', 'sp-plus', '+1'); ok.type = 'button'; ok.title = 'Comprato +1: lo carica a Casa'; ok.setAttribute('aria-label', 'Comprato, carica 1 a Casa: ' + v.tipo);
+        ok.disabled = st.ro || !v.barcode;
+        ok.addEventListener('click', function () {
+          ok.disabled = true;
+          api('POST', 'api/movimento', { barcode: String(v.barcode), tipo: 'Carico', location: 'Casa', quantita: 1, prodotto: v.prodotto || '' }).then(function () {
+            var k = carrello(); delete k[v.tipo]; salvaCarrello(k); azzeraCache(); toast('Caricato 1 a Casa.'); loadSpesa();
+          }).catch(function (e) { ok.disabled = false; toast('Non riuscito: ' + e.message, true); });
+        });
+        row.appendChild(ok); d.appendChild(row);
+      });
+      box.appendChild(d);
+    });
+    if (!ordine.length) box.appendChild(el('p', 'empty', 'Nessuna voce in questo filtro.'));
   }
 
   /* ---------- da inserire (bozze) ---------- */
@@ -734,12 +799,12 @@
 
   /* ---------- avvio ---------- */
   function init() {
-    api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; st.ai = !!(c && c.ai); }).catch(function () { st.ro = true; });
+    api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; st.ai = !!(c && c.ai); st.shortcut = (c && c.shortcut_spesa) || 'Spesa'; }).catch(function () { st.ro = true; });
     window.addEventListener('resize', setStk); window.addEventListener('load', setStk);
     buildNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
     $('qp').addEventListener('click', function () { setQta(st.qta + 1); });
-    $('scan').addEventListener('click', startScan); $('sc-close').addEventListener('click', closeScheda); $('qp2').addEventListener('input', renderProd); $('sc-mov').addEventListener('click', function () { var bc = st.schedaBc; closeScheda(); show('mov'); if (bc) { $('bc').value = bc; lookup(); } }); document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('scheda').hidden) closeScheda(); }); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
+    $('scan').addEventListener('click', startScan); $('sc-close').addEventListener('click', closeScheda); buildOrdProd(); $('prod-chiudi').addEventListener('click', function () { tuttiProd(false); }); $('prod-apri').addEventListener('click', function () { tuttiProd(true); }); $('qp2').addEventListener('input', renderProd); $('sc-mov').addEventListener('click', function () { var bc = st.schedaBc; closeScheda(); show('mov'); if (bc) { $('bc').value = bc; lookup(); } }); document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('scheda').hidden) closeScheda(); }); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);
     $('cancel').addEventListener('click', function () { stopScan(); resetForm(); });
     $('f').addEventListener('submit', save);
     var dbt;

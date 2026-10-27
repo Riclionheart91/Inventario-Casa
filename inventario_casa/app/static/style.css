@@ -103,3 +103,14 @@ details.g summary,.letter{position:sticky;top:calc(var(--stk,0px) - 16px);z-inde
 .fld input,.fld select{width:100%;box-sizing:border-box}
 .edit{margin:8px 0}
 .btns{flex-wrap:wrap}.btns .btn{flex:1 1 40%}.fld{margin:4px 0}.card .m{text-align:left}
+
+/* spesa e prodotti (0.6.0) */
+.bar{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap}.bar .chips{margin-bottom:8px}
+.sp-ios{width:100%;margin:6px 0 4px}.sp-nota{margin-bottom:8px}
+.sp-row{display:flex;align-items:center;gap:8px;min-height:52px;border-top:1px solid #20272c}
+.sp-row .th{width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center}.sp-row .th:empty{border-radius:8px;background:var(--s2);border:1px solid var(--bd)}.sp-row .th img{width:100%;height:100%;object-fit:contain}
+.sp-row .n{flex:1;min-width:0}.sp-row .n b{display:block;font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sp-row .n span{display:block;font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-chk{display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:none;cursor:pointer}.sp-chk input{width:22px;height:22px;accent-color:var(--acc)}
+.sp-q{font-size:13px;font-weight:700;padding:3px 9px;border-radius:10px;white-space:nowrap}.sp-q.zero{background:#2a2023;color:var(--bad)}.sp-q.low{background:#33291a;color:var(--warn)}
+.sp-plus{flex:none;width:40px;height:36px;border-radius:10px;border:1px solid var(--bd);background:transparent;color:var(--mut);font-weight:700;font-size:13px;cursor:pointer}.sp-plus:disabled{opacity:.4;cursor:default}
+.sp-row.done{opacity:.5}.sp-row.done .n b{text-decoration:line-through}

@@ -6,6 +6,7 @@ export SERVICE_ACCOUNT_JSON="$(bashio::config 'service_account_json')"
 export SHARED_CODE="$(bashio::config 'shared_code')"
 export READ_ONLY="$(bashio::config 'sola_lettura')"
 export SECURE_URL="$(bashio::config 'url_sicuro')"
+export SHORTCUT_SPESA="$(bashio::config 'shortcut_spesa')"
 # Chiavi opzionali dei servizi di ricerca e dell'AI (vuote = servizio saltato)
 opt() { local v; v="$(bashio::config "$1")"; [ "$v" = "null" ] && v=""; printf '%s' "$v"; }
 export GEMINI_API_KEY="$(opt gemini_api_key)" GEMINI_MODELLO="$(opt gemini_modello)" GEMINI_MODELLO_RISERVA="$(opt gemini_modello_riserva)"
