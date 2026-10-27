@@ -318,6 +318,11 @@
     var lum = new Z.HTMLCanvasElementLuminanceSource(canvas);
     return reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(lum))).getText();
   }
+  function disegna(cv, src, sx, sy, sw, sh, k, ruota) {   // copia una parte dell'immagine, anche ruotata di 90 gradi (codici verticali)
+    var w = Math.round(sw * k), h = Math.round(sh * k), c = cv.getContext('2d');
+    if (!ruota) { cv.width = w; cv.height = h; c.drawImage(src, sx, sy, sw, sh, 0, 0, w, h); return; }
+    cv.width = h; cv.height = w; c.setTransform(1, 0, 0, 1, 0, 0); c.translate(h, 0); c.rotate(Math.PI / 2); c.drawImage(src, sx, sy, sw, sh, 0, 0, w, h);
+  }
   function stopScan() {
     clearInterval(scanTimer); scanTimer = null;
     if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
@@ -338,11 +343,11 @@
           if (useNative) { detector.detect(v).then(function (c) { if (c && c.length) gotCode(c[0].rawValue); }).catch(function () {}); return; }
           if (!v.videoWidth || busy) return;
           busy = true; fr++;
-          try {   // fotogrammi alterni: fascia centrale a piena risoluzione (codice piu grande) e inquadratura intera ridotta
-            var W = v.videoWidth, H = v.videoHeight, sx = 0, sy = 0, sw = W, sh = H;
-            if (fr % 2) { sx = Math.round(W * 0.05); sw = Math.round(W * 0.9); sy = Math.round(H * 0.25); sh = Math.round(H * 0.5); }
-            var k = Math.min(1, 1280 / sw); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
-            cv.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+          try {   // fotogrammi alterni: inquadratura intera e fascia centrale, per ciascuna anche ruotata di 90 gradi (codici in verticale)
+            var W = v.videoWidth, H = v.videoHeight, sx = 0, sy = 0, sw = W, sh = H, f = fr % 4, rot = f >= 2;
+            if (f === 1) { sx = Math.round(W * 0.05); sw = Math.round(W * 0.9); sy = Math.round(H * 0.25); sh = Math.round(H * 0.5); }   // fascia orizzontale
+            if (f === 3) { sx = Math.round(W * 0.25); sw = Math.round(W * 0.5); sy = Math.round(H * 0.05); sh = Math.round(H * 0.9); }   // fascia verticale (ruotata)
+            disegna(cv, v, sx, sy, sw, sh, Math.min(1, 1280 / Math.max(sw, sh)), rot);
             gotCode(zxDecode(Z, reader, cv));
           } catch (e) { /* nessun codice in questo fotogramma */ }
           busy = false;
@@ -372,9 +377,11 @@
         [1600, 1000, 640].forEach(function (max) {
           if (done) return;
           var k = Math.min(1, max / Math.max(img.width, img.height));
-          cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
-          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-          try { var t = zxDecode(Z, reader, cv); done = true; note($('hint'), '', ''); gotCode(t); } catch (e) { /* riprova con un'altra dimensione */ }
+          [false, true].forEach(function (ruota) {
+            if (done) return;
+            disegna(cv, img, 0, 0, img.width, img.height, k, ruota);
+            try { var t = zxDecode(Z, reader, cv); done = true; note($('hint'), '', ''); gotCode(t); } catch (e) { /* riprova ruotando o con un'altra dimensione */ }
+          });
         });
         if (!done) note($('hint'), 'Codice non riconosciuto: avvicinati, tieni il codice dritto e ben illuminato, poi riprova.', 'warn');
       }).catch(function () { note($('hint'), 'Non riesco a caricare il lettore: serve la connessione. Digita il codice.', 'warn'); })

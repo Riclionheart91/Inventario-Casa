@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.5.1 — 2026-10-27
+Scanner: legge anche i codici a barre in verticale. A fotogrammi alterni prova l'inquadratura intera, la fascia centrale e le stesse ruotate di 90 gradi; lo stesso vale per la lettura da foto.
+
 ## 0.5.0 — 2026-10-27
 Tre nuove pagine: Spesa, Da inserire, Approvazioni complete.
 - Spesa: i tipi sotto la scorta minima (da ai_tipi), con stato Finito / In esaurimento; spunta "nel carrello" e "Comprato +1" (carico a Casa).
