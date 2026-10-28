@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.7.1 — 2026-10-28
+Porta diretta 8099 non più pubblicata: si usa solo Home Assistant / Tailscale (https, fotocamera dal vivo funzionante). Il codice di accesso diretto resta nel programma ma non è raggiungibile.
+
 ## 0.7.0 — 2026-10-28
 Accesso diretto su porta dedicata (8099), oltre all'ingress di Home Assistant: le due vie convivono.
 - Ingress / Tailscale su Home Assistant: nessun codice, vale il login di Home Assistant.

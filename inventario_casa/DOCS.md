@@ -35,5 +35,5 @@ Per creare il comando rapido (una volta sola, app Comandi):
 5. Nelle impostazioni del comando, attiva «Accetta input» di tipo testo.
 La prima volta iOS chiede il permesso di eseguire il comando dall'app.
 
-## Accesso diretto (porta 8099)
-Oltre all'ingress di Home Assistant l'app risponde su `http://IP-DI-HOME-ASSISTANT:8099`. Imposta `shared_code` (codice unico di famiglia) nelle opzioni: senza codice la porta diretta resta spenta. Cambiare il codice scollega tutti i dispositivi. L'ingress non richiede il codice. Per la fotocamera dal vivo serve https (es. Tailscale) o l'ingress.
+## Accesso
+Si usa solo tramite Home Assistant (ingress), dal pannello Inventario o dall'indirizzo https di Tailscale: la porta diretta 8099 non viene più pubblicata (dalla 0.7.1). Il codice di accesso diretto è ancora nel programma ma resta spento, perché la porta non è raggiungibile dall'esterno del container.
