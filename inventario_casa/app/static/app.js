@@ -545,6 +545,18 @@
   }
   var FILTRI_PROD = [['tutti', 'Tutti'], ['casa', 'In casa'], ['esauriti', 'Esauriti'], ['sotto', 'Sotto scorta']];
   var prodFiltro = (function () { try { var f = localStorage.getItem('prodFiltro'); return FILTRI_PROD.some(function (x) { return x[0] === f; }) ? f : 'tutti'; } catch (e) { return 'tutti'; } })();
+  var prodCat = (function () { try { return localStorage.getItem('prodCat') || ''; } catch (e) { return ''; } })();
+  function buildCatProd() {   // riga di categorie per isolare un solo reparto
+    var box = $('prod-cat'); if (!box) return; box.textContent = '';
+    var conta = {}; (st.prod || []).forEach(function (r) { var c = (r.categoria || '').trim() || 'Senza categoria'; conta[c] = (conta[c] || 0) + 1; });
+    var nomi = Object.keys(conta).sort(function (x, y) { if (x === 'Senza categoria') return 1; if (y === 'Senza categoria') return -1; return x.localeCompare(y, 'it'); });
+    if (prodCat && !conta[prodCat]) prodCat = '';
+    [''].concat(nomi).forEach(function (c) {
+      var b = el('button', 'chip', c ? c + ' ' + conta[c] : 'Tutte'); b.type = 'button'; b.setAttribute('aria-pressed', String(prodCat === c));
+      b.addEventListener('click', function () { prodCat = c; try { localStorage.setItem('prodCat', c); } catch (e) { /* ok */ } buildCatProd(); renderProd(); });
+      box.appendChild(b);
+    });
+  }
   function chiusiProd() { try { return JSON.parse(localStorage.getItem('prodChiusi') || '[]') || []; } catch (e) { return []; } }
   function salvaChiusiProd(k) { try { localStorage.setItem('prodChiusi', JSON.stringify(k)); } catch (e) { /* ok */ } }
   function buildFiltriProd() {
@@ -558,8 +570,9 @@
   function righePosti(r) { return (r.posti || []).map(function (p) { return p.luogo + ' ' + p.qta; }).join(' · '); }
   function renderProd() {   // una sola vista: gruppi per tipo (A-Z, "Senza tipo" in fondo), prodotti in ordine alfabetico dentro il gruppo
     var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist');
-    box.textContent = '';
+    box.textContent = ''; buildCatProd();
     var list = (st.prod || []).filter(function (r) {
+      if (prodCat && ((r.categoria || '').trim() || 'Senza categoria') !== prodCat) return false;
       if (prodFiltro === 'casa' && !(r.qta > 0)) return false;
       if (prodFiltro === 'esauriti' && r.qta > 0) return false;
       if (prodFiltro === 'sotto' && !sottoScorta(r)) return false;

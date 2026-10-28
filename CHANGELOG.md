@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.7.3 — 2026-10-28
+Prodotti: riga di categorie scorrevole (con conteggio) per isolare un solo reparto; dentro restano i gruppi per tipo. La ricerca vale sulla categoria scelta; la scelta resta memorizzata.
+
 ## 0.7.2 — 2026-10-28
 Rimossi i pulsanti −1/+1 dalle righe di Stock e Prodotti: restano solo gli scorrimenti (sinistra Scarico 1, destra Carico 1, con Annulla per 5 secondi).
 
