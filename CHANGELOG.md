@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.7.2 — 2026-10-28
+Rimossi i pulsanti −1/+1 dalle righe di Stock e Prodotti: restano solo gli scorrimenti (sinistra Scarico 1, destra Carico 1, con Annulla per 5 secondi).
+
 ## 0.7.1 — 2026-10-28
 Porta diretta 8099 non più pubblicata: si usa solo Home Assistant / Tailscale (https, fotocamera dal vivo funzionante). Il codice di accesso diretto resta nel programma ma non è raggiungibile.
 

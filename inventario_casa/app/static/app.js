@@ -525,7 +525,6 @@
         if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.luogo].filter(Boolean).join(' · ')));
         it.appendChild(n); it.appendChild(el('span', 'badge' + (isLow(r) ? ' low' : ''), isLow(r) ? 'Sotto scorta' : 'Ok'));
         it.appendChild(el('div', 'qta', String(r.qta)));
-        it.appendChild(bottoniRapidi(r, function () { movRapidoStock('Scarico', r); }, function () { movRapidoStock('Carico', r); }, st.ro));
         d.appendChild(swipeRiga(it, { right: { label: '+1 Carico', ok: function () { return !st.ro; }, fn: function () { movRapidoStock('Carico', r); } },
                                       left: { label: '−1 Scarico', ok: function () { return !st.ro && r.qta > 0; }, fn: function () { movRapidoStock('Scarico', r); } } }));
       });
@@ -593,7 +592,6 @@
         q2.appendChild(el('b', '', String(r.qta || 0))); q2.appendChild(el('small', '', 'pz'));
         if ((zero || low) && r.minima > 0) q2.appendChild(el('i', '', 'da comprare'));
         it.appendChild(q2);
-        it.appendChild(bottoniRapidi({ nome: r.nome, qta: r.qta }, function () { movRapidoProd('Scarico', r); }, function () { movRapidoProd('Carico', r); }, st.ro));
         (function (bc) { it.addEventListener('click', function () { openScheda(bc); }); it.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openScheda(bc); } }); })(r.barcode);
         d.appendChild(swipeRiga(it, { right: { label: '+1 Carico', ok: function () { return !st.ro; }, fn: function () { movRapidoProd('Carico', r); } },
                                       left: { label: '−1 Scarico', ok: function () { return !st.ro && r.qta > 0; }, fn: function () { movRapidoProd('Scarico', r); } } }));

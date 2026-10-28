@@ -137,7 +137,6 @@ nav{position:relative}
 #undo[hidden]{display:none}#undo button{background:transparent;border:0;color:var(--acc);font-weight:700;font-size:14px;min-height:44px;padding:0 8px;cursor:pointer}
 #nav{touch-action:pan-y}
 
-.rapidi{display:flex;gap:6px;flex:none}.rp{width:40px;height:40px;border-radius:10px;border:1px solid var(--bd);background:transparent;color:var(--tx);font-weight:700;font-size:14px;cursor:pointer}.rp:disabled{opacity:.35;cursor:default}
 .sp-x{flex:none;width:36px;height:36px;border-radius:10px;border:1px solid var(--bd);background:transparent;color:var(--mut);font-size:14px;cursor:pointer}.sp-ripr{margin-top:12px;width:100%}
 #pick{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
 #pick .pk{width:100%;max-width:520px;background:var(--s2);border-top:1px solid var(--bd);border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
