@@ -98,6 +98,7 @@
       b.addEventListener('click', function () { show(t[0]); });
       nav.appendChild(b);
     });
+    var ind = el('div', ''); ind.id = 'nav-ind'; ind.setAttribute('aria-hidden', 'true'); nav.appendChild(ind);
   }
   function setStk() {   // altezza della barra fissa della pagina visibile: da li partono le categorie fisse
     var v = document.querySelector('.view:not([hidden]) .stk');
@@ -110,6 +111,8 @@
       if (t[0] === tab) $('title').textContent = t[2];
     });
     Array.prototype.forEach.call($('nav').children, function (b) { if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    navInd(0, true);
+    if (tab === 'stock' || tab === 'prod') hintSwipe('v-' + tab);
     if (tab !== 'mov') stopScan();
     if (tab === 'stock') loadStock();
     if (tab === 'prod') loadProd();
@@ -646,48 +649,116 @@
      la scrittura sul foglio parte solo allo scadere. Ogni gesto ha anche un pulsante equivalente. */
   var SWIPE_RIGHE = { attivo: true };
   function swipeRiga(row, def) { return SWIPE_RIGHE.attivo ? swipeWrap(row, def) : row; }
-  var SW_MAX = 120, SW_SOGLIA = 76;
-  function swipeWrap(row, o) {   // o.right / o.left = { label, fn, ok?: function () { return true } } ; restituisce l'elemento da inserire al posto della riga
+  var SW_APRI = 92;   // larghezza dell'area azione quando la riga resta aperta (stile Apple Music)
+  var swAperta = null, ultimoTouch = 0, swCont = { touchstart: 0, touchmove: 0, mousedown: 0, pointerdown: 0, wheel: 0 };
+  function swGlobali() {   // una volta sola: un tocco fuori dalla riga aperta, o uno scroll, la richiude; contatori per la diagnostica
+    if (swGlobali.fatto) return; swGlobali.fatto = true;
+    Object.keys(swCont).forEach(function (n) { document.addEventListener(n, function () { swCont[n]++; }, { capture: true, passive: true }); });
+    ['touchstart', 'mousedown'].forEach(function (n) {
+      document.addEventListener(n, function (e) {
+        if (n === 'mousedown' && Date.now() - ultimoTouch < 800) return;
+        if (swAperta && !swAperta.wrap.contains(e.target)) swAperta.chiudi();
+      }, { capture: true, passive: true });
+    });
+    window.addEventListener('scroll', function () { if (swAperta) swAperta.chiudi(); }, true);
+  }
+  function swEsegui(d) { if (!d) return; if (d.prima && d.prima() === false) return; if (d.conferma) conAnnulla(d.conferma, d.fn); else d.fn(); }
+  function swipeWrap(row, o) {   // o.right / o.left = { label, fn, ok?, prima?, conferma? }; restituisce l'elemento da inserire al posto della riga
+    swGlobali();
     var wrap = el('div', 'sw'), bg = el('div', 'sw-bg');
-    var lr = el('span', 'sw-r', (o.right && o.right.label) || ''), ll = el('span', 'sw-l', (o.left && o.left.label) || '');
-    lr.setAttribute('aria-hidden', 'true'); ll.setAttribute('aria-hidden', 'true'); bg.appendChild(lr); bg.appendChild(ll);
+    function mk(lato) {
+      var d = o[lato], b = el('button', 'sw-act ' + (lato === 'right' ? 'sw-r' : 'sw-l') + (d && /rifiut|scart/i.test(d.label) ? ' bad' : ''), d ? d.label : '');
+      b.type = 'button'; b.tabIndex = -1; b.setAttribute('aria-hidden', 'true'); return b;
+    }
+    var bR = mk('right'), bL = mk('left');
+    bg.appendChild(bR); bg.appendChild(bL);
     if (row.classList.contains('card')) wrap.classList.add('sw-card');
     row.classList.add('sw-fg'); wrap.appendChild(bg); wrap.appendChild(row);
-    var id = null, x0 = 0, y0 = 0, dx = 0, deciso = false, trascina = false, blocca = false;
+    var x = 0, aperto = 0, att = false, drag = false, deciso = false, orizz = false, base = 0, x0 = 0, y0 = 0, traccia = [], blocca = 0, wacc = 0, wt = null;
+    var api = { wrap: wrap, chiudi: function () { aperto = 0; applica(0, true); if (swAperta === api) swAperta = null; } };
     function azione(lato) { var d = o[lato]; return d && (!d.ok || d.ok()) ? d : null; }
-    function muovi(v) { row.style.transform = v ? 'translateX(' + v + 'px)' : ''; }
-    row.addEventListener('pointerdown', function (e) {
-      if ((e.pointerType === 'mouse' && e.button !== 0) || e.target.closest('input,button,a,select,textarea,label')) return;
-      id = e.pointerId; x0 = e.clientX; y0 = e.clientY; dx = 0; deciso = false; trascina = false;
-    });
-    row.addEventListener('pointermove', function (e) {
-      if (id !== e.pointerId) return;
-      var mx = e.clientX - x0, my = e.clientY - y0;
-      if (!deciso) {
-        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
-        deciso = true; trascina = Math.abs(mx) > Math.abs(my) * 1.4;   // gesto prevalentemente orizzontale: altrimenti e scroll verticale
-        if (!trascina) { id = null; return; }
-        try { row.setPointerCapture(id); } catch (err) { /* ok */ }
-        row.classList.add('drag');
-      }
-      if (!trascina) return;
-      var lato = mx > 0 ? 'right' : 'left', d = azione(lato);
-      dx = d ? Math.max(-SW_MAX, Math.min(SW_MAX, mx)) : Math.max(-14, Math.min(14, mx / 6));   // senza azione disponibile: solo un cenno
-      muovi(dx);
-      wrap.classList.toggle('mostra-r', dx > 0); wrap.classList.toggle('mostra-l', dx < 0);
-      wrap.classList.toggle('pronto', !!d && Math.abs(dx) >= SW_SOGLIA);
-    });
-    function fine(e) {
-      if (id !== e.pointerId) return;
-      var era = trascina, v = dx; id = null; trascina = false; row.classList.remove('drag'); muovi(0);
-      wrap.classList.remove('mostra-r', 'mostra-l', 'pronto');
-      if (!era) return;
-      blocca = true; setTimeout(function () { blocca = false; }, 60);   // il rilascio non deve valere come tocco sulla riga
-      var d = e.type === 'pointerup' ? azione(v > 0 ? 'right' : 'left') : null;
-      if (d && Math.abs(v) >= SW_SOGLIA) { if (d.prima && d.prima() === false) return; if (d.conferma) conAnnulla(d.conferma, d.fn); else d.fn(); }
+    function largo() { return row.offsetWidth || 320; }
+    function applica(v, anim) {
+      x = v;
+      row.style.transition = anim ? '' : 'none';
+      row.style.transform = v ? 'translate3d(' + v + 'px,0,0)' : '';
+      wrap.classList.toggle('mostra-r', v > 0); wrap.classList.toggle('mostra-l', v < 0);
+      bR.style.width = Math.max(SW_APRI, v) + 'px'; bL.style.width = Math.max(SW_APRI, -v) + 'px';
+      bR.setAttribute('aria-hidden', v > 0 ? 'false' : 'true'); bL.setAttribute('aria-hidden', v < 0 ? 'false' : 'true');
+      bR.tabIndex = v > 0 ? 0 : -1; bL.tabIndex = v < 0 ? 0 : -1;
+      wrap.classList.toggle('pronto', Math.abs(v) >= largo() * 0.6 && !!azione(v > 0 ? 'right' : 'left'));
     }
-    row.addEventListener('pointerup', fine); row.addEventListener('pointercancel', fine);
-    row.addEventListener('click', function (e) { if (blocca && e.isTrusted) { e.stopPropagation(); e.preventDefault(); } }, true);
+    function apri(lato) { aperto = lato === 'right' ? 1 : -1; applica(aperto * SW_APRI, true); swAperta = api; }
+    function lancia(lato, d) {   // swipe lungo: la riga esce, poi parte l'azione
+      applica((lato === 'right' ? 1 : -1) * largo(), true);
+      setTimeout(function () { swEsegui(d); api.chiudi(); }, 170);
+    }
+    function inizio(cx, cy, target) {
+      if (target && target.closest && target.closest('input,button,a,select,textarea,label')) return false;
+      if (swAperta && swAperta !== api) swAperta.chiudi();
+      x0 = cx; y0 = cy; base = x; deciso = false; orizz = false; drag = false; traccia = [[Date.now(), cx]];
+      return true;
+    }
+    function muovi(cx, cy, ev) {
+      var mx = cx - x0, my = cy - y0;
+      if (!deciso) {
+        if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+        deciso = true; orizz = Math.abs(mx) > Math.abs(my) * 1.2;   // gesto prevalentemente orizzontale: altrimenti e scroll verticale
+        if (!orizz) { att = false; return; }
+        drag = true; row.classList.add('drag');
+      }
+      if (!orizz) return;
+      if (ev && ev.cancelable) ev.preventDefault();
+      var v = base + mx, d = azione(v > 0 ? 'right' : 'left'), max = largo() * 0.92;
+      v = d ? Math.max(-max, Math.min(max, v)) : Math.max(-14, Math.min(14, v / 6));   // senza azione disponibile: solo un cenno
+      traccia.push([Date.now(), cx]); if (traccia.length > 6) traccia.shift();
+      applica(v, false);
+    }
+    function fine(annullato) {
+      if (!att) return; att = false;
+      if (!drag) return;   // tocco semplice
+      drag = false; row.classList.remove('drag'); blocca = Date.now();
+      if (annullato) { if (aperto) applica(aperto * SW_APRI, true); else applica(0, true); return; }
+      var n = traccia.length, vel = n > 1 ? (traccia[n - 1][1] - traccia[0][1]) / Math.max(1, traccia[n - 1][0] - traccia[0][0]) : 0;   // px/ms
+      var proj = x + vel * 70, lato = proj > 0 ? 'right' : 'left', d = azione(lato), w = largo();
+      if (d && Math.abs(x) >= w * 0.6) { lancia(lato, d); return; }   // swipe lungo: solo se la riga e davvero arrivata oltre il 60%
+      if (d && Math.abs(proj) >= Math.min(w * 0.25, 80)) { apri(lato); return; }
+      api.chiudi();
+    }
+    // tocco (iPhone / iPad)
+    row.addEventListener('touchstart', function (e) { ultimoTouch = Date.now(); att = e.touches.length === 1 && inizio(e.touches[0].clientX, e.touches[0].clientY, e.target); }, { passive: true });
+    row.addEventListener('touchmove', function (e) { ultimoTouch = Date.now(); if (att && e.touches[0]) muovi(e.touches[0].clientX, e.touches[0].clientY, e); }, { passive: false });
+    row.addEventListener('touchend', function (e) { ultimoTouch = Date.now(); if (att && drag && e.cancelable) e.preventDefault(); fine(false); }, { passive: false });
+    row.addEventListener('touchcancel', function () { ultimoTouch = Date.now(); fine(true); }, { passive: true });
+    // mouse (Mac): mousedown sulla riga, poi move/up sul documento
+    function mm(e) { muovi(e.clientX, e.clientY, e); }
+    function mu() { document.removeEventListener('mousemove', mm, true); document.removeEventListener('mouseup', mu, true); fine(false); }
+    row.addEventListener('mousedown', function (e) {
+      if (e.button !== 0 || Date.now() - ultimoTouch < 800) return;
+      att = inizio(e.clientX, e.clientY, e.target); if (!att) return;
+      document.addEventListener('mousemove', mm, true); document.addEventListener('mouseup', mu, true);
+    });
+    row.addEventListener('dragstart', function (e) { e.preventDefault(); });
+    // trackpad (Mac): scorrimento orizzontale a due dita, come in Mail
+    row.addEventListener('wheel', function (e) {
+      if (Math.abs(e.deltaX) < Math.abs(e.deltaY) * 1.2 || Math.abs(e.deltaX) < 2) return;
+      e.preventDefault(); swChiudiAltre();
+      if (!att) { att = true; drag = true; orizz = true; deciso = true; base = x; wacc = 0; traccia = [[Date.now(), 0]]; row.classList.add('drag'); }
+      wacc -= e.deltaX; var d = azione((base + wacc) > 0 ? 'right' : 'left'), max = largo() * 0.92, v = base + wacc;
+      v = d ? Math.max(-max, Math.min(max, v)) : Math.max(-14, Math.min(14, v / 6));
+      traccia.push([Date.now(), wacc]); if (traccia.length > 6) traccia.shift(); applica(v, false);
+      clearTimeout(wt); wt = setTimeout(function () { fine(false); }, 140);
+    }, { passive: false });
+    function swChiudiAltre() { if (swAperta && swAperta !== api) swAperta.chiudi(); }
+    // i pulsanti dietro la riga
+    bR.addEventListener('click', function () { var d = azione('right'); api.chiudi(); swEsegui(d); });
+    bL.addEventListener('click', function () { var d = azione('left'); api.chiudi(); swEsegui(d); });
+    // un tocco sulla riga aperta la richiude (senza aprire la scheda); dopo un trascinamento il rilascio non vale come tocco
+    row.addEventListener('click', function (e) {
+      if (!e.isTrusted) return;
+      if (Date.now() - blocca < 400) { e.stopPropagation(); e.preventDefault(); return; }
+      if (aperto) { e.stopPropagation(); e.preventDefault(); api.chiudi(); }
+    }, true);
     return wrap;
   }
   var undoT = null, undoFn = null;
@@ -950,34 +1021,84 @@
 
 
   /* ---------- scorrimento sulla barra in basso: cambia pagina ---------- */
+  function navInd(extra, anim) {   // indicatore sotto la scheda attiva (come la tab bar di iOS): segue il dito durante lo swipe
+    var nav = $('nav'), ind = $('nav-ind'), b = nav && nav.querySelector('button[aria-current=page]');
+    if (!ind || !b) return;
+    ind.style.width = b.offsetWidth + 'px'; ind.style.transition = anim === false ? 'none' : '';
+    ind.style.transform = 'translate3d(' + (b.offsetLeft + (extra || 0)) + 'px,0,0)';
+  }
   function swipeNav() {
-    var nav = $('nav'), id = null, x0 = 0, y0 = 0, deciso = false, orizz = false, blocca = false;
-    nav.addEventListener('pointerdown', function (e) { if (e.pointerType === 'mouse' && e.button !== 0) return; id = e.pointerId; x0 = e.clientX; y0 = e.clientY; deciso = false; orizz = false; });
-    nav.addEventListener('pointermove', function (e) {
-      if (id !== e.pointerId || deciso) return;
-      var mx = e.clientX - x0, my = e.clientY - y0;
-      if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
-      deciso = true; orizz = Math.abs(mx) > Math.abs(my) * 1.2;
-      if (orizz) { try { nav.setPointerCapture(id); } catch (err) { /* ok */ } }
-    });
-    function fine(e) {
-      if (id !== e.pointerId) return;
-      var mx = e.clientX - x0, era = orizz; id = null; orizz = false;
-      if (!era) return;
-      blocca = true; setTimeout(function () { blocca = false; }, 60);
-      if (e.type !== 'pointerup' || Math.abs(mx) < 40) return;
-      var i = TABS.map(function (t) { return t[0]; }).indexOf(st.tab), n = i + (mx < 0 ? 1 : -1);   // verso sinistra = pagina successiva
-      if (n >= 0 && n < TABS.length) show(TABS[n][0]);
+    var nav = $('nav'), att = false, deciso = false, orizz = false, x0 = 0, y0 = 0, mx = 0, blocca = 0, traccia = [];
+    var ids = TABS.map(function (t) { return t[0]; });
+    function vicino(dir) { var n = ids.indexOf(st.tab) + dir; return n >= 0 && n < ids.length ? n : -1; }
+    function inizio(cx, cy) { att = true; deciso = false; orizz = false; mx = 0; x0 = cx; y0 = cy; traccia = [[Date.now(), cx]]; }
+    function muovi(cx, cy, ev) {
+      var dx = cx - x0, dy = cy - y0;
+      if (!deciso) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        deciso = true; orizz = Math.abs(dx) > Math.abs(dy) * 1.2;
+        if (!orizz) { att = false; return; }
+      }
+      if (!orizz) return;
+      if (ev && ev.cancelable) ev.preventDefault();
+      mx = dx; traccia.push([Date.now(), cx]); if (traccia.length > 6) traccia.shift();
+      var bw = (nav.querySelector('button') || {}).offsetWidth || 60, dir = dx < 0 ? 1 : -1;   // verso sinistra = pagina successiva
+      var e = vicino(dir) < 0 ? -dx / 8 : Math.max(-bw, Math.min(bw, -dx * (bw / 140)));
+      navInd(Math.max(-bw, Math.min(bw, e)), false);
     }
-    nav.addEventListener('pointerup', fine); nav.addEventListener('pointercancel', fine);
-    nav.addEventListener('click', function (e) { if (blocca && e.isTrusted) { e.stopPropagation(); e.preventDefault(); } }, true);
+    function fine(annullato) {
+      if (!att) return; att = false;
+      if (!orizz) return;
+      orizz = false; blocca = Date.now();
+      var n = traccia.length, vel = n > 1 ? (traccia[n - 1][1] - traccia[0][1]) / Math.max(1, traccia[n - 1][0] - traccia[0][0]) : 0, proj = mx + vel * 120;
+      var dir = proj < 0 ? 1 : -1, t = vicino(dir);
+      if (!annullato && Math.abs(proj) >= 40 && t >= 0) show(ids[t]); else navInd(0, true);
+    }
+    nav.addEventListener('touchstart', function (e) { ultimoTouch = Date.now(); if (e.touches.length === 1) inizio(e.touches[0].clientX, e.touches[0].clientY); else att = false; }, { passive: true });
+    nav.addEventListener('touchmove', function (e) { ultimoTouch = Date.now(); if (att && e.touches[0]) muovi(e.touches[0].clientX, e.touches[0].clientY, e); }, { passive: false });
+    nav.addEventListener('touchend', function (e) { ultimoTouch = Date.now(); if (att && orizz && e.cancelable) e.preventDefault(); fine(false); }, { passive: false });
+    nav.addEventListener('touchcancel', function () { ultimoTouch = Date.now(); fine(true); }, { passive: true });
+    function mm(e) { muovi(e.clientX, e.clientY, e); }
+    function mu() { document.removeEventListener('mousemove', mm, true); document.removeEventListener('mouseup', mu, true); fine(false); }
+    nav.addEventListener('mousedown', function (e) {
+      if (e.button !== 0 || Date.now() - ultimoTouch < 800) return;
+      inizio(e.clientX, e.clientY); document.addEventListener('mousemove', mm, true); document.addEventListener('mouseup', mu, true);
+    });
+    nav.addEventListener('click', function (e) { if (e.isTrusted && Date.now() - blocca < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+    window.addEventListener('resize', function () { navInd(0, false); });
+    navInd(0, false);
+  }
+  function hintSwipe(vid) {   // suggerimento discreto, chiudibile e ricordato
+    try { if (localStorage.getItem('swHint')) return; } catch (e) { /* ok */ }
+    var v = $(vid); if (!v || v.querySelector('.sw-hint')) return;
+    var h = el('div', 'sw-hint'), b = el('button', '', '✕'); b.type = 'button'; b.setAttribute('aria-label', 'Chiudi il suggerimento');
+    h.appendChild(el('span', '', 'Suggerimento: scorri una riga verso sinistra per −1 (Scarico) o verso destra per +1 (Carico).')); h.appendChild(b);
+    b.addEventListener('click', function () { try { localStorage.setItem('swHint', '1'); } catch (e) { /* ok */ } h.remove(); });
+    v.insertBefore(h, v.firstChild);
+  }
+  function diagnosiGesti() {   // tocco lungo 3 s sul titolo: mostra se gli eventi di tocco e mouse arrivano
+    var t = $('title'), tm = null;
+    function via() { clearTimeout(tm); }
+    function parti() {
+      via(); tm = setTimeout(function () {
+        var box = el('div', 'diag');
+        box.appendChild(el('b', '', 'Diagnostica gesti'));
+        box.appendChild(el('div', '', 'touchstart ' + swCont.touchstart + ' · touchmove ' + swCont.touchmove + ' · mousedown ' + swCont.mousedown + ' · pointerdown ' + swCont.pointerdown + ' · wheel ' + swCont.wheel));
+        box.appendChild(el('div', '', 'ontouchstart: ' + ('ontouchstart' in window) + ' · maxTouchPoints: ' + (navigator.maxTouchPoints || 0) + ' · righe swipe: ' + document.querySelectorAll('.sw-fg').length));
+        box.appendChild(el('div', '', String(navigator.userAgent).slice(0, 110)));
+        var ok = el('button', 'btn', 'Chiudi'); ok.type = 'button'; ok.addEventListener('click', function () { box.remove(); }); box.appendChild(ok);
+        document.body.appendChild(box);
+      }, 3000);
+    }
+    t.addEventListener('touchstart', parti, { passive: true }); t.addEventListener('touchend', via, { passive: true }); t.addEventListener('touchcancel', via, { passive: true });
+    t.addEventListener('mousedown', function () { if (Date.now() - ultimoTouch > 800) parti(); }); t.addEventListener('mouseup', via); t.addEventListener('mouseleave', via);
   }
 
   /* ---------- avvio ---------- */
   function init() {
     api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; st.ai = !!(c && c.ai); st.shortcut = (c && c.shortcut_spesa) || 'Spesa AppSheet'; }).catch(function () { st.ro = true; });
     window.addEventListener('resize', setStk); window.addEventListener('load', setStk);
-    buildNav(); swipeNav(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
+    buildNav(); swipeNav(); diagnosiGesti(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });
     $('qp').addEventListener('click', function () { setQta(st.qta + 1); });
     $('scan').addEventListener('click', startScan); $('sc-close').addEventListener('click', closeScheda); buildFiltriProd(); $('prod-chiudi').addEventListener('click', function () { tuttiProd(false); }); $('prod-apri').addEventListener('click', function () { tuttiProd(true); }); $('qp2').addEventListener('input', renderProd); $('sc-mov').addEventListener('click', function () { var bc = st.schedaBc; closeScheda(); show('mov'); if (bc) { $('bc').value = bc; lookup(); } }); document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !$('scheda').hidden) closeScheda(); }); $('scanfile').addEventListener('change', function (e) { scanPhoto(e.target.files[0]); }); $('scanstop').addEventListener('click', stopScan);

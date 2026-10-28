@@ -3,6 +3,15 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.6.5 — 2026-10-28
+Swipe riscritti, stile Apple Music (righe e barra in basso), ora anche su iPhone e Mac.
+- Funziona con il tocco (iPhone/iPad), con il mouse e con il trackpad a due dita (Mac); prima usava solo i pointer events, che su WebKit non partivano.
+- La riga si sposta e dietro compare l'azione colorata con la sua etichetta. Rilasciando oltre un quarto resta aperta: tocca il pulsante per confermare, tocca altrove o scorri per richiuderla. Uno swipe lungo (oltre il 60%) esegue subito l'azione. Una sola riga aperta alla volta.
+- Lo scorrimento verticale resta libero: il gesto viene preso solo se chiaramente orizzontale.
+- Barra in basso: scorrendo cambia pagina e l'indicatore segue il dito, come la tab bar di iOS.
+- Suggerimento discreto la prima volta in Stock e Prodotti (chiudibile, ricordato).
+- Diagnostica: tieni premuto 3 secondi sul titolo per vedere se tocco/mouse arrivano all'app.
+
 ## 0.6.4 — 2026-10-28
 Pagina Prodotti: filtri e pulsanti "Chiudi" / "Apri" (tutti i gruppi) su una sola riga; se i filtri non entrano si scorrono di lato.
 
