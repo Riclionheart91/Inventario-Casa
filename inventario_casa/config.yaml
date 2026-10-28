@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.6.5"
+version: "0.7.0"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
@@ -10,6 +10,10 @@ ingress_port: 8099
 panel_icon: mdi:package-variant-closed
 panel_title: Inventario
 startup: application
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: "Accesso diretto (richiede shared_code)"
 boot: auto
 options:
   sheet_id: ""

@@ -34,3 +34,6 @@ Per creare il comando rapido (una volta sola, app Comandi):
 4. Dentro la ripetizione: «Aggiungi nuovo promemoria» con titolo = «Elemento ripetuto», lista = «Spesa».
 5. Nelle impostazioni del comando, attiva «Accetta input» di tipo testo.
 La prima volta iOS chiede il permesso di eseguire il comando dall'app.
+
+## Accesso diretto (porta 8099)
+Oltre all'ingress di Home Assistant l'app risponde su `http://IP-DI-HOME-ASSISTANT:8099`. Imposta `shared_code` (codice unico di famiglia) nelle opzioni: senza codice la porta diretta resta spenta. Cambiare il codice scollega tutti i dispositivi. L'ingress non richiede il codice. Per la fotocamera dal vivo serve https (es. Tailscale) o l'ingress.

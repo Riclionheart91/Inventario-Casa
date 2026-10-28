@@ -1096,7 +1096,7 @@
 
   /* ---------- avvio ---------- */
   function init() {
-    api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; st.ai = !!(c && c.ai); st.shortcut = (c && c.shortcut_spesa) || 'Spesa AppSheet'; }).catch(function () { st.ro = true; });
+    api('GET', 'api/config').then(function (c) { st.ro = !c || c.sola_lettura !== false; st.ai = !!(c && c.ai); st.shortcut = (c && c.shortcut_spesa) || 'Spesa AppSheet'; var ex = document.getElementById('esci'); if (ex) ex.hidden = !(c && c.diretto); }).catch(function () { st.ro = true; });
     window.addEventListener('resize', setStk); window.addEventListener('load', setStk);
     buildNav(); swipeNav(); diagnosiGesti(); buildSeg('tipo', TIPI, 'tipo'); buildSeg('luogo', LUOGHI, 'luogo'); buildChips(); setQta(1);
     $('qm').addEventListener('click', function () { setQta(st.qta - 1); });

@@ -3,6 +3,14 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.7.0 — 2026-10-28
+Accesso diretto su porta dedicata (8099), oltre all'ingress di Home Assistant: le due vie convivono.
+- Ingress / Tailscale su Home Assistant: nessun codice, vale il login di Home Assistant.
+- Porta diretta `http://IP:8099`: pagina di accesso con il codice di famiglia (opzione `shared_code`). Senza codice la porta diretta e spenta.
+- Cambiando il codice tutte le sessioni aperte si invalidano. "Ricorda questo dispositivo" dura 90 giorni. Dopo 5 codici errati blocco di 15 minuti.
+- Pulsante "Esci" nell'intestazione (solo sull'accesso diretto).
+- Corretto: impostare `shared_code` bloccava tutte le API perche l'app non invia mai il codice.
+
 ## 0.6.5 — 2026-10-28
 Swipe riscritti, stile Apple Music (righe e barra in basso), ora anche su iPhone e Mac.
 - Funziona con il tocco (iPhone/iPad), con il mouse e con il trackpad a due dita (Mac); prima usava solo i pointer events, che su WebKit non partivano.

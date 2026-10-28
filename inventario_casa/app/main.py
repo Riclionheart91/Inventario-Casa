@@ -7,7 +7,7 @@ from pathlib import Path
 import threading
 import time
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from .service import ApiError, Inventory
 from . import ai, lookup
+from .accesso import Accesso, _Mw
 from .store import make_store
 
 app = FastAPI(title="Inventario Casa", docs_url=None, redoc_url=None)
@@ -36,6 +37,8 @@ def _avvio():
     threading.Thread(target=_tieni_fresco, daemon=True).start()
 _inv = None
 SHARED = os.environ.get("SHARED_CODE", "")
+ACCESSO = Accesso(lambda: SHARED)
+app.add_middleware(_Mw, acc=ACCESSO)
 READ_ONLY = os.environ.get("READ_ONLY", "true").lower() != "false"
 # Chiavi dalle opzioni dell'app (variabili d'ambiente): restano sul server, non vanno mai al frontend ne nei log.
 CHIAVI_PROVIDER = ("BARCODELOOKUP_KEY", "UPCDATABASE_KEY", "GOUPC_TOKEN", "SPOONACULAR_KEY", "NUTRITIONIX_APP_ID", "NUTRITIONIX_APP_KEY",
@@ -59,8 +62,9 @@ def inv() -> Inventory:
 
 
 def check(code):
-    """Codice opzionale (seconda barriera). Il login resta quello di Home Assistant (ingress)."""
-    if SHARED and not hmac.compare_digest(code or "", SHARED):
+    """Il frontend non invia x-code: il gate vero e il middleware di accesso (ingress HA oppure sessione sulla porta diretta).
+    Qui si rifiuta solo un header x-code presente ma errato."""
+    if SHARED and code is not None and not hmac.compare_digest(code, SHARED):
         raise HTTPException(401, "Codice mancante o errato")
 
 
@@ -118,8 +122,8 @@ class CampiBozza(BaseModel):
 
 
 @app.get("/api/config")
-def config():
-    return {"url_sicuro": os.environ.get("SECURE_URL", "").strip(), "sola_lettura": READ_ONLY, "ai": bool(_env("GEMINI_API_KEY")),
+def config(request: Request):
+    return {"diretto": ACCESSO.e_diretto(request.scope), "url_sicuro": os.environ.get("SECURE_URL", "").strip(), "sola_lettura": READ_ONLY, "ai": bool(_env("GEMINI_API_KEY")),
             "shortcut_spesa": (os.environ.get("SHORTCUT_SPESA", "Spesa AppSheet") or "Spesa AppSheet").strip()}
 
 
