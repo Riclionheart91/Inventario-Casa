@@ -151,3 +151,5 @@ details.g summary .gc b{color:var(--tx);font-weight:700}
 .qp i{display:block;font-style:normal;font-size:10px;color:var(--mut)}
 .qp.zero b{color:var(--bad)}.qp.low b{color:var(--warn)}.qp.low i{color:var(--warn)}.qp.zero i{color:var(--bad)}
 #prod-sum{margin:4px 0 2px;font-size:12px;color:var(--mut)}
+
+.bar.one{flex-wrap:nowrap;gap:6px}.bar.one .chips{flex-wrap:nowrap}.bar.one #prod-flt{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}.bar.one #prod-flt::-webkit-scrollbar{display:none}.bar.one .chip{white-space:nowrap;flex:none}.bar.one .fix{flex:none;padding-left:6px;border-left:1px solid var(--bd)}

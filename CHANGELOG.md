@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.6.4 — 2026-10-28
+Pagina Prodotti: filtri e pulsanti "Chiudi" / "Apri" (tutti i gruppi) su una sola riga; se i filtri non entrano si scorrono di lato.
+
 ## 0.6.3 — 2026-10-28
 Pagina Prodotti: una sola vista, più informazioni.
 - Le due viste (A-Z e Per tipo) sono unite: gruppi per tipo in ordine alfabetico ("Senza tipo" in fondo) e prodotti in ordine alfabetico dentro ogni gruppo.
