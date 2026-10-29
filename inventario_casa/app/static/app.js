@@ -1125,6 +1125,10 @@
     });
     $('q').addEventListener('input', renderStock);
     show('mov');
+    (function () {   // collegamento diretto allo scanner: ?scan=1 o #scan, anche dall'indirizzo del pannello di Home Assistant (stessa origine)
+      function chiede(w) { try { return /(^|[?&#])scan(=1|=true)?($|&)/.test(w.location.search + w.location.hash) || /scan/.test(w.location.hash); } catch (e) { return false; } }
+      if (chiede(window) || chiede(window.parent)) setTimeout(function () { try { startScan(); } catch (e) { /* ok */ } }, 400);
+    })();
     if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () {});
   }
   init();

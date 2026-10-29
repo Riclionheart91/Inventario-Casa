@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.7.4 — 2026-10-30
+Collegamento diretto allo scanner: aprendo il pannello con `?scan=1` la fotocamera parte da sola (per un comando rapido iPhone).
+
 ## 0.7.3 — 2026-10-28
 Prodotti: riga di categorie scorrevole (con conteggio) per isolare un solo reparto; dentro restano i gruppi per tipo. La ricerca vale sulla categoria scelta; la scelta resta memorizzata.
 
