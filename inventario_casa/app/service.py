@@ -2,6 +2,7 @@
 import re
 import threading
 import time
+import unicodedata
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -743,6 +744,61 @@ class Inventory:
             self._drop(SH_CAT)
         self._registra_cat(("%s > %s" % (cat, sub)) if sub else cat, ("%s > %s" % (cat, nuovo)) if sub else nuovo, "AI_RINOMINA")
         return n
+
+    # --- risposte a voce (Google Home / Assist): frasi pronte da leggere ad alta voce ---------------
+    PAROLE_VUOTE = {"il", "lo", "la", "l", "i", "gli", "le", "un", "uno", "una", "dei", "degli", "delle", "del", "dello", "della", "di", "da",
+                    "ho", "hai", "abbiamo", "ce", "c", "e", "in", "casa", "dove", "sono", "sta", "stanno", "ancora", "qualche", "alcuni", "alcune"}
+
+    @staticmethod
+    def _norma(t) -> str:
+        t = unicodedata.normalize("NFD", str(t or "").lower())
+        return " ".join("".join(c for c in t if not unicodedata.combining(c) and (c.isalnum() or c == " ")).split())
+
+    def voce_manca(self) -> str:
+        """Cosa manca in casa: le voci della lista della spesa (finito / in esaurimento), in una frase."""
+        voci = self.spesa()["voci"]
+        if not voci:
+            return "In casa non manca niente."
+        fin = [v["tipo"] for v in voci if v["stato"] == "FINITO"]
+        esa = [v["tipo"] for v in voci if v["stato"] != "FINITO"]
+        def elenco(xs):
+            xs = [x.lower() for x in xs]
+            return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " e " + xs[-1]
+        parti = []
+        if fin:
+            parti.append("Sono finiti: " + elenco(fin))
+        if esa:
+            parti.append("Stanno finendo: " + elenco(esa))
+        return ". ".join(parti) + "."
+
+    def voce_cerca(self, domanda: str) -> str:
+        """Ho questo prodotto e dove? Cerca per nome, marca, tipo o sottocategoria, anche al plurale."""
+        parole = [w for w in self._norma(domanda).split() if w not in self.PAROLE_VUOTE]
+        if not parole:
+            return "Non ho capito che prodotto cerchi."
+        radici = [w[:max(3, len(w) - 1)] for w in parole]
+        trovati = []
+        for e in self.elenco_prodotti():
+            testo = self._norma(" ".join((e["nome"], e["marca"], e["tipo"], e["sotto"]))).split()
+            if all(any(t.startswith(r) for t in testo) for r in radici):
+                trovati.append(e)
+        nome = " ".join(parole)
+        if not trovati:
+            return "Non trovo %s nell'inventario." % nome
+        con = [e for e in trovati if e["qta"] > 0]
+        if not con:
+            return "Non hai più %s." % nome
+        f = lambda x: int(x) if float(x).is_integer() else x
+        per: Dict[str, float] = {}
+        for e in con:
+            for q in e["posti"]:
+                per[q["luogo"]] = per.get(q["luogo"], 0) + q["qta"]
+        totale = f(sum(e["qta"] for e in con))
+        dove = ", ".join("%s %s" % (f(q), l.lower()) for l, q in sorted(per.items(), key=lambda kv: -kv[1]))
+        if len(con) == 1:
+            return "Hai %s: %s pezzi. %s." % (con[0]["nome"], totale, dove[:1].upper() + dove[1:])
+        nomi = ", ".join(e["nome"] for e in sorted(con, key=lambda e: -e["qta"])[:3])
+        return "Hai %s pezzi tra %d prodotti, per esempio %s. %s." % (totale, len(con), nomi, dove[:1].upper() + dove[1:])
 
     # --- foto -----------------------------------------------------------
     def foto(self, barcode, data: bytes, mime: str) -> dict:

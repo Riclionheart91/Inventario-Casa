@@ -184,3 +184,30 @@ class TCategorie(unittest.TestCase):
             inv.decidi("C_4", "APPROVA")
         self.assertEqual(st.sheets["ai_categorie"][3][6], "ERRORE")
         self.assertEqual(inv.decidi("C_2", "RIFIUTA")["stato"], "RIFIUTATO")
+
+
+class TVoce(unittest.TestCase):
+    def _inv(self):
+        st = MemoryStore({
+            "prodotti": [["Barcode", "Prodotto", "Marca", "Categoria", "Sottocategoria", "Tipo"],
+                         [1, "Latte UHT", "Parmalat", "Frigorifero", "Latticini", "Latte"],
+                         [2, "Biscotti Oro", "Saiwa", "Dispensa", "Snack", "Biscotti"],
+                         [3, "Pasta Penne", "Barilla", "Dispensa", "Pasta", "Pasta"]],
+            "movimenti": [["Barcode", "Tipo", "Location", "Quantità", "Prodotto", "Categoria", "Sottocategoria"],
+                          [1, "Carico", "Casa", 3, "Latte UHT", "Frigorifero", "Latticini"], [1, "Carico", "Cantina", 2, "Latte UHT", "Frigorifero", "Latticini"],
+                          [2, "Carico", "Casa", 1, "Biscotti Oro", "Dispensa", "Snack"], [2, "Scarico", "Casa", 1, "Biscotti Oro", "Dispensa", "Snack"]],
+            "ai_tipi": [["Tipo", "Scorta_min", "Stato"], ["Biscotti", 2, "APPROVATO"], ["Pasta", 1, "APPROVATO"]],
+            "categorie": [["Categoria", "Sottocategoria"], ["Frigorifero", "Latticini"]],
+        })
+        return Inventory(st, ttl=20, clock=lambda: 1000.0)
+
+    def test_cerca(self):
+        inv = self._inv()
+        self.assertEqual(inv.voce_cerca("il latte"), "Hai Latte UHT: 5 pezzi. 3 casa, 2 cantina.")
+        self.assertIn("Non hai più", inv.voce_cerca("dove sono i biscotti"))
+        self.assertIn("Non trovo", inv.voce_cerca("zucchero"))
+
+    def test_manca(self):
+        t = self._inv().voce_manca()
+        self.assertIn("biscotti", t)
+        self.assertTrue(t.endswith("."))

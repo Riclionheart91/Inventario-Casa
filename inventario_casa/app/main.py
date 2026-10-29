@@ -173,6 +173,28 @@ def arricchimento_avvia(x_code: str = Header(None)):
     return {"ok": True, "avviato": True}
 
 
+def _voce_ok(t: str):
+    tok = _env("VOCE_TOKEN")
+    if not tok:
+        raise HTTPException(403, "Risposte a voce spente: imposta voce_token nelle opzioni dell'app.")
+    if not t or not hmac.compare_digest(str(t), tok):
+        raise HTTPException(401, "Token errato")
+
+
+@app.get("/voce/manca")
+def voce_manca(t: str = ""):
+    """Frase pronta per Google Home / Assist: cosa manca in casa."""
+    _voce_ok(t)
+    return {"testo": inv().voce_manca()}
+
+
+@app.get("/voce/cerca")
+def voce_cerca(q: str = "", t: str = ""):
+    """Frase pronta: ho questo prodotto e dove?"""
+    _voce_ok(t)
+    return {"testo": inv().voce_cerca(q[:80])}
+
+
 @app.get("/api/config")
 def config(request: Request):
     return {"diretto": ACCESSO.e_diretto(request.scope), "url_sicuro": os.environ.get("SECURE_URL", "").strip(), "sola_lettura": READ_ONLY, "ai": bool(_env("GEMINI_API_KEY")),

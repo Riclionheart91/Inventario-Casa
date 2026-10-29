@@ -1,0 +1,55 @@
+# Inventario Casa - risposte a voce (Google Home + Assist). Da mettere in /config/packages/inventario_voce.yaml
+# Richiede in /config/secrets.yaml (TOKEN = lo stesso valore di "voce_token" nelle opzioni dell'app):
+#   inventario_manca_url: "http://ddecf2a3-inventario-casa:8099/voce/manca?t=TOKEN"
+#   inventario_cerca_url: "http://ddecf2a3-inventario-casa:8099/voce/cerca?t=TOKEN&q={{ q | urlencode }}"
+
+rest_command:
+  inventario_manca:
+    url: !secret inventario_manca_url
+    method: get
+    timeout: 20
+  inventario_cerca:
+    url: !secret inventario_cerca_url
+    method: get
+    timeout: 20
+
+script:
+  # Per Google Home: esponi questo script a Google Assistant e usalo in una routine ("Ok Google, cosa manca in casa").
+  inventario_cosa_manca:
+    alias: Inventario - cosa manca in casa
+    icon: mdi:cart-outline
+    fields:
+      altoparlante:
+        description: Dove leggere la risposta
+        example: media_player.tutta_la_casa
+    sequence:
+      - action: rest_command.inventario_manca
+        response_variable: r
+      - action: tts.speak
+        target:
+          entity_id: tts.google_translate_en_com
+        data:
+          media_player_entity_id: "{{ altoparlante | default('media_player.tutta_la_casa') }}"
+          language: it
+          message: "{{ r.content.testo if r.status == 200 else 'Inventario non raggiungibile.' }}"
+
+# Per Assist (voce o testo): frasi in /config/custom_sentences/it/inventario.yaml
+intent_script:
+  InventarioManca:
+    action:
+      - action: rest_command.inventario_manca
+        response_variable: r
+      - stop: ""
+        response_variable: r
+    speech:
+      text: "{{ action_response.content.testo if action_response.status == 200 else 'Inventario non raggiungibile.' }}"
+  InventarioCerca:
+    action:
+      - action: rest_command.inventario_cerca
+        data:
+          q: "{{ prodotto }}"
+        response_variable: r
+      - stop: ""
+        response_variable: r
+    speech:
+      text: "{{ action_response.content.testo if action_response.status == 200 else 'Inventario non raggiungibile.' }}"

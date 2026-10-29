@@ -42,3 +42,6 @@ Si usa solo tramite Home Assistant (ingress), dal pannello Inventario o dall'ind
 Opzioni: `arricchimento_notturno` (acceso/spento, di default spento), `arricchimento_ora` (es. 03:00, ora italiana), `arricchimento_max` (prodotti per notte, 60). Funziona solo se `sola_lettura` e spento. Riempie solo i campi vuoti, non cambia nulla se non trova il codice (lo riprova dopo 30 giorni), traduce in italiano i testi lunghi con Gemini. Prima di accenderlo spegni `startNightlyFullEnrich` nello script Google. Il rapporto dell'ultimo giro e in `GET /api/arricchimento`.
 
 Opzione `traduzione_all_avvio`: accendila una volta (con `sola_lettura` spenta) e riavvia l'app per tradurre i testi gia presenti; poi rispegnila.
+
+## Risposte a voce (dalla 0.9.0)
+Opzione `voce_token` (una parola d'ordine a tua scelta): accende `GET /voce/manca` e `GET /voce/cerca?q=...&t=TOKEN`, che rispondono con una frase pronta ({"testo": "..."}). Da Home Assistant: file in `home_assistant/` (pacchetto `inventario_voce.yaml` e frasi `inventario_frasi_it.yaml`). Senza token il servizio e spento.

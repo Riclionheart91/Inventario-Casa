@@ -190,6 +190,8 @@ class _Mw:
         if scope["type"] != "http" or self.acc.e_ingresso_ha(scope):
             return await self.app(scope, receive, send)
         acc, path = self.acc, scope.get("path", "/")
+        if path.startswith("/voce/"):   # risposte a voce per Home Assistant: le protegge il proprio token (opzione voce_token)
+            return await self.app(scope, receive, send)
         codice = acc.get_codice()
         if not codice:
             if path.startswith("/api/"):

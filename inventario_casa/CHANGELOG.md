@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.9.0 — 2026-10-30
+Risposte a voce per Home Assistant (opzione `voce_token`): "cosa manca in casa" e "ho X e dove", con frasi pronte. File d'esempio in `home_assistant/`.
+
 ## 0.8.1 — 2026-10-30
 Nuova opzione `traduzione_all_avvio` (spenta): se accesa, all'avvio dell'app (e solo con `sola_lettura` spenta) traduce una volta in italiano i testi lunghi gia presenti nei prodotti, senza cercare nuovi dati. Ogni testo si traduce una sola volta; se il giro non basta si riavvia l'app. Poi si rispegne.
 

@@ -1,0 +1,19 @@
+# Da mettere in /config/custom_sentences/it/inventario.yaml
+language: "it"
+intents:
+  InventarioManca:
+    data:
+      - sentences:
+          - "cosa manca in casa"
+          - "cosa manca"
+          - "cosa devo comprare"
+  InventarioCerca:
+    data:
+      - sentences:
+          - "(ho|abbiamo) [ancora] [il|lo|la|i|gli|le|dei|della|del] {prodotto}"
+          - "dove (sono|sta|stanno) [il|lo|la|i|gli|le] {prodotto}"
+          - "quanti {prodotto} (ho|abbiamo)"
+          - "quante {prodotto} (ho|abbiamo)"
+lists:
+  prodotto:
+    wildcard: true
