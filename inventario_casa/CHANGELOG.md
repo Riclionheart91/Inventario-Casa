@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.8.1 — 2026-10-30
+Nuova opzione `traduzione_all_avvio` (spenta): se accesa, all'avvio dell'app (e solo con `sola_lettura` spenta) traduce una volta in italiano i testi lunghi gia presenti nei prodotti, senza cercare nuovi dati. Ogni testo si traduce una sola volta; se il giro non basta si riavvia l'app. Poi si rispegne.
+
 ## 0.8.0 — 2026-10-30
 Funzioni dello script Google portate nell'app.
 - **Proposte di categoria dell'AI**: da Approvazioni, "Approva" ora applica subito la proposta (aggiungi categoria/sottocategoria, rinomina, unisci: aggiorna elenco categorie, prodotti e movimenti e toglie i doppioni). Prima la applicava lo script.

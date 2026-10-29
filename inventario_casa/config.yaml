@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.8.0"
+version: "0.8.1"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
@@ -22,6 +22,7 @@ options:
   arricchimento_notturno: false
   arricchimento_ora: "03:00"
   arricchimento_max: 60
+  traduzione_all_avvio: false
   gemini_api_key: ""
   gemini_modello: ""
   gemini_modello_riserva: ""
@@ -50,6 +51,7 @@ schema:
   arricchimento_notturno: bool
   arricchimento_ora: str?
   arricchimento_max: int?
+  traduzione_all_avvio: bool?
   gemini_api_key: password?
   gemini_modello: str?
   gemini_modello_riserva: str?

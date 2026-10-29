@@ -70,6 +70,8 @@ def _notturno():
 def _avvio():
     threading.Thread(target=_tieni_fresco, daemon=True).start()
     threading.Thread(target=_notturno, daemon=True).start()
+    if os.environ.get("TRADUZIONE_AVVIO", "false").lower() == "true" and not READ_ONLY:   # una tantum: traduce in italiano i testi esistenti
+        threading.Thread(target=lambda: arr().esegui(0, 3000.0, True), daemon=True).start()
 _inv = None
 SHARED = os.environ.get("SHARED_CODE", "")
 ACCESSO = Accesso(lambda: SHARED)
