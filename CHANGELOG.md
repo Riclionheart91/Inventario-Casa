@@ -3,6 +3,14 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.8.0 — 2026-10-30
+Funzioni dello script Google portate nell'app.
+- **Proposte di categoria dell'AI**: da Approvazioni, "Approva" ora applica subito la proposta (aggiungi categoria/sottocategoria, rinomina, unisci: aggiorna elenco categorie, prodotti e movimenti e toglie i doppioni). Prima la applicava lo script.
+- **Arricchimento notturno** (nuove opzioni `arricchimento_notturno`, `arricchimento_ora`, `arricchimento_max`; spento di default): cerca i dati dei prodotti incompleti con gli stessi provider della creazione e riempie SOLO i campi vuoti; se non trova nulla il prodotto non cambia (nemmeno stato e data). Un codice non trovato si riprova dopo 30 giorni. Funziona solo con l'app non in sola lettura.
+- **Traduzione in italiano** di dettagli, composizione, free-from e smaltimento (Gemini), dentro lo stesso giro notturno; i testi gia in italiano non vengono toccati e ogni testo si traduce una volta sola.
+- Nuovi servizi: `GET /api/arricchimento` (stato dell'ultimo giro) e `POST /api/arricchimento/avvia` (lancia subito un giro).
+- Importante: accendere `arricchimento_notturno` solo quando si spegne `startNightlyFullEnrich` nello script, altrimenti i due si contraddicono.
+
 ## 0.7.4 — 2026-10-30
 Collegamento diretto allo scanner: aprendo il pannello con `?scan=1` la fotocamera parte da sola (per un comando rapido iPhone).
 

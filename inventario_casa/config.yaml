@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.7.4"
+version: "0.8.0"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
@@ -19,6 +19,9 @@ options:
   sola_lettura: true
   url_sicuro: ""
   shortcut_spesa: "Spesa AppSheet"
+  arricchimento_notturno: false
+  arricchimento_ora: "03:00"
+  arricchimento_max: 60
   gemini_api_key: ""
   gemini_modello: ""
   gemini_modello_riserva: ""
@@ -44,6 +47,9 @@ schema:
   sola_lettura: bool
   url_sicuro: str?
   shortcut_spesa: str?
+  arricchimento_notturno: bool
+  arricchimento_ora: str?
+  arricchimento_max: int?
   gemini_api_key: password?
   gemini_modello: str?
   gemini_modello_riserva: str?

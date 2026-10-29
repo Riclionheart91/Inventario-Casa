@@ -580,7 +580,7 @@ class Inventory:
     def decidi(self, id_: str, azione: str, campi: Optional[dict] = None) -> dict:
         """APPROVA (con eventuali correzioni in `campi`) oppure RIFIUTA. Gli stati sono quelli del motore:
         ai_prodotti DA_APPROVARE -> APPLICATO (la modifica al prodotto la fa subito l'app, come aiApplyApproved) o RIFIUTATO;
-        ai_tipi -> APPROVATO (+ Scorta_min) o RIFIUTATO; ai_categorie PROPOSTA -> APPROVATA (la applica il motore) o RIFIUTATO."""
+        ai_tipi -> APPROVATO (+ Scorta_min) o RIFIUTATO; ai_categorie PROPOSTA -> APPLICATA (la applica subito l'app) o RIFIUTATO."""
         azione = {"SCARTA": "RIFIUTA", "CORREGGI": "APPROVA"}.get(str(azione).upper(), str(azione).upper())
         if azione not in ("APPROVA", "RIFIUTA"):
             raise ApiError(400, "Azione non valida")
@@ -626,9 +626,12 @@ class Inventory:
             self._drop(sheet)
             return {"ok": True, "stato": ST_OK[sheet]}
         if kind == "C":
-            self._scrivi(sheet, riga, {"Stato": ST_OK[sheet], "Aggiornato": oggi}, h)
+            stato, n = self._applica_categoria(d)   # come aiApplyCategories: ora lo fa subito l'app
+            self._scrivi(sheet, riga, {"Stato": stato, "Aggiornato": oggi}, h)
             self._drop(sheet)
-            return {"ok": True, "stato": ST_OK[sheet], "nota": "La applica il motore (aiApplyCategories)"}
+            if stato == "ERRORE":
+                raise ApiError(400, "Proposta incompleta: mancano categoria o nuovo nome")
+            return {"ok": True, "stato": stato, "righe": n}
         # prodotto: valori finali = correzioni oppure proposta
         pick = lambda k, col: str(campi[k] if k in campi else d.get(col, "") or "").strip()
         nome, cat, sotto, tipo = pick("nome", "Nome_Suggerito"), pick("categoria", "Categoria_Suggerita"), pick("sottocategoria", "Sottocategoria_Suggerita"), pick("tipo", "Tipo")
@@ -664,6 +667,82 @@ class Inventory:
                                    "Stato": "APPLICATO", "Aggiornato": oggi}, h)
         self._drop(sheet, SH_PROD)
         return {"ok": True, "stato": "APPLICATO"}
+
+    # --- categorie: applicazione delle proposte AI (porting di aiApplyCategories / renameCategory_) ----
+    def _applica_categoria(self, d: dict):
+        """AGGIUNGI_CATEGORIA/SOTTOCATEGORIA aggiunge una riga a `categorie`; RINOMINA/UNISCI rinomina su prodotti, movimenti e
+        categorie (poi toglie i doppioni). Ritorna (stato, righe toccate): APPLICATA, GIA_PRESENTE o ERRORE."""
+        az = str(d.get("Azione", "") or "").strip().upper()
+        cat, sub, nuovo = (str(d.get(k, "") or "").strip() for k in ("Categoria", "Sottocategoria", "Nuovo_Nome"))
+        if az in ("RINOMINA", "UNISCI"):
+            if not nuovo or not cat:
+                return "ERRORE", 0
+            return "APPLICATA", self._rinomina_categoria(cat, sub, nuovo)
+        if az in ("AGGIUNGI_CATEGORIA", "AGGIUNGI_SOTTOCATEGORIA"):
+            c, sc = cat, sub or nuovo
+            if not c or not sc:
+                return "ERRORE", 0
+            h, rows = self._rows(SH_CAT, True)
+            if any(len(r) > 1 and str(r[0]).strip() == c and str(r[1]).strip() == sc for r in rows):
+                return "GIA_PRESENTE", 0
+            val = {"Categoria": c, "Sottocategoria": sc}
+            if len(h) > 2:
+                val[h[2]] = "%s_%s" % (c, sc)
+            self.store.append_row(SH_CAT, val)
+            self._drop(SH_CAT)
+            self._registra_cat("", "%s > %s" % (c, sc), "AI_CATEGORIE")
+            return "APPLICATA", 1
+        return "ERRORE", 0
+
+    def _registra_cat(self, prima, dopo, fonte):
+        try:
+            self.store.append_row("log_ai", {"Quando": datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "Barcode": "", "Campo": "categorie",
+                                             "Prima": prima, "Dopo": dopo, "Fonte": fonte, "Confidenza": "", "Modo": "APPROVATA", "Annullato": ""})
+        except Exception:
+            pass
+
+    def _rinomina_categoria(self, cat: str, sub: str, nuovo: str) -> int:
+        n = 0
+        for foglio, hc, hs in ((SH_PROD, "Categoria", "Sottocategoria"), (SH_MOV, "Categoria", "Sottocategoria")):
+            h, rows = self._rows(foglio, True)
+            if hc not in h or (sub and hs not in h):
+                continue
+            ic, isb = h.index(hc), (h.index(hs) if hs in h else None)
+            ups = []
+            for i, r in enumerate(rows):
+                if len(r) <= ic or str(r[ic]).strip() != cat:
+                    continue
+                if sub:
+                    if isb is not None and len(r) > isb and str(r[isb]).strip() == sub:
+                        ups.append((i + 2, hs, nuovo))
+                else:
+                    ups.append((i + 2, hc, nuovo))
+            if ups:
+                self.store.update_cells(foglio, ups)
+                n += len(ups)
+            self._drop(foglio)
+        h, rows = self._rows(SH_CAT, True)
+        if h and len(h) > 1:
+            out, visti = [], set()
+            for r in rows:
+                r = list(r) + [""] * (len(h) - len(r))
+                if str(r[0]).strip() == cat and (not sub or str(r[1]).strip() == sub):
+                    r[1 if sub else 0] = nuovo
+                k = (str(r[0]).strip(), str(r[1]).strip())
+                if k in visti:
+                    continue
+                visti.add(k)
+                if len(h) > 2 and "_" in str(r[2]):
+                    r[2] = "%s_%s" % k
+                out.append(r)
+            out += [[""] * len(h)] * (len(rows) - len(out))   # le righe in meno (doppioni) restano vuote in fondo
+            ups = [(i + 2, h[j], out[i][j]) for i in range(len(rows)) for j in range(len(h))
+                   if str((list(rows[i]) + [""] * len(h))[j]) != str(out[i][j])]
+            if ups:
+                self.store.update_cells(SH_CAT, ups)
+            self._drop(SH_CAT)
+        self._registra_cat(("%s > %s" % (cat, sub)) if sub else cat, ("%s > %s" % (cat, nuovo)) if sub else nuovo, "AI_RINOMINA")
+        return n
 
     # --- foto -----------------------------------------------------------
     def foto(self, barcode, data: bytes, mime: str) -> dict:

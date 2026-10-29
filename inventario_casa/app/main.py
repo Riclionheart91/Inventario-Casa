@@ -32,9 +32,44 @@ def _tieni_fresco():
         time.sleep(20)
 
 
+_arr = None
+
+
+def arr():
+    global _arr
+    if _arr is None:
+        from .arricchimento import Arricchitore
+        chiave = lambda: _env("GEMINI_API_KEY")
+        _arr = Arricchitore(inv(), lambda bc: lookup.cerca(bc, chiavi=chiavi()),
+                            lambda testi: ai.traduci(testi, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")))
+    return _arr
+
+
+def _notturno():
+    """Attivita programmata: ogni notte (all'ora scelta nelle opzioni) cerca i dati mancanti e traduce in italiano. Solo se acceso e non in sola lettura."""
+    from datetime import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        fuso = ZoneInfo("Europe/Rome")
+    except Exception:
+        fuso = None
+    while True:
+        try:
+            if os.environ.get("ARRICCHIMENTO", "false").lower() == "true" and not READ_ONLY:
+                ora = (_env("ARRICCHIMENTO_ORA") or "03:00")
+                adesso = datetime.now(fuso) if fuso else datetime.now()
+                if adesso.strftime("%H:%M") >= ora and arr().da_fare_oggi():
+                    arr().oggi = (lambda: datetime.now(fuso) if fuso else datetime.now())
+                    arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60))
+        except Exception:
+            logging.getLogger("inventario").exception("arricchimento notturno")
+        time.sleep(60)
+
+
 @app.on_event("startup")
 def _avvio():
     threading.Thread(target=_tieni_fresco, daemon=True).start()
+    threading.Thread(target=_notturno, daemon=True).start()
 _inv = None
 SHARED = os.environ.get("SHARED_CODE", "")
 ACCESSO = Accesso(lambda: SHARED)
@@ -119,6 +154,21 @@ class Dec(BaseModel):
 
 class CampiBozza(BaseModel):
     campi: dict = {}
+
+
+@app.get("/api/arricchimento")
+def arricchimento_stato(x_code: str = Header(None)):
+    check(x_code)
+    return dict(arr().stato(), attivo=os.environ.get("ARRICCHIMENTO", "false").lower() == "true", sola_lettura=READ_ONLY)
+
+
+@app.post("/api/arricchimento/avvia")
+def arricchimento_avvia(x_code: str = Header(None)):
+    """Lancia subito un giro (stesso lavoro della notte)."""
+    check(x_code)
+    writable()
+    threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60)), daemon=True).start()
+    return {"ok": True, "avviato": True}
 
 
 @app.get("/api/config")

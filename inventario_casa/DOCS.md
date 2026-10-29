@@ -37,3 +37,6 @@ La prima volta iOS chiede il permesso di eseguire il comando dall'app.
 
 ## Accesso
 Si usa solo tramite Home Assistant (ingress), dal pannello Inventario o dall'indirizzo https di Tailscale: la porta diretta 8099 non viene più pubblicata (dalla 0.7.1). Il codice di accesso diretto è ancora nel programma ma resta spento, perché la porta non è raggiungibile dall'esterno del container.
+
+## Arricchimento notturno e traduzione (dalla 0.8.0)
+Opzioni: `arricchimento_notturno` (acceso/spento, di default spento), `arricchimento_ora` (es. 03:00, ora italiana), `arricchimento_max` (prodotti per notte, 60). Funziona solo se `sola_lettura` e spento. Riempie solo i campi vuoti, non cambia nulla se non trova il codice (lo riprova dopo 30 giorni), traduce in italiano i testi lunghi con Gemini. Prima di accenderlo spegni `startNightlyFullEnrich` nello script Google. Il rapporto dell'ultimo giro e in `GET /api/arricchimento`.

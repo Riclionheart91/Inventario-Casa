@@ -7,8 +7,10 @@ export SHARED_CODE="$(bashio::config 'shared_code')"
 export READ_ONLY="$(bashio::config 'sola_lettura')"
 export SECURE_URL="$(bashio::config 'url_sicuro')"
 export SHORTCUT_SPESA="$(bashio::config 'shortcut_spesa')"
+export ARRICCHIMENTO="$(bashio::config 'arricchimento_notturno')"
 # Chiavi opzionali dei servizi di ricerca e dell'AI (vuote = servizio saltato)
 opt() { local v; v="$(bashio::config "$1")"; [ "$v" = "null" ] && v=""; printf '%s' "$v"; }
+export ARRICCHIMENTO_ORA="$(opt arricchimento_ora)" ARRICCHIMENTO_MAX="$(opt arricchimento_max)"
 export GEMINI_API_KEY="$(opt gemini_api_key)" GEMINI_MODELLO="$(opt gemini_modello)" GEMINI_MODELLO_RISERVA="$(opt gemini_modello_riserva)"
 export BARCODELOOKUP_KEY="$(opt barcodelookup_key)" UPCDATABASE_KEY="$(opt upcdatabase_key)" GOUPC_TOKEN="$(opt goupc_token)"
 export SPOONACULAR_KEY="$(opt spoonacular_key)" NUTRITIONIX_APP_ID="$(opt nutritionix_app_id)" NUTRITIONIX_APP_KEY="$(opt nutritionix_app_key)"

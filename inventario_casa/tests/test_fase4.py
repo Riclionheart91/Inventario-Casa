@@ -146,11 +146,41 @@ class Approvazioni(unittest.TestCase):
         with self.assertRaises(ApiError):
             inv.decidi("T_Uova", "APPROVA", {"scorta_min": 1})
 
-    def test_categoria_proposta_resta_al_motore(self):
+    def test_categoria_proposta_applicata_dall_app(self):
         _, inv = make()
         r = inv.decidi("C_2", "APPROVA")
-        self.assertEqual(r["stato"], "APPROVATA")
+        self.assertIn(r["stato"], ("APPLICATA", "GIA_PRESENTE"))
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TCategorie(unittest.TestCase):
+    def _inv(self):
+        st = MemoryStore({
+            "prodotti": [["Barcode", "Prodotto", "Categoria", "Sottocategoria"], [1, "A", "Dispensa", "Bevande"], [2, "B", "Dispensa", "Snack"]],
+            "categorie": [["Categoria", "Sottocategoria", "Chiave"], ["Dispensa", "Bevande", "Dispensa_Bevande"], ["Dispensa", "Snack", "Dispensa_Snack"], ["Dispensa", "Dolci", "Dispensa_Dolci"]],
+            "movimenti": [["Barcode", "Tipo", "Location", "Quantità", "Categoria", "Sottocategoria"], [1, "Carico", "Casa", 2, "Dispensa", "Bevande"]],
+            "ai_categorie": [["Azione", "Categoria", "Sottocategoria", "Nuovo_Nome", "Motivo", "Prodotti_Esempio", "Stato", "Aggiornato"],
+                             ["AGGIUNGI_SOTTOCATEGORIA", "Dispensa", "Conserve", "", "", "", "PROPOSTA", ""],
+                             ["RINOMINA", "Dispensa", "Snack", "Dolci", "", "", "PROPOSTA", ""],
+                             ["RINOMINA", "Dispensa", "", "", "", "", "PROPOSTA", ""]],
+        })
+        return st, Inventory(st, ttl=20, clock=lambda: 1000.0)
+
+    def test_aggiungi_e_rinomina_con_unione(self):
+        st, inv = self._inv()
+        self.assertEqual(inv.decidi("C_2", "APPROVA")["stato"], "APPLICATA")
+        self.assertIn(["Dispensa", "Conserve", "Dispensa_Conserve"], st.sheets["categorie"][1:])
+        inv.decidi("C_3", "APPROVA")
+        cats = [(r[0], r[1]) for r in st.sheets["categorie"][1:] if r[0]]
+        self.assertEqual(cats, [("Dispensa", "Bevande"), ("Dispensa", "Dolci"), ("Dispensa", "Conserve")])   # Snack->Dolci unito al doppione
+        self.assertEqual(st.sheets["prodotti"][2][3], "Dolci")
+
+    def test_proposta_incompleta_e_rifiuto(self):
+        st, inv = self._inv()
+        with self.assertRaises(ApiError):
+            inv.decidi("C_4", "APPROVA")
+        self.assertEqual(st.sheets["ai_categorie"][3][6], "ERRORE")
+        self.assertEqual(inv.decidi("C_2", "RIFIUTA")["stato"], "RIFIUTATO")
