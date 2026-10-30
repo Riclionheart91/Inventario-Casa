@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.9.5 — 2026-10-30
+Riaccesa la porta diretta 8099 per chi non puo aprire l'app da Home Assistant (utenti non amministratori). Serve il codice di famiglia (opzione `shared_code`); per la fotocamera va servita in https con Tailscale (vedi DOCS). Da Home Assistant/ingress non cambia nulla.
+
 ## 0.9.4 — 2026-10-30
 Il pannello Inventario ora e visibile anche agli utenti di Home Assistant che non sono amministratori (prima, come ogni app, compariva solo agli amministratori).
 

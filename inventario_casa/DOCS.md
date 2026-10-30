@@ -45,3 +45,9 @@ Opzione `traduzione_all_avvio`: accendila una volta (con `sola_lettura` spenta) 
 
 ## Risposte a voce (dalla 0.9.0)
 Opzione `voce_token` (una parola d'ordine a tua scelta): accende `GET /voce/manca` e `GET /voce/cerca?q=...&t=TOKEN`, che rispondono con una frase pronta ({"testo": "..."}). Da Home Assistant: file in `home_assistant/` (pacchetto `inventario_voce.yaml` e frasi `inventario_frasi_it.yaml`). Senza token il servizio e spento.
+
+## Accesso per chi non e amministratore (dalla 0.9.5)
+Home Assistant non apre le app agli utenti non amministratori. La porta diretta 8099 e quindi di nuovo pubblicata:
+- imposta `shared_code` (il codice di famiglia, cambiabile quando vuoi) e riavvia l'app;
+- in rete di casa: `http://IP-DI-HOME-ASSISTANT:8099` (senza https la fotocamera non parte: il codice si digita);
+- con la fotocamera (https) via Tailscale: da una shell sul Tailscale di Home Assistant, `/opt/tailscale serve --bg --https=8443 localhost:8099`; poi `https://homeassistant-1.tail5d3791.ts.net:8443`. La persona deve avere Tailscale e accesso alla tua rete Tailscale.
