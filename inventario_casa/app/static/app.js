@@ -41,6 +41,7 @@
       { id: 'b2', barcode: '8005555555555', foto: '', nome: '', marca: '', confezione: '', categoria: '', sottocategoria: '', tipo: '', immagine: '', stato: 'NON_TROVATO', fonte: '', nota: 'Codice non trovato. Aggiungi una foto o scrivi a mano.', location: 'Cantina', movimento: 'Carico', quantita: 1 }
     ]
   };
+  if (MOCK && /[?&]vuoto=1/.test(location.search)) { MOCKDB.bozze = []; MOCKDB.appr = []; }   // prova: niente da inserire ne da approvare
   function mockApi(method, path, body) {
     var m;
     var m;
@@ -90,6 +91,21 @@
   function note(node, msg, cls) { node.textContent = msg || ''; node.className = 'note' + (cls ? ' ' + cls : ''); }
 
   /* ---------- navigazione ---------- */
+  /* Da inserire e Approvazioni compaiono nella barra solo quando c'e qualcosa da fare (o se ci si e gia dentro) */
+  var NASCONDIBILI = { bozze: 'api/bozze', appr: 'api/approvazioni' };
+  function tabVisibile(id) { return !(id in NASCONDIBILI) || st.tab === id || (st.n && st.n[id] > 0); }
+  function idVisibili() { return TABS.map(function (t) { return t[0]; }).filter(tabVisibile); }
+  function applicaNav() {
+    var nav = $('nav'), n = 0;
+    Array.prototype.forEach.call(nav.querySelectorAll('button'), function (b) { var v = tabVisibile(b.dataset.tab); b.hidden = !v; if (v) n++; });
+    nav.style.gridTemplateColumns = 'repeat(' + n + ',minmax(0,1fr))'; navInd(0, false);
+  }
+  function aggiornaConteggi() {
+    st.n = st.n || {};
+    Object.keys(NASCONDIBILI).forEach(function (id) {
+      api('GET', NASCONDIBILI[id]).then(function (l) { st.n[id] = (l || []).length; applicaNav(); }).catch(function () { /* resta com'e */ });
+    });
+  }
   function buildNav() {
     var nav = $('nav');
     TABS.forEach(function (t) {
@@ -100,6 +116,7 @@
       nav.appendChild(b);
     });
     var ind = el('div', ''); ind.id = 'nav-ind'; ind.setAttribute('aria-hidden', 'true'); nav.appendChild(ind);
+    applicaNav(); aggiornaConteggi();
   }
   function setStk() {   // altezza della barra fissa della pagina visibile: da li partono le categorie fisse
     var v = document.querySelector('.view:not([hidden]) .stk');
@@ -112,6 +129,7 @@
       if (t[0] === tab) $('title').textContent = t[2];
     });
     Array.prototype.forEach.call($('nav').children, function (b) { if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    applicaNav(); aggiornaConteggi();
     navInd(0, true);
     if (tab === 'stock' || tab === 'prod') hintSwipe('v-' + tab);
     if (tab !== 'mov') stopScan();
@@ -1055,8 +1073,8 @@
   }
   function swipeNav() {
     var nav = $('nav'), att = false, deciso = false, orizz = false, x0 = 0, y0 = 0, mx = 0, blocca = 0, traccia = [];
-    var ids = TABS.map(function (t) { return t[0]; });
-    function vicino(dir) { var n = ids.indexOf(st.tab) + dir; return n >= 0 && n < ids.length ? n : -1; }
+    var ids = [];
+    function vicino(dir) { ids = idVisibili(); var n = ids.indexOf(st.tab) + dir; return n >= 0 && n < ids.length ? n : -1; }
     function inizio(cx, cy) { att = true; deciso = false; orizz = false; mx = 0; x0 = cx; y0 = cy; traccia = [[Date.now(), cx]]; }
     function muovi(cx, cy, ev) {
       var dx = cx - x0, dy = cy - y0;

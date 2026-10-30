@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.9.2 — 2026-10-30
+Le schede «Da inserire» e «Approvazioni» compaiono nella barra in basso solo quando c'e qualcosa da fare (restano visibili finche ci sei dentro). Lo scorrimento tra le pagine salta quelle nascoste.
+
 ## 0.9.1 — 2026-10-30
 Scorta minima modificabile dall'app: nella scheda del prodotto, sezione «Scorta minima del tipo», un numero e Salva (vale per tutti i prodotti di quel tipo e scrive in ai_tipi; se il tipo non c'è lo crea già approvato). La scheda mostra ora la scorta anche per i prodotti con giacenza zero.
 
