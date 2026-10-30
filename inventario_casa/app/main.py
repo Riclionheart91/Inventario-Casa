@@ -115,6 +115,13 @@ async def _api_error(_, e: ApiError):
     return JSONResponse({"errore": e.msg}, status_code=e.status)
 
 
+@app.exception_handler(Exception)
+async def _errore_generico(_, e: Exception):
+    """Errori imprevisti (rete, Google): si registrano e si mostra il motivo breve invece di un muto 'Errore 500'."""
+    logging.getLogger("inventario").exception("errore non gestito")
+    return JSONResponse({"errore": "Errore del foglio Google, riprova: %s" % (str(e) or type(e).__name__)[:120]}, status_code=500)
+
+
 class Mov(BaseModel):
     barcode: str
     tipo: str

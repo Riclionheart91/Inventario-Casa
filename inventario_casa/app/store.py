@@ -1,6 +1,7 @@
 """SheetsStore: astrazione sul foglio. MemoryStore per test (MOCK=1), GoogleStore per produzione."""
 import json
 import os
+import threading
 from typing import Dict, List, Tuple
 
 
@@ -73,6 +74,7 @@ class GoogleStore(SheetsStore):
         info = json.loads(service_account_json)
         creds = service_account.Credentials.from_service_account_info(info, scopes=self.SCOPES)
         self.sheet_id, self.folder_id = sheet_id, folder_id
+        self._lock = threading.RLock()   # il client di Google non e sicuro con piu thread insieme (ciclo di aggiornamento + richieste): una chiamata alla volta
         self.sheets = build("sheets", "v4", credentials=creds, cache_discovery=False).spreadsheets()
         self.drive = build("drive", "v3", credentials=creds, cache_discovery=False)
 
@@ -87,7 +89,7 @@ class GoogleStore(SheetsStore):
 
     def get_rows(self, sheet):
         res = self.sheets.values().get(spreadsheetId=self.sheet_id, range="'%s'" % sheet,
-                                       valueRenderOption="UNFORMATTED_VALUE").execute()
+                                       valueRenderOption="UNFORMATTED_VALUE").execute(num_retries=3)
         vals = res.get("values", [])
         if not vals:
             return [], []
@@ -96,7 +98,7 @@ class GoogleStore(SheetsStore):
     def get_many(self, sheets):
         sheets = list(sheets)
         res = self.sheets.values().batchGet(spreadsheetId=self.sheet_id, ranges=["'%s'" % n for n in sheets],
-                                            valueRenderOption="UNFORMATTED_VALUE").execute()
+                                            valueRenderOption="UNFORMATTED_VALUE").execute(num_retries=3)
         out = {}
         for n, vr in zip(sheets, res.get("valueRanges", [])):
             vals = vr.get("values", [])
@@ -108,14 +110,14 @@ class GoogleStore(SheetsStore):
         row = [values.get(h, "") for h in headers]
         self.sheets.values().append(spreadsheetId=self.sheet_id, range="'%s'!A1" % sheet,
                                     valueInputOption="USER_ENTERED", insertDataOption="INSERT_ROWS",
-                                    body={"values": [row]}).execute()
+                                    body={"values": [row]}).execute(num_retries=3)
         return len(rows) + 2
 
     def update_cell(self, sheet, row, header, value):
         headers, _ = self.get_rows(sheet)
         c = self._col(headers.index(header))
         self.sheets.values().update(spreadsheetId=self.sheet_id, range="'%s'!%s%d" % (sheet, c, row),
-                                    valueInputOption="USER_ENTERED", body={"values": [[value]]}).execute()
+                                    valueInputOption="USER_ENTERED", body={"values": [[value]]}).execute(num_retries=3)
 
     def update_cells(self, sheet, items):
         items = list(items)
@@ -125,14 +127,26 @@ class GoogleStore(SheetsStore):
         data = [{"range": "'%s'!%s%d" % (sheet, self._col(headers.index(h)), r), "values": [[v]]} for r, h, v in items]
         for i in range(0, len(data), 400):
             self.sheets.values().batchUpdate(spreadsheetId=self.sheet_id,
-                                             body={"valueInputOption": "USER_ENTERED", "data": data[i:i + 400]}).execute()
+                                             body={"valueInputOption": "USER_ENTERED", "data": data[i:i + 400]}).execute(num_retries=3)
 
     def upload_photo(self, name, data, mime):
         from googleapiclient.http import MediaInMemoryUpload
         f = self.drive.files().create(
             body={"name": name, "parents": [self.folder_id]},
-            media_body=MediaInMemoryUpload(data, mimetype=mime), fields="id,webViewLink").execute()
+            media_body=MediaInMemoryUpload(data, mimetype=mime), fields="id,webViewLink").execute(num_retries=3)
         return f.get("webViewLink") or ("https://drive.google.com/file/d/%s/view" % f["id"])
+
+
+def _una_alla_volta(f):
+    def w(self, *a, **k):
+        with self._lock:
+            return f(self, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+for _n in ("get_rows", "get_many", "append_row", "update_cell", "update_cells", "upload_photo"):
+    setattr(GoogleStore, _n, _una_alla_volta(getattr(GoogleStore, _n)))
 
 
 def make_store() -> SheetsStore:

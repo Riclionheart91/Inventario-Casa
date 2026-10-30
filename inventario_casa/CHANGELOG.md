@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.9.3 — 2026-10-30
+Corretto il «Errore 500» al primo salvataggio (serviva premere due volte): le chiamate al foglio Google ora vanno una alla volta (prima il ciclo di aggiornamento in background e il salvataggio potevano scontrarsi) e si ripetono da sole fino a 3 volte se Google o la rete falliscono per un attimo. Se capita ancora, il messaggio mostra il motivo invece di «Errore 500».
+
 ## 0.9.2 — 2026-10-30
 Le schede «Da inserire» e «Approvazioni» compaiono nella barra in basso solo quando c'e qualcosa da fare (restano visibili finche ci sei dentro). Lo scorrimento tra le pagine salta quelle nascoste.
 
