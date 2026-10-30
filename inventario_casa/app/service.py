@@ -254,7 +254,7 @@ class Inventory:
             tipo = g("Tipo")
             giac = [{"luogo": e["luogo"], "categoria": e["categoria"], "qta": e["qta"], "minima": e["minima"]}
                     for e in self.stock() if str(e["barcode"]) == str(int(k))]
-            minima = giac[0]["minima"] if giac else 0
+            minima = self._scorte_tipo().get(tipo.lower(), _minima(p)) if tipo else (giac[0]["minima"] if giac else _minima(p))
             return {"barcode": int(k), "nome": g("Prodotto"), "marca": g("Marca"), "confezione": g("Confezione"),
                     "categoria": g("Categoria"), "sottocategoria": g("Sottocategoria"), "tipo": tipo,
                     "immagine": g("Immagine"), "dettagli": g("Dettagli prodotto"), "punteggi": g("Punteggi"),
@@ -539,6 +539,31 @@ class Inventory:
                                      "Tipo": tipo, "Stato": "INSERITA", "Aggiornato": datetime.now().strftime("%d/%m/%Y")}, h)
         self._drop("bozze", SH_PROD, SH_MOV)
         return {"ok": True, "barcode": int(k), "movimento": not esistenti}
+
+    def imposta_scorta(self, tipo: str, scorta) -> dict:
+        """Scorta minima di un TIPO (foglio ai_tipi). Se il tipo non c'e lo crea gia APPROVATO; se era in attesa o rifiutato lo approva."""
+        tipo = (tipo or "").strip()
+        if not tipo:
+            raise ApiError(400, "Manca il tipo")
+        try:
+            v = float(str(scorta).replace(",", "."))
+        except ValueError:
+            raise ApiError(400, "La scorta minima deve essere un numero")
+        if v < 0 or v > 999:
+            raise ApiError(400, "La scorta minima deve essere tra 0 e 999")
+        v = int(v) if v.is_integer() else v
+        h, rows = self._rows(SH_AIT, True)
+        col = next((c for c in ("Scorta_min", "Scorta min") if c in h), "Scorta_min")
+        i = next((n for n, r in enumerate(rows) if str(dict(zip(h, r)).get("Tipo", "")).strip().lower() == tipo.lower()), None)
+        if i is None:
+            self.store.append_row(SH_AIT, {"Tipo": tipo, col: v, "Stato": ST_OK[SH_AIT], "Note": "impostata dall'app"})
+        else:
+            ups = [(i + 2, col, v)]
+            if "Stato" in h and str(dict(zip(h, rows[i])).get("Stato", "")).strip().upper() != ST_OK[SH_AIT]:
+                ups.append((i + 2, "Stato", ST_OK[SH_AIT]))
+            self.store.update_cells(SH_AIT, ups)
+        self._drop(SH_AIT)
+        return {"ok": True, "tipo": tipo, "scorta_minima": v}
 
     # --- approvazioni ---------------------------------------------------
     def approvazioni(self) -> List[dict]:

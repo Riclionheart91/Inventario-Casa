@@ -211,3 +211,18 @@ class TVoce(unittest.TestCase):
         t = self._inv().voce_manca()
         self.assertIn("biscotti", t)
         self.assertTrue(t.endswith("."))
+
+
+class TScorta(unittest.TestCase):
+    def test_imposta_scorta(self):
+        st = MemoryStore({"prodotti": [["Barcode", "Prodotto", "Tipo"], [1, "Latte", "Latte"]],
+                          "ai_tipi": [["Tipo", "Scorta_min", "Stato", "Note"], ["Latte", 0, "DA_APPROVARE", ""]],
+                          "movimenti": [["Barcode", "Tipo", "Location", "Quantità"], [1, "Carico", "Casa", 2]], "categorie": [["Categoria", "Sottocategoria"]]})
+        inv = Inventory(st, ttl=20, clock=lambda: 1000.0)
+        self.assertEqual(inv.imposta_scorta("latte", 3)["scorta_minima"], 3)
+        self.assertEqual(st.sheets["ai_tipi"][1][1:3], [3, "APPROVATO"])
+        self.assertEqual(inv.scheda(1)["scorta_minima"], 3)
+        inv.imposta_scorta("Uova", 6)   # tipo nuovo: nasce gia approvato
+        self.assertEqual(st.sheets["ai_tipi"][2][:3], ["Uova", 6, "APPROVATO"])
+        with self.assertRaises(ApiError):
+            inv.imposta_scorta("Latte", -1)

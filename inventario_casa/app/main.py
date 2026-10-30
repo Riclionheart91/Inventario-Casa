@@ -149,6 +149,11 @@ class NuovoProd(BaseModel):
     quantita: float = 1
 
 
+class ScortaIn(BaseModel):
+    tipo: str
+    scorta: float
+
+
 class Dec(BaseModel):
     azione: str
     campi: dict = {}
@@ -156,6 +161,13 @@ class Dec(BaseModel):
 
 class CampiBozza(BaseModel):
     campi: dict = {}
+
+
+@app.post("/api/tipi/scorta")
+def imposta_scorta(m: ScortaIn, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().imposta_scorta(m.tipo, m.scorta)
 
 
 @app.get("/api/arricchimento")

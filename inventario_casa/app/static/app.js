@@ -55,6 +55,7 @@
     if (path === 'api/suggerisci') return { ai: true, categoria: 'Dispensa', sottocategoria: 'Snack e Dolci', tipo: 'Crema spalmabile', tipo_nuovo: false };
     if (path === 'api/categorie') return [{ categoria: 'Dispensa', sottocategorie: ['Pasta e Riso', 'Bevande', 'Snack e Dolci'] }, { categoria: 'Frigorifero', sottocategorie: ['Latticini'] }, { categoria: 'Cantina', sottocategorie: ['Bevande'] }];
     if (method === 'PATCH') return { ok: true, movimenti_aggiornati: 3 };
+    if (method === 'POST' && path === 'api/tipi/scorta') return { ok: true, tipo: body.tipo, scorta_minima: body.scorta };
     if (path === 'api/movimento') return { ok: true, nuovo: !!(body && body.foto) };
     if (path === 'api/foto') return { ok: true, id: 'mock-foto' };
     if (path === 'api/approvazioni') return MOCKDB.appr.slice();
@@ -461,12 +462,26 @@
       else { var tt = el('div', 'sc-giac tot'); tt.appendChild(el('span', '', 'Totale')); tt.appendChild(el('b', '', String(p.totale))); g.appendChild(tt); }
       if (p.scorta_minima > 0) g.appendChild(el('div', p.totale <= p.scorta_minima ? 'sc-low' : 'note', 'Scorta minima del tipo: ' + p.scorta_minima + (p.totale <= p.scorta_minima ? ' — sotto scorta' : '')));
       box.appendChild(g);
-      if (!st.ro) editSotto(box, p);
+      if (!st.ro) { editSotto(box, p); if (p.tipo) editScorta(box, p); }
       [['Punteggi', p.punteggi && p.punteggi.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
        ['Nutrizione (100 g)', p.nutrizione && p.nutrizione.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
        ['Adatto a', p.free_from], ['Dettagli', p.dettagli], ['Composizione', p.composizione], ['Smaltimento e riciclo', p.smaltimento],
        ['Aggiornato il', p.aggiornato]].forEach(function (a) { var s = secTxt(a[0], a[1]); if (s) box.appendChild(s); });
     }).catch(function (e) { box.textContent = 'Scheda non disponibile: ' + e.message; });
+  }
+  function editScorta(box, p) {   // la scorta minima e del TIPO: vale per tutti i prodotti di quel tipo
+    var s = el('div', 'sc-sec'); s.appendChild(el('h3', '', 'Scorta minima del tipo «' + p.tipo + '»'));
+    var row = el('div', 'sc-edit'), inp = el('input', ''), ok = el('button', 'btn primary', 'Salva'); ok.type = 'button';
+    inp.type = 'number'; inp.min = '0'; inp.max = '999'; inp.step = '1'; inp.inputMode = 'numeric'; inp.value = String(p.scorta_minima || 0); inp.setAttribute('aria-label', 'Scorta minima');
+    row.appendChild(inp); row.appendChild(ok); s.appendChild(row);
+    s.appendChild(el('p', 'note', 'Quando la giacenza totale del tipo scende a questo numero, finisce nella lista della spesa. Con 0 non compare mai.'));
+    box.appendChild(s);
+    ok.addEventListener('click', function () {
+      ok.disabled = true;
+      api('POST', 'api/tipi/scorta', { tipo: p.tipo, scorta: Number(inp.value) }).then(function (r) {
+        toast('Scorta minima di «' + r.tipo + '»: ' + r.scorta_minima + '.'); st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } openScheda(p.barcode);
+      }).catch(function (e) { toast('Non salvato: ' + e.message, true); }).then(function () { ok.disabled = false; });
+    });
   }
   function editSotto(box, p) {   // la sottocategoria e del prodotto: si cambia qui, non con un movimento
     var s = el('div', 'sc-sec'); s.appendChild(el('h3', '', 'Cambia sottocategoria'));
