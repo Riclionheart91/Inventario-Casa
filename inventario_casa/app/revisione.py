@@ -15,6 +15,8 @@ from .service import SH_AIT, SH_MOV, SH_PROD, SH_CAT, nbc, data_it, _num
 GIORNI = 182          # circa sei mesi
 MAX_AI = 20           # prodotti senza tipo per i quali si chiede un suggerimento all'AI, a ogni revisione
 MAX_ELENCO = 15
+LOTTO_CAT = 40        # prodotti per ogni domanda all'AI sulla categoria
+MAX_CAT = 200         # prodotti controllati a ogni revisione
 FERMI_GIORNI = 365
 
 
@@ -25,9 +27,9 @@ def _chiave(t: str) -> str:
 
 
 class Revisione:
-    def __init__(self, inv, suggerisci: Optional[Callable] = None, arricchisci: Optional[Callable] = None, percorso: str = "",
+    def __init__(self, inv, suggerisci: Optional[Callable] = None, arricchisci: Optional[Callable] = None, controlla: Optional[Callable] = None, percorso: str = "",
                  oggi: Callable = datetime.now):
-        self.inv, self.suggerisci, self.arricchisci, self.oggi = inv, suggerisci, arricchisci, oggi
+        self.inv, self.suggerisci, self.arricchisci, self.controlla, self.oggi = inv, suggerisci, arricchisci, controlla, oggi
         self.percorso = percorso or os.path.join(os.environ.get("DATA_DIR") or ("/data" if os.path.isdir("/data") else tempfile.gettempdir()),
                                                  "revisione.json")
         self._lock = threading.Lock()
@@ -161,6 +163,26 @@ class Revisione:
             voci.append(self._voce("incompleti", "n", "Dati mancanti: %d senza immagine · %d senza marca · %d senza confezione" % (nimg, nmar, ncon),
                                    motivo="L'arricchimento cerca online i campi vuoti (non tocca quelli già compilati).",
                                    azione={"t": "arricchisci"} if self.arricchisci else None, etichetta="Avvia l'arricchimento"))
+        # 5b) categoria sbagliata: l'AI guarda i prodotti a gruppi
+        if self.controlla:
+            cats = inv.categorie()
+            pr = [{"bc": nbc(p.get("Barcode")), "nome": str(p.get("Prodotto", "") or "").strip(), "marca": str(p.get("Marca", "") or "").strip(),
+                   "categoria": str(p.get("Categoria", "") or "").strip(), "sotto": str(p.get("Sottocategoria", "") or "").strip()}
+                  for p in prodotti if nbc(p.get("Barcode")) and str(p.get("Prodotto", "") or "").strip()][:MAX_CAT]
+            nomi = {x["bc"]: x["nome"] for x in pr}
+            att = {x["bc"]: x for x in pr}
+            for i in range(0, len(pr), LOTTO_CAT):
+                try:
+                    res = self.controlla(pr[i:i + LOTTO_CAT], cats) or []
+                except Exception:
+                    res = []
+                for x in res:
+                    a = att.get(x["bc"], {})
+                    voci.append(self._voce("categoria", x["bc"], "Categoria da controllare: %s" % nomi.get(x["bc"], x["bc"]),
+                                           prima="%s › %s" % (a.get("categoria", ""), a.get("sotto", "")),
+                                           dopo="%s › %s" % (x["categoria"], x["sottocategoria"]), motivo=x.get("motivo") or "proposto dall'AI",
+                                           azione={"t": "categoria", "bc": x["bc"], "categoria": x["categoria"], "sotto": x["sottocategoria"]},
+                                           etichetta="Sposta"))
         # 6) sottocategorie senza prodotti
         usate = {(str(p.get("Categoria", "") or "").strip().casefold(), str(p.get("Sottocategoria", "") or "").strip().casefold()) for p in prodotti}
         vuote = ["%s › %s" % (c["categoria"], s) for c in inv.categorie() for s in c["sottocategorie"]
@@ -223,6 +245,8 @@ class Revisione:
             t = a.get("t")
             if t == "tipo":
                 self.inv.imposta_tipo(a["bc"], a["tipo"])
+            elif t == "categoria":
+                self.inv.imposta_categoria(a["bc"], a["categoria"], a["sotto"])
             elif t == "unisci":
                 self.inv.unisci_tipo(a["da"], a["a"])
             elif t == "rifiuta_tipo":

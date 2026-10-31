@@ -354,3 +354,30 @@ class TRevisione(unittest.TestCase):
         self.assertEqual(inv.imposta_tipo(8003333333333, "pasta")["tipo"], "Pasta")
         self.assertTrue(inv.imposta_tipo(8003333333333, "Detersivo")["nuovo"])
         self.assertEqual(righe(st, "ai_tipi", "Tipo", "Detersivo")[0][2], "DA_APPROVARE")
+
+
+class TControlloCategorie(unittest.TestCase):
+    def test_ai_segnala_solo_coppie_valide(self):
+        from app import ai
+        cats = [{"categoria": "Dispensa", "sottocategorie": ["Bevande", "Snack e Dolci"]}, {"categoria": "Frigorifero", "sottocategorie": ["Latticini"]}]
+        pr = [{"bc": "8002795002995", "nome": "Latte UHT", "marca": "X", "categoria": "Dispensa", "sotto": "Bevande"},
+              {"bc": "8001111111111", "nome": "Pasta", "marca": "Y", "categoria": "Dispensa", "sotto": "Snack e Dolci"}]
+        txt = '{"da_spostare":[{"bc":"8002795002995","categoria":"Frigorifero","sottocategoria":"Latticini","motivo":"latte"},' \
+              '{"bc":"8001111111111","categoria":"Inventata","sottocategoria":"Boh"},{"bc":"999","categoria":"Dispensa","sottocategoria":"Bevande"}]}'
+        post = lambda u, k, c, t: {"candidates": [{"content": {"parts": [{"text": txt}]}}]}
+        r = ai.controlla_categorie(pr, cats, "K", post=post)
+        self.assertEqual([(x["bc"], x["categoria"], x["sottocategoria"]) for x in r], [("8002795002995", "Frigorifero", "Latticini")])
+
+    def test_voce_e_applicazione(self):
+        import tempfile, os
+        from app.revisione import Revisione
+        st, inv = make()
+        ctrl = lambda prodotti, cats: [{"bc": "8002795002995", "categoria": "Frigorifero", "sottocategoria": "Latticini", "motivo": "latte"}]
+        r = Revisione(inv, None, None, ctrl, percorso=os.path.join(tempfile.mkdtemp(), "r.json"))
+        r.esegui()
+        v = [x for x in r.voci_aperte() if x["titolo"].startswith("Categoria da controllare")][0]
+        self.assertIn("Frigorifero › Latticini", v["dopo"])
+        r.decidi(v["id"], "APPROVA")
+        h = st.sheets["prodotti"][0]
+        riga = righe(st, "prodotti", "Barcode", 8002795002995)[0]
+        self.assertEqual((riga[h.index("Categoria")], riga[h.index("Sottocategoria")]), ("Frigorifero", "Latticini"))

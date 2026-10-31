@@ -795,6 +795,23 @@ class Inventory:
         except Exception:
             pass
 
+    def imposta_categoria(self, barcode, categoria: str, sottocategoria: str) -> dict:
+        """Sposta il prodotto in un'altra categoria/sottocategoria (solo catalogo e sottocategoria dei movimenti, come l'approvazione AI)."""
+        k = nbc(barcode)
+        if not self._coppia_valida(categoria, sottocategoria):
+            raise ApiError(400, "Categoria e sottocategoria non corrispondono all'elenco")
+        h, rows = self._rows(SH_PROD, True)
+        ib = h.index("Barcode") if "Barcode" in h else -1
+        riga = next((i for i, r in enumerate(rows) if ib >= 0 and len(r) > ib and nbc(r[ib]) == k), None)
+        if riga is None:
+            raise ApiError(404, "Prodotto non trovato")
+        p = self.prodotto(k) or {}
+        self.store.update_cells(SH_PROD, [(riga + 2, "Categoria", categoria)])
+        self._drop(SH_PROD)
+        self.modifica_prodotto(k, sottocategoria)
+        self._log_ai(k, "Categoria", p.get("categoria", ""), categoria, fonte="REVISIONE")
+        return {"ok": True}
+
     def unisci_tipo(self, da: str, a: str) -> int:
         """I prodotti del tipo `da` passano ad `a`; il tipo `da` viene rifiutato (unito)."""
         self._rinomina_tipo(da, a)
