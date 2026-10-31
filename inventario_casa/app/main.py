@@ -380,7 +380,7 @@ async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: s
     check(x_code)
     writable()
     dati, mime = await file.read(), file.content_type or ""
-    out = inv().foto(barcode, dati, mime)
+    out = dict(inv().foto(barcode, dati, mime), id="AI")   # id: segnaposto per le versioni vecchie della pagina rimaste in cache
     if _env("GEMINI_API_KEY"):   # la foto va solo a Gemini, non si salva da nessuna parte
         a = await run_in_threadpool(ai.foto_prodotto, dati, mime, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"),
                                     _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))

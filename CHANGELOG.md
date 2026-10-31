@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.6 — 2026-10-31
+Correzione: con una versione vecchia della pagina rimasta in memoria sul telefono, la foto di un prodotto nuovo non veniva passata al salvataggio e compariva «Codice sconosciuto: serve una foto per creare la bozza». Ora il server risponde in modo valido anche alle pagine vecchie e la pagina si ricarica da sola a ogni versione.
+
 ## 0.10.5 — 2026-10-31
 Codici lunghi: oltre 14 cifre l'app non interroga più i database online (nessuno li conosce) e risponde subito «non trovato». I codici di 16 cifre che iniziano per 01 (formato GS1, come 0180232793411114) vengono cercati con il codice a barre che contengono (qui il GTIN 80232793411114).
 
