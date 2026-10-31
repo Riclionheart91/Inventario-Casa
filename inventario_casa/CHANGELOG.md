@@ -3,6 +3,10 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.11.0 — 2026-10-31
+Revisione a tappeto, ogni sei mesi (e a richiesta da Impostazioni › Revisione a tappeto): controlla prodotti senza tipo (l'AI ne propone uno), tipi quasi uguali da unire, tipi senza prodotti, scorte minime a 0, dati mancanti (si può lanciare l'arricchimento), sottocategorie vuote, codici a barre non validi o doppi, giacenze anomale e prodotti fermi da oltre un anno. Le voci compaiono in «Da fare»: quelle con una correzione si applicano con un tocco o si ignorano, le altre si chiudono con «Ok, visto». Non scrive sul foglio finché non approvi, quindi parte anche in sola lettura.
+Prodotti esistenti: nella scheda c'è «Cambia tipo», un menu con i tipi esistenti oppure «Nuovo tipo…» (va in «Da fare» per la scorta).
+
 ## 0.10.11 — 2026-10-31
 Tipo nuovo proposto dall'AI: con «Correggi» ora puoi cambiare anche il nome, oltre alla scorta minima. Il nome nuovo vale subito su prodotti e bozze; se scrivi il nome di un tipo che esiste già, la proposta si unisce a quello e i prodotti passano al tipo esistente.
 

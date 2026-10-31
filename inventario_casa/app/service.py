@@ -188,6 +188,31 @@ class Inventory:
             out["movimento"] = True
         return out
 
+    def imposta_tipo(self, barcode, tipo: str) -> dict:
+        """Cambia il tipo di un prodotto (menu nella scheda). Un tipo che non esiste va in coda Approvazioni con scorta 0."""
+        k = nbc(barcode)
+        tipo = re.sub(r"\s+", " ", str(tipo or "")).strip()[:40]
+        if not k or not tipo:
+            raise ApiError(400, "Codice o tipo mancante")
+        h, rows = self._rows(SH_PROD, True)
+        if "Barcode" not in h or "Tipo" not in h:
+            raise ApiError(500, "Il foglio prodotti non ha la colonna Tipo")
+        ib = h.index("Barcode")
+        riga = next((i for i, r in enumerate(rows) if len(r) > ib and nbc(r[ib]) == k), None)
+        if riga is None:
+            raise ApiError(404, "Prodotto non trovato")
+        esistente = next((t for t in self.tipi() if t.casefold() == tipo.casefold()), None)
+        tipo = esistente or tipo[:1].upper() + tipo[1:]
+        prima = str(dict(zip(h, list(rows[riga]) + [""] * (len(h) - len(rows[riga])))).get("Tipo", "") or "").strip()
+        if prima != tipo:
+            self.store.update_cells(SH_PROD, [(riga + 2, "Tipo", tipo)])
+            self._log_ai(k, "Tipo", prima, tipo)
+        if not esistente:
+            self.store.append_row(SH_AIT, {"Tipo": tipo, "Scorta_min": 0, "Stato": ST_PENDING[SH_AIT], "Note": "creato dall'app"})
+            self._drop(SH_AIT)
+        self._drop(SH_PROD)
+        return {"ok": True, "tipo": tipo, "nuovo": not esistente}
+
     def modifica_prodotto(self, barcode, sottocategoria: str) -> dict:
         """Cambio di sottocategoria = modifica del prodotto: aggiorna il catalogo e le righe di movimento di quel
         codice, senza toccare le quantita."""
@@ -769,6 +794,25 @@ class Inventory:
                                              "Prima": prima, "Dopo": dopo, "Fonte": fonte, "Confidenza": "", "Modo": "APPROVATA", "Annullato": ""})
         except Exception:
             pass
+
+    def unisci_tipo(self, da: str, a: str) -> int:
+        """I prodotti del tipo `da` passano ad `a`; il tipo `da` viene rifiutato (unito)."""
+        self._rinomina_tipo(da, a)
+        return self.rifiuta_tipo(da, "unito al tipo %s" % a)
+
+    def rifiuta_tipo(self, tipo: str, nota: str = "") -> int:
+        h, rows = self._rows(SH_AIT, True)
+        n = 0
+        for i, r in enumerate(rows):
+            d = dict(zip(h, list(r) + [""] * (len(h) - len(r))))
+            if str(d.get("Tipo", "") or "").strip().casefold() == tipo.casefold() and str(d.get("Stato", "")).upper() != ST_NO:
+                campi = {"Stato": ST_NO, "Aggiornato": datetime.now().strftime("%d/%m/%Y")}
+                if nota:
+                    campi["Note"] = nota
+                self._scrivi(SH_AIT, i + 2, campi, h)
+                n += 1
+        self._drop(SH_AIT, SH_PROD)
+        return n
 
     def _rinomina_tipo(self, vecchio: str, nuovo: str) -> None:
         """Cambia il nome di un tipo su prodotti, bozze e proposte AI sui prodotti (confronto senza maiuscole)."""

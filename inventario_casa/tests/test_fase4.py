@@ -294,3 +294,63 @@ class TCorreggiTipo(unittest.TestCase):
         self.assertEqual(r["stato"], "UNITO")
         self.assertEqual(st.sheets["prodotti"][3][h.index("Tipo")], "Pasta")
         self.assertEqual(righe(st, "ai_tipi", "Tipo", "Uova")[0][2], "RIFIUTATO")
+
+
+class TRevisione(unittest.TestCase):
+    def _rev(self, sugg=None):
+        import tempfile, os
+        from app.revisione import Revisione
+        st, inv = make()
+        st.sheets["ai_tipi"].append(["Latti", 0, "APPROVATO", ""])          # quasi uguale a Latte
+        st.sheets["ai_tipi"].append(["Fantasma", 2, "APPROVATO", ""])       # nessun prodotto
+        st.sheets["prodotti"].append([8007777777777, "Cosa", "", "Dispensa", "Bevande", "", ""])   # senza tipo
+        p = os.path.join(tempfile.mkdtemp(), "rev.json")
+        self.ch = []
+        return st, inv, Revisione(inv, sugg or (lambda n, m, c, cs, ts: {"tipo": "Snack", "tipo_nuovo": True}),
+                                  lambda: self.ch.append("arr"), percorso=p)
+
+    def test_analisi_e_decisioni(self):
+        st, inv, r = self._rev()
+        self.assertTrue(r.dovuta())
+        res = r.esegui()
+        self.assertTrue(res["ok"])
+        self.assertFalse(r.dovuta())
+        titoli = [v["titolo"] for v in r.voci_aperte()]
+        self.assertTrue(any(t.startswith("Tipo mancante: Cosa") for t in titoli), titoli)
+        self.assertTrue(any(t.startswith("Tipi simili") for t in titoli), titoli)
+        self.assertIn("Tipo senza prodotti: Fantasma", titoli)
+        self.assertTrue(any("senza immagine" in t for t in titoli), titoli)
+        ids = {v["titolo"].split(":")[0]: v["id"] for v in r.voci_aperte()}
+        # tipo mancante -> imposta il tipo e crea il tipo nuovo in coda
+        r.decidi(ids["Tipo mancante"], "APPROVA")
+        h = st.sheets["prodotti"][0]
+        self.assertEqual(st.sheets["prodotti"][-1][h.index("Tipo")], "Snack")
+        self.assertEqual(righe(st, "ai_tipi", "Tipo", "Snack")[0][2], "DA_APPROVARE")
+        # tipo senza prodotti -> rifiutato
+        r.decidi(ids["Tipo senza prodotti"], "APPROVA")
+        self.assertEqual(righe(st, "ai_tipi", "Tipo", "Fantasma")[0][2], "RIFIUTATO")
+        # arricchimento
+        for v in r.voci_aperte():
+            if v["titolo"].startswith("Dati mancanti"):
+                r.decidi(v["id"], "APPROVA")
+        self.assertEqual(self.ch, ["arr"])
+        # ignora una voce informativa
+        info = [v for v in r.voci_aperte() if v["info"]]
+        if info:
+            r.decidi(info[0]["id"], "RIFIUTA")
+            self.assertNotIn(info[0]["id"], [v["id"] for v in r.voci_aperte()])
+        self.assertEqual(r.decidi("R_xxx", "APPROVA")["stato"], 404)
+
+    def test_unisci_tipi(self):
+        st, inv, r = self._rev(lambda *a: None)
+        r.esegui()
+        v = [x for x in r.voci_aperte() if x["titolo"].startswith("Tipi simili")][0]
+        r.decidi(v["id"], "APPROVA")
+        stati = {x[0]: x[2] for x in st.sheets["ai_tipi"][1:]}
+        self.assertEqual(stati["Latti"], "RIFIUTATO")
+
+    def test_imposta_tipo_scheda(self):
+        st, inv = make()
+        self.assertEqual(inv.imposta_tipo(8003333333333, "pasta")["tipo"], "Pasta")
+        self.assertTrue(inv.imposta_tipo(8003333333333, "Detersivo")["nuovo"])
+        self.assertEqual(righe(st, "ai_tipi", "Tipo", "Detersivo")[0][2], "DA_APPROVARE")

@@ -51,6 +51,7 @@
     if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero.', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }, { luogo: 'Cantina', categoria: 'Bevande', qta: 2, minima: 0 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
+    if (/^api\/prodotto\/.+\/tipo$/.test(path)) return { ok: true, tipo: (body && body.tipo) || '', nuovo: false };
     if (path === 'api/tipi') return ['Crema spalmabile', 'Latte', 'Pasta'];
     if (method === 'POST' && path === 'api/prodotto') return { ok: true };
     if (path === 'api/config') return { url_sicuro: '', sola_lettura: false, ai: true, shortcut_spesa: 'Spesa AppSheet' };
@@ -60,6 +61,8 @@
     if (method === 'POST' && path === 'api/tipi/scorta') return { ok: true, tipo: body.tipo, scorta_minima: body.scorta };
     if (path === 'api/movimento') return { ok: true, nuovo: !!(body && body.foto) };
     if (path === 'api/arricchimento') return { ultimo: '2026-10-30', in_corso: false, attivo: false, sola_lettura: false, rapporto: { cercati: 12, completati: 7, non_trovati: 5, campi_scritti: 21, tradotti: 4, traduzioni_fallite: 0 } };
+    if (path === 'api/revisione') return { ultima: '2026-04-30', aperte: 3, in_corso: false, dovuta: true, riepilogo: '5 voci: 2 con correzione proposta, 3 solo da leggere', sola_lettura: false };
+    if (path === 'api/revisione/avvia') return { ok: true };
     if (path === 'api/arricchimento/avvia') return { ok: true, avviato: true };
     if (path === 'api/foto') return { ok: true, id: 'mock-foto' };
     if (path === 'api/approvazioni') return MOCKDB.appr.slice();
@@ -147,8 +150,25 @@
           .catch(function (e) { toast('Non avviato: ' + e.message, true); b.disabled = false; });
       });
       c.appendChild(b); box.appendChild(c);
+      loadRev(box);
       if (s.in_corso && st.tab === 'imp') impTimer = setTimeout(loadImp, 6000);
     }).catch(function (e) { box.textContent = 'Non riesco a leggere lo stato: ' + e.message; });
+  }
+  function loadRev(box) {
+    api('GET', 'api/revisione').then(function (s) {
+      var c = el('div', 'card'); c.appendChild(el('h2', '', 'Revisione a tappeto'));
+      c.appendChild(el('p', 'm', 'Controlla prodotti, tipi, scorte, categorie, giacenze e codici e mette le correzioni in «Da fare». Parte da sola ogni sei mesi e non scrive niente finché non approvi.'));
+      [['Ultima revisione', s.ultima || 'mai fatta'], ['Stato', s.in_corso ? 'in corso…' : (s.dovuta ? 'da fare' : 'a posto')], ['Voci aperte', String(s.aperte || 0)]].concat(s.riepilogo ? [['Esito', s.riepilogo]] : [])
+        .forEach(function (x) { var p = el('p', 'm'); p.appendChild(el('b', '', x[0] + ': ')); p.appendChild(document.createTextNode(x[1])); c.appendChild(p); });
+      var b = el('button', 'btn primary', s.in_corso ? 'In corso…' : 'Avvia la revisione'); b.type = 'button'; b.disabled = !!s.in_corso;
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        api('POST', 'api/revisione/avvia').then(function () { toast('Revisione avviata: le voci arrivano in «Da fare».'); azzeraCache(); setTimeout(function () { aggiornaConteggi(); loadImp(); }, 4000); })
+          .catch(function (e) { toast('Non avviata: ' + e.message, true); b.disabled = false; });
+      });
+      c.appendChild(b); box.appendChild(c);
+      if (s.in_corso && st.tab === 'imp') impTimer = setTimeout(loadImp, 6000);
+    }).catch(function () { /* resta senza la scheda */ });
   }
   function show(tab) {
     st.tab = tab;
@@ -508,7 +528,7 @@
       else { var tt = el('div', 'sc-giac tot'); tt.appendChild(el('span', '', 'Totale')); tt.appendChild(el('b', '', String(p.totale))); g.appendChild(tt); }
       if (p.scorta_minima > 0) g.appendChild(el('div', p.totale <= p.scorta_minima ? 'sc-low' : 'note', 'Scorta minima del tipo: ' + p.scorta_minima + (p.totale <= p.scorta_minima ? ' — sotto scorta' : '')));
       box.appendChild(g);
-      if (!st.ro) { editSotto(box, p); if (p.tipo) editScorta(box, p); }
+      if (!st.ro) { editSotto(box, p); editTipo(box, p); if (p.tipo) editScorta(box, p); }
       [['Punteggi', p.punteggi && p.punteggi.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
        ['Nutrizione (100 g)', p.nutrizione && p.nutrizione.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
        ['Adatto a', p.free_from], ['Dettagli', p.dettagli], ['Composizione', p.composizione], ['Smaltimento e riciclo', p.smaltimento],
@@ -542,6 +562,30 @@
       ok.disabled = true;
       api('PATCH', 'api/prodotto/' + p.barcode, { sottocategoria: sel.value }).then(function (r) { toast('Sottocategoria cambiata (' + r.movimenti_aggiornati + ' movimenti aggiornati).'); st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } openScheda(p.barcode); })
         .catch(function (e) { toast('Non salvato: ' + e.message, true); }).then(function () { ok.disabled = false; });
+    });
+  }
+  function editTipo(box, p) {   // il tipo e del prodotto: menu dei tipi esistenti, oppure uno nuovo (va in Da fare per la scorta)
+    var s = el('div', 'sc-sec'); s.appendChild(el('h3', '', 'Cambia tipo'));
+    var row = el('div', 'sc-edit'), sel = el('select', ''), ok = el('button', 'btn primary', 'Salva'); ok.type = 'button'; sel.setAttribute('aria-label', 'Tipo');
+    var nu = el('input'); nu.type = 'text'; nu.placeholder = 'Nome del nuovo tipo'; nu.hidden = true; nu.setAttribute('aria-label', 'Nome del nuovo tipo');
+    row.appendChild(sel); row.appendChild(ok); s.appendChild(row); s.appendChild(nu); box.appendChild(s);
+    (st.tipi ? Promise.resolve() : api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; }).catch(function () { st.tipi = []; })).then(function () {
+      var tutti = (st.tipi || []).slice(); if (p.tipo && tutti.map(function (x) { return x.toLowerCase(); }).indexOf(p.tipo.toLowerCase()) < 0) tutti.push(p.tipo);
+      tutti.sort(function (a, b) { return a.localeCompare(b, 'it'); });
+      var v = el('option', '', '— nessun tipo —'); v.value = ''; sel.appendChild(v);
+      tutti.forEach(function (x) { var o = el('option', '', x); o.value = x; sel.appendChild(o); });
+      var n = el('option', '', '➕ Nuovo tipo…'); n.value = '__nuovo'; sel.appendChild(n);
+      var cur = tutti.filter(function (x) { return x.toLowerCase() === (p.tipo || '').toLowerCase(); })[0]; sel.value = cur || '';
+    });
+    sel.addEventListener('change', function () { nu.hidden = sel.value !== '__nuovo'; if (!nu.hidden) nu.focus(); });
+    ok.addEventListener('click', function () {
+      var t = sel.value === '__nuovo' ? nu.value.trim() : sel.value;
+      if (!t) { toast(sel.value === '__nuovo' ? 'Scrivi il nome del nuovo tipo.' : 'Scegli un tipo.', true); return; }
+      ok.disabled = true;
+      api('PATCH', 'api/prodotto/' + p.barcode + '/tipo', { tipo: t }).then(function (r) {
+        toast(r.nuovo ? 'Tipo «' + r.tipo + '» nuovo: imposta la scorta in «Da fare».' : 'Tipo cambiato in «' + r.tipo + '».');
+        st.tipi = null; st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } aggiornaConteggi(); openScheda(p.barcode);
+      }).catch(function (e) { toast('Non salvato: ' + e.message, true); }).then(function () { ok.disabled = false; });
     });
   }
   function closeScheda() { $('scheda').hidden = true; }
@@ -1071,7 +1115,8 @@
       c.appendChild(form);
       var bt = el('div', 'btns'), ok = el('button', 'btn ok', 'Approva'), cor = el('button', 'btn', 'Correggi'), no = el('button', 'btn bad', 'Rifiuta');
       [ok, cor, no].forEach(function (x) { x.type = 'button'; bt.appendChild(x); });
-      if (a.genere === 'C') cor.hidden = true;
+      if (a.genere === 'C' || a.genere === 'R') cor.hidden = true;
+      if (a.genere === 'R') { if (a.info) { ok.hidden = true; no.textContent = 'Ok, visto'; } else { ok.textContent = a.etichetta || 'Applica'; no.textContent = 'Ignora'; } }
       function leggi() {
         if (a.genere === 'P') return { nome: nome.value.trim(), categoria: f.cat.value, sottocategoria: f.sot.value, tipo: f.tipo.value.trim() };
         if (a.genere === 'T') return { scorta_min: Number(scorta.value || 0), tipo: nome.value.trim() };
@@ -1089,12 +1134,13 @@
         if (a.genere === 'P' && (!f.cat.value || !f.sot.value)) { toast('Scegli categoria e sottocategoria (tocca Correggi).', true); form.hidden = false; return false; }
         return true;
       }
-      ok.addEventListener('click', function () { if (valido()) invia('APPROVA', leggi(), 'Approvata.'); });
+      ok.addEventListener('click', function () { if (valido()) invia('APPROVA', leggi(), a.genere === 'R' ? 'Fatto.' : 'Approvata.'); });
       cor.addEventListener('click', function () { form.hidden = !form.hidden; cor.textContent = form.hidden ? 'Correggi' : 'Chiudi correzione'; });
       no.addEventListener('click', function () { invia('RIFIUTA', {}, 'Rifiutata.'); });
       c.appendChild(bt);
+      if (a.genere === 'R' && a.info) ok.disabled = false;
       box.appendChild(swipeRiga(c, {
-        right: { label: '✓ Approva', ok: function () { return !ok.disabled; }, prima: valido, conferma: 'Approvo «' + a.titolo + '»…', fn: function () { if (!ok.disabled) invia('APPROVA', leggi(), 'Approvata.'); } },
+        right: { label: '✓ Approva', ok: function () { return !ok.disabled; }, prima: valido, conferma: 'Approvo «' + a.titolo + '»…', fn: function () { if (a.genere === 'R' && a.info) { invia('RIFIUTA', {}, 'Fatto.'); return; } if (!ok.disabled) invia('APPROVA', leggi(), a.genere === 'R' ? 'Fatto.' : 'Approvata.'); } },
         left: { label: 'Rifiuta', ok: function () { return !no.disabled; }, conferma: 'Rifiuto «' + a.titolo + '»…', fn: function () { if (!no.disabled) no.click(); } } }));
     });
   }

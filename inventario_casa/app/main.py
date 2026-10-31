@@ -48,6 +48,22 @@ def _web(bc):
     return None
 
 
+_rev = None
+_ult_rev = [0.0]
+
+
+def rev():
+    global _rev
+    if _rev is None:
+        from .revisione import Revisione
+        def sugg(nome, marca, conf, cats, tipi):
+            if not _env("GEMINI_API_KEY"):
+                return None
+            return ai.suggerisci(nome, marca, conf, cats, tipi, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+        _rev = Revisione(inv(), sugg, lambda: threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60)), daemon=True).start())
+    return _rev
+
+
 def arr():
     global _arr
     if _arr is None:
@@ -79,6 +95,12 @@ def _notturno():
                     arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60))
         except Exception:
             logging.getLogger("inventario").exception("arricchimento notturno")
+        try:   # revisione a tappeto ogni sei mesi: non scrive sul foglio, quindi parte anche in sola lettura
+            if rev().dovuta() and time.time() - _ult_rev[0] > 3600:   # al piu un tentativo all'ora
+                _ult_rev[0] = time.time()
+                rev().esegui()
+        except Exception:
+            logging.getLogger("inventario").exception("revisione semestrale")
         time.sleep(60)
 
 
@@ -307,6 +329,17 @@ def categorie(x_code: str = Header(None)):
     return inv().categorie()
 
 
+class ModTipo(BaseModel):
+    tipo: str
+
+
+@app.patch("/api/prodotto/{barcode}/tipo")
+def modifica_tipo(barcode: str, m: ModTipo, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().imposta_tipo(barcode, m.tipo)
+
+
 @app.patch("/api/prodotto/{barcode}")
 def modifica_prodotto(barcode: str, m: ModProd, x_code: str = Header(None)):
     check(x_code)
@@ -340,12 +373,33 @@ def movimento(m: Mov, x_code: str = Header(None)):
 @app.get("/api/approvazioni")
 def approvazioni(x_code: str = Header(None)):
     check(x_code)
-    return inv().approvazioni()
+    return inv().approvazioni() + rev().voci_aperte()
+
+
+@app.get("/api/revisione")
+def revisione_stato(x_code: str = Header(None)):
+    check(x_code)
+    return dict(rev().stato(), sola_lettura=READ_ONLY)
+
+
+@app.post("/api/revisione/avvia")
+def revisione_avvia(x_code: str = Header(None)):
+    """La revisione non scrive sul foglio (solo le voci che approvi): si puo lanciare anche in sola lettura."""
+    check(x_code)
+    threading.Thread(target=lambda: rev().esegui(), daemon=True).start()
+    return {"ok": True, "avviato": True}
 
 
 @app.post("/api/approvazioni/{id_}")
 def decidi(id_: str, d: Dec, x_code: str = Header(None)):
     check(x_code)
+    if id_.startswith("R_"):
+        if d.azione.upper() == "APPROVA":
+            writable()
+        r = rev().decidi(id_, d.azione, d.campi)
+        if r.get("errore"):
+            raise HTTPException(r.get("stato", 400), r["errore"])
+        return r
     writable()
     return inv().decidi(id_, d.azione, d.campi)
 
