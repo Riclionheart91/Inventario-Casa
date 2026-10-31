@@ -275,3 +275,22 @@ class TProposteCategoria(unittest.TestCase):
         ids = [a["id"] for a in inv.approvazioni() if a["id"].startswith("C_")]
         inv.decidi(ids[-1], "APPROVA")
         self.assertIn("Giardino", [c["categoria"] for c in inv.categorie()])
+
+
+class TCorreggiTipo(unittest.TestCase):
+    def test_rinomina_tipo_proposto(self):
+        st, inv = make()
+        r = inv.decidi("T_Uova", "APPROVA", {"tipo": "Uova fresche", "scorta_min": 6})
+        self.assertEqual(r["stato"], "APPROVATO")
+        riga = righe(st, "ai_tipi", "Tipo", "Uova fresche")[0]
+        self.assertEqual((riga[1], riga[2]), (6, "APPROVATO"))
+        self.assertEqual(righe(st, "ai_tipi", "Tipo", "Uova"), [])
+
+    def test_unisce_a_tipo_esistente_e_aggiorna_prodotti(self):
+        st, inv = make()
+        h = st.sheets["prodotti"][0]
+        st.sheets["prodotti"][3][h.index("Tipo")] = "Uova"   # prodotto con il tipo proposto
+        r = inv.decidi("T_Uova", "APPROVA", {"tipo": "pasta", "scorta_min": 1})
+        self.assertEqual(r["stato"], "UNITO")
+        self.assertEqual(st.sheets["prodotti"][3][h.index("Tipo")], "Pasta")
+        self.assertEqual(righe(st, "ai_tipi", "Tipo", "Uova")[0][2], "RIFIUTATO")

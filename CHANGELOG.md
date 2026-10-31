@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.11 — 2026-10-31
+Tipo nuovo proposto dall'AI: con «Correggi» ora puoi cambiare anche il nome, oltre alla scorta minima. Il nome nuovo vale subito su prodotti e bozze; se scrivi il nome di un tipo che esiste già, la proposta si unisce a quello e i prodotti passano al tipo esistente.
+
 ## 0.10.10 — 2026-10-31
 «Da inserire» e «Approvazioni» sono un unico tab, «Da fare»: in alto i prodotti da inserire, sotto le proposte AI da approvare, ciascuna sezione solo se ha elementi. Il tab compare solo quando c'è qualcosa da fare.
 

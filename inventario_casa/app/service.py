@@ -658,6 +658,17 @@ class Inventory:
             sm = campi.get("scorta_min", d.get("Scorta_min", 0))
             if _num(sm) < 0:
                 raise ApiError(400, "La scorta minima non può essere negativa")
+            vecchio = str(d.get("Tipo", "") or "").strip()
+            nuovo = re.sub(r"\s+", " ", str(campi.get("tipo", vecchio) or "")).strip()[:40] or vecchio
+            if nuovo != vecchio:   # nome del tipo corretto a mano: lo si cambia ovunque, o si unisce a un tipo che esiste gia
+                altro = next((i for i, r in enumerate(rows) if i != idx and str(dict(zip(h, r)).get("Tipo", "")).strip().casefold() == nuovo.casefold()), None)
+                if altro is not None and nuovo.casefold() != vecchio.casefold():
+                    self._rinomina_tipo(vecchio, str(dict(zip(h, rows[altro])).get("Tipo", "")).strip())
+                    self._scrivi(sheet, riga, {"Stato": ST_NO, "Aggiornato": oggi, "Note": "unito al tipo %s" % nuovo}, h)
+                    self._drop(sheet)
+                    return {"ok": True, "stato": "UNITO"}
+                self._rinomina_tipo(vecchio, nuovo)
+                self._scrivi(sheet, riga, {"Tipo": nuovo}, h)
             self._scrivi(sheet, riga, {"Stato": ST_OK[sheet], "Scorta_min": int(_num(sm)) if float(_num(sm)).is_integer() else _num(sm)}, h)
             self._drop(sheet)
             return {"ok": True, "stato": ST_OK[sheet]}
@@ -758,6 +769,22 @@ class Inventory:
                                              "Prima": prima, "Dopo": dopo, "Fonte": fonte, "Confidenza": "", "Modo": "APPROVATA", "Annullato": ""})
         except Exception:
             pass
+
+    def _rinomina_tipo(self, vecchio: str, nuovo: str) -> None:
+        """Cambia il nome di un tipo su prodotti, bozze e proposte AI sui prodotti (confronto senza maiuscole)."""
+        for foglio in (SH_PROD, "bozze", SH_AIP):
+            try:
+                h, rows = self._rows(foglio, True)
+            except Exception:
+                continue
+            if "Tipo" not in h:
+                continue
+            it = h.index("Tipo")
+            ups = [(i + 2, "Tipo", nuovo) for i, r in enumerate(rows)
+                   if len(r) > it and str(r[it]).strip().casefold() == vecchio.casefold() and str(r[it]).strip() != nuovo]
+            if ups:
+                self.store.update_cells(foglio, ups)
+            self._drop(foglio)
 
     def _rinomina_categoria(self, cat: str, sub: str, nuovo: str) -> int:
         n = 0

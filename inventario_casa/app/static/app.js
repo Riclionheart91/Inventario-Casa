@@ -1067,14 +1067,14 @@
       var K = a.campi || {}, ed = null, nome, f, scorta;
       var form = el('div', 'edit'); form.hidden = true;
       if (a.genere === 'P') { nome = campoTesto(form, 'Nome', K.nome); f = campiCatSot(form, K.categoria, K.sottocategoria, K.tipo); }
-      else if (a.genere === 'T') { scorta = campoTesto(form, 'Scorta minima', K.scorta_min == null ? 0 : K.scorta_min); scorta.type = 'number'; scorta.min = '0'; }
+      else if (a.genere === 'T') { nome = campoTesto(form, 'Nome del tipo', K.tipo); scorta = campoTesto(form, 'Scorta minima', K.scorta_min == null ? 0 : K.scorta_min); scorta.type = 'number'; scorta.min = '0'; }
       c.appendChild(form);
       var bt = el('div', 'btns'), ok = el('button', 'btn ok', 'Approva'), cor = el('button', 'btn', 'Correggi'), no = el('button', 'btn bad', 'Rifiuta');
       [ok, cor, no].forEach(function (x) { x.type = 'button'; bt.appendChild(x); });
       if (a.genere === 'C') cor.hidden = true;
       function leggi() {
         if (a.genere === 'P') return { nome: nome.value.trim(), categoria: f.cat.value, sottocategoria: f.sot.value, tipo: f.tipo.value.trim() };
-        if (a.genere === 'T') return { scorta_min: Number(scorta.value || 0) };
+        if (a.genere === 'T') return { scorta_min: Number(scorta.value || 0), tipo: nome.value.trim() };
         return {};
       }
       function invia(azione, campi, msg) {
@@ -1084,6 +1084,7 @@
         }).catch(function (e) { [ok, cor, no].forEach(function (x) { x.disabled = false; }); toast('Non riuscito: ' + e.message, true); });
       }
       function valido() {
+        if (a.genere === 'T' && !nome.value.trim()) { toast('Il nome del tipo non può essere vuoto.', true); form.hidden = false; return false; }
         if (a.genere === 'T' && !(Number(scorta.value) >= 0)) { toast('La scorta minima non può essere negativa.', true); form.hidden = false; return false; }
         if (a.genere === 'P' && (!f.cat.value || !f.sot.value)) { toast('Scegli categoria e sottocategoria (tocca Correggi).', true); form.hidden = false; return false; }
         return true;
