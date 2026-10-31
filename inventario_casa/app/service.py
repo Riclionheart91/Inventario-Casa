@@ -862,7 +862,7 @@ class Inventory:
             self.store.append_row("bozze", {
                 "ID": "A" + uuid.uuid4().hex[:7], "Barcode": bco(k), "Foto": "AI", "Prodotto": a.get("nome", ""), "Marca": a.get("marca", ""),
                 "Confezione": a.get("confezione", ""), "Categoria": a.get("categoria", ""), "Sottocategoria": a.get("sottocategoria", ""),
-                "Tipo": a.get("tipo", ""), "Stato": "PRONTA", "Fonte": "AI (foto)", "Location": location, "Movimento": tipo,
+                "Tipo": a.get("tipo", ""), "Immagine": a.get("immagine", ""), "Stato": "PRONTA", "Fonte": "AI (foto)", "Location": location, "Movimento": tipo,
                 "Quantità": q, "Aggiornato": datetime.now().strftime("%d/%m/%Y")})
             self._drop("bozze")
         except Exception:

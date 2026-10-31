@@ -36,21 +36,26 @@ def _tieni_fresco():
 _arr = None
 
 
+def _web(bc):
+    """Ricerca web con Gemini (+Google): nome, marca, confezione e un'immagine presa da una pagina che riporta davvero il codice."""
+    if not _env("GEMINI_API_KEY"):
+        return None
+    r = ai.cerca_web(bc, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+    for u in (r or {}).get("urls", []):
+        img = pagina.immagine_da_pagina(u, bc)
+        if img:
+            return {"nome": r["nome"], "marca": r["marca"], "confezione": r["confezione"], "immagine": img}
+    return None
+
+
 def arr():
     global _arr
     if _arr is None:
         from .arricchimento import Arricchitore
         chiave = lambda: _env("GEMINI_API_KEY")
         def web(bc):
-            if not chiave():
-                return None
-            r = ai.cerca_web(bc, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
-            for u in (r or {}).get("urls", []):
-                img = pagina.immagine_da_pagina(u, bc)
-                if img:
-                    return {"nome": r["nome"], "marca": r["marca"], "confezione": r["confezione"], "immagine": img, "fonte": "Web",
-                            "dettagli": "", "composizione": "", "nutrizione": "", "punteggi": ""}
-            return None
+            r = _web(bc)
+            return r and dict(r, fonte="Web", dettagli="", composizione="", nutrizione="", punteggi="")
         _arr = Arricchitore(inv(), lambda bc: lookup.cerca(bc, chiavi=chiavi()),
                             lambda testi: ai.traduci(testi, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")), web=web)
     return _arr
@@ -384,6 +389,14 @@ async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: s
     if _env("GEMINI_API_KEY"):   # la foto va solo a Gemini, non si salva da nessuna parte
         a = await run_in_threadpool(ai.foto_prodotto, dati, mime, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"),
                                     _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+        cod = lookup.codice_da_cercare(barcode)
+        if cod:   # subito l'immagine dal web; il resto dell'arricchimento lo fa il passaggio notturno
+            try:
+                w = await run_in_threadpool(_web, cod)
+            except Exception:
+                w = None
+            if w and w.get("immagine"):
+                a = dict(a or {}, immagine=w["immagine"])
         if a:
             inv().memorizza_analisi(barcode, a)
             out["analisi"] = a

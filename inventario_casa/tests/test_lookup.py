@@ -161,3 +161,12 @@ class TCodiciLunghi(unittest.TestCase):
         self.assertEqual(visti, [])
         lookup.cerca("0180232793411114", fetch=fetch)
         self.assertTrue(visti and all("0180232793411114" not in u for u in visti))
+
+
+class TCodiceDaCercare(unittest.TestCase):
+    def test_codici(self):
+        from app.lookup import codice_da_cercare as c
+        self.assertEqual(c("0180232793411114"), "80232793411114")
+        self.assertEqual(c("8054701911440"), "8054701911440")
+        self.assertEqual(c("066400240330063025051"), "")
+        self.assertEqual(c(""), "")

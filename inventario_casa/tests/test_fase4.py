@@ -232,11 +232,12 @@ class TFotoAI(unittest.TestCase):
     def test_bozza_compilata_dalla_foto(self):
         st, inv = make()
         inv.memorizza_analisi("8009999999999", {"nome": "Ghiaccio istantaneo", "marca": "Gima", "confezione": "1 pz",
-                                               "categoria": "Dispensa", "sottocategoria": "Bevande", "tipo": "Ghiaccio"})
+                                               "categoria": "Dispensa", "sottocategoria": "Bevande", "tipo": "Ghiaccio", "immagine": "https://x/i.jpg"})
         r = inv.movimento("8009999999999", "Carico", "Cantina", 1, foto="AI")
         self.assertFalse(r["noto"])
         b = [x for x in inv.bozze() if x["barcode"] == "8009999999999"]
         self.assertEqual(len(b), 1)
+        self.assertEqual(b[0]["immagine"], "https://x/i.jpg")
         self.assertEqual((b[0]["nome"], b[0]["stato"], b[0]["location"]), ("Ghiaccio istantaneo", "PRONTA", "Cantina"))
         self.assertEqual(righe(st, "movimenti", "Barcode", 8009999999999)[0][5], "Ghiaccio istantaneo")
 

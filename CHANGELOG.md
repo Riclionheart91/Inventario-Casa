@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.7 — 2026-10-31
+Prodotto nuovo con la foto: subito dopo la lettura della foto l'app cerca anche l'immagine sul web (Gemini con la ricerca Google, immagine presa solo da pagine che riportano davvero il codice) e la mette nella bozza. Il resto dei dati (dettagli, composizione, traduzioni) lo cerca il passaggio notturno. Per i codici GS1 di 16 cifre che iniziano per 01 si usa il GTIN contenuto; oltre 14 cifre senza GS1 la ricerca web si salta. Il salvataggio dopo la foto richiede qualche decina di secondi in più.
+
 ## 0.10.6 — 2026-10-31
 Correzione: con una versione vecchia della pagina rimasta in memoria sul telefono, la foto di un prodotto nuovo non veniva passata al salvataggio e compariva «Codice sconosciuto: serve una foto per creare la bozza». Ora il server risponde in modo valido anche alle pagine vecchie e la pagina si ricarica da sola a ogni versione.
 
