@@ -53,7 +53,7 @@ class Arricchitore:
 
     def stato(self) -> dict:
         d = self._leggi()
-        return {"ultimo": d.get("ultimo", ""), "rapporto": d.get("rapporto", {})}
+        return {"ultimo": d.get("ultimo", ""), "rapporto": d.get("rapporto", {}), "in_corso": self._lock.locked()}
 
     def da_fare_oggi(self) -> bool:
         return self._leggi().get("ultimo", "") != self.oggi().strftime("%Y-%m-%d")

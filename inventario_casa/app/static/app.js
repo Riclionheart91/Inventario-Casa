@@ -9,9 +9,10 @@
     spesa: '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M3 4h3l2.5 11h10L21 7H7"/>',
     bozze: '<path d="M4 13h4l2 3h4l2-3h4"/><path d="M5 13l2-8h10l2 8v6H5z"/>',
     prod: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
-    appr: '<path d="M5 13l4 4L19 7"/>'
+    appr: '<path d="M5 13l4 4L19 7"/>',
+    imp: '<circle cx="12" cy="12" r="3"/>'
   };
-  var TABS = [['mov', '+/-', 'Movimento +/-'], ['stock', 'Stock', 'Stock'], ['prod', 'Prodotti', 'Tutti i prodotti'], ['spesa', 'Spesa', 'Spesa'], ['bozze', 'Da inserire', 'Da inserire'], ['appr', 'Approvazioni', 'Approvazioni AI']];
+  var TABS = [['mov', '+/-', 'Movimento +/-'], ['stock', 'Stock', 'Stock'], ['prod', 'Prodotti', 'Tutti i prodotti'], ['spesa', 'Spesa', 'Spesa'], ['bozze', 'Da inserire', 'Da inserire'], ['appr', 'Approvazioni', 'Approvazioni AI'], ['imp', 'Impostazioni', 'Impostazioni']];
   var $ = function (id) { return document.getElementById(id); };
   var st = { tipo: 'Carico', luogo: 'Casa', qta: 1, known: null, giac: [], riga: 0, cats: null, ro: true, fotoBlob: null, stock: [], filtro: 'Tutti', tab: 'mov' };
 
@@ -58,6 +59,8 @@
     if (method === 'PATCH') return { ok: true, movimenti_aggiornati: 3 };
     if (method === 'POST' && path === 'api/tipi/scorta') return { ok: true, tipo: body.tipo, scorta_minima: body.scorta };
     if (path === 'api/movimento') return { ok: true, nuovo: !!(body && body.foto) };
+    if (path === 'api/arricchimento') return { ultimo: '2026-10-30', in_corso: false, attivo: false, sola_lettura: false, rapporto: { cercati: 12, completati: 7, non_trovati: 5, campi_scritti: 21, tradotti: 4, traduzioni_fallite: 0 } };
+    if (path === 'api/arricchimento/avvia') return { ok: true, avviato: true };
     if (path === 'api/foto') return { ok: true, id: 'mock-foto' };
     if (path === 'api/approvazioni') return MOCKDB.appr.slice();
     if ((m = /^api\/approvazioni\/(.+)$/.exec(path))) { MOCKDB.appr = MOCKDB.appr.filter(function (x) { return x.id !== decodeURIComponent(m[1]); }); return { ok: true }; }
@@ -93,7 +96,7 @@
   /* ---------- navigazione ---------- */
   /* Da inserire e Approvazioni compaiono nella barra solo quando c'e qualcosa da fare (o se ci si e gia dentro) */
   var NASCONDIBILI = { bozze: 'api/bozze', appr: 'api/approvazioni' };
-  function tabVisibile(id) { return !(id in NASCONDIBILI) || st.tab === id || (st.n && st.n[id] > 0); }
+  function tabVisibile(id) { if (id === 'imp') return false; return !(id in NASCONDIBILI) || st.tab === id || (st.n && st.n[id] > 0); }
   function idVisibili() { return TABS.map(function (t) { return t[0]; }).filter(tabVisibile); }
   function applicaNav() {
     var nav = $('nav'), n = 0;
@@ -122,6 +125,30 @@
     var v = document.querySelector('.view:not([hidden]) .stk');
     document.documentElement.style.setProperty('--stk', (v ? v.offsetHeight : 0) + 'px');
   }
+
+  /* ---------- impostazioni (solo da qui, non nel menu) ---------- */
+  var impTimer = null;
+  function loadImp() {
+    var box = $('imp'); clearTimeout(impTimer);
+    api('GET', 'api/arricchimento').then(function (s) {
+      box.textContent = '';
+      var c = el('div', 'card'); c.appendChild(el('h2', '', 'Arricchimento dati'));
+      c.appendChild(el('p', 'm', 'Cerca online i dati mancanti dei prodotti (nome, marca, immagine, dettagli) e traduce i testi in italiano. È lo stesso lavoro del passaggio notturno.'));
+      var r = s.rapporto || {};
+      var righe = [['Ultimo giro', s.ultimo || 'mai'], ['Stato', s.in_corso ? 'in corso…' : 'fermo'], ['Notturno', s.attivo ? 'acceso' : 'spento']];
+      if (r.cercati !== undefined) righe.push(['Ultimo esito', r.cercati + ' cercati · ' + r.completati + ' completati · ' + r.non_trovati + ' non trovati · ' + r.campi_scritti + ' campi scritti · ' + r.tradotti + ' tradotti']);
+      righe.forEach(function (x) { var p = el('p', 'm'); p.appendChild(el('b', '', x[0] + ': ')); p.appendChild(document.createTextNode(x[1])); c.appendChild(p); });
+      var b = el('button', 'btn primary', s.in_corso ? 'In corso…' : 'Avvia ora'); b.type = 'button'; b.disabled = !!s.in_corso || !!s.sola_lettura;
+      if (s.sola_lettura) c.appendChild(el('p', 'm', 'Sola lettura attiva: spegnila nelle opzioni dell\'app per scrivere sul foglio.'));
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        api('POST', 'api/arricchimento/avvia').then(function () { toast('Arricchimento avviato.'); setTimeout(loadImp, 1500); })
+          .catch(function (e) { toast('Non avviato: ' + e.message, true); b.disabled = false; });
+      });
+      c.appendChild(b); box.appendChild(c);
+      if (s.in_corso && st.tab === 'imp') impTimer = setTimeout(loadImp, 6000);
+    }).catch(function (e) { box.textContent = 'Non riesco a leggere lo stato: ' + e.message; });
+  }
   function show(tab) {
     st.tab = tab;
     TABS.forEach(function (t) {
@@ -136,6 +163,7 @@
     if (tab === 'stock') loadStock();
     if (tab === 'prod') loadProd();
     if (tab === 'appr') loadAppr();
+    if (tab === 'imp') loadImp();
     if (tab === 'spesa') loadSpesa();
     if (tab === 'bozze') loadBozze();
     if (tab === 'mov') $('bc').focus();
@@ -1150,6 +1178,7 @@
     $('f').addEventListener('submit', save);
     var dbt;
     $('bc').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); lookup().then(function () { (st.known === false ? $('pr') : $('save')).focus(); }); } });
+    $('imp-btn').addEventListener('click', function () { show('imp'); });
     $('bc').addEventListener('input', function () { clearTimeout(dbt); setKnown(null); if (/^\d{8,24}$/.test($('bc').value.trim())) dbt = setTimeout(lookup, 450); });
     $('bc').addEventListener('change', lookup);
     $('file').addEventListener('change', function () {

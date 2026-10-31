@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.8 — 2026-10-31
+Impostazioni: l'icona ingranaggio in alto apre una schermata (fuori dal menu in basso) con lo stato dell'arricchimento — ultimo giro, se è in corso, se il notturno è acceso, esito dell'ultimo giro — e il pulsante «Avvia ora», che lancia subito lo stesso lavoro della notte. Serve la sola lettura spenta.
+
 ## 0.10.7 — 2026-10-31
 Prodotto nuovo con la foto: subito dopo la lettura della foto l'app cerca anche l'immagine sul web (Gemini con la ricerca Google, immagine presa solo da pagine che riportano davvero il codice) e la mette nella bozza. Il resto dei dati (dettagli, composizione, traduzioni) lo cerca il passaggio notturno. Per i codici GS1 di 16 cifre che iniziano per 01 si usa il GTIN contenuto; oltre 14 cifre senza GS1 la ricerca web si salta. Il salvataggio dopo la foto richiede qualche decina di secondi in più.
 
