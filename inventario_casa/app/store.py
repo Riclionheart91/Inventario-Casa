@@ -136,9 +136,18 @@ class GoogleStore(SheetsStore):
 
     def upload_photo(self, name, data, mime):
         from googleapiclient.http import MediaInMemoryUpload
-        f = self.drive.files().create(
-            body={"name": name, "parents": [self.folder_id]},
-            media_body=MediaInMemoryUpload(data, mimetype=mime), fields="id,webViewLink").execute(num_retries=3)
+        if not self.folder_id:
+            raise RuntimeError("Cartella foto non impostata: inserisci drive_folder_id nelle opzioni dell'app")
+        try:
+            f = self.drive.files().create(
+                body={"name": name, "parents": [self.folder_id]}, supportsAllDrives=True,
+                media_body=MediaInMemoryUpload(data, mimetype=mime), fields="id,webViewLink").execute(num_retries=3)
+        except Exception as e:
+            st = getattr(getattr(e, "resp", None), "status", None)
+            if st in (403, 404):
+                raise RuntimeError("Cartella foto non raggiungibile: controlla drive_folder_id nelle opzioni e condividi la cartella "
+                                   "Drive con l'account di servizio come Editor") from e
+            raise
         return f.get("webViewLink") or ("https://drive.google.com/file/d/%s/view" % f["id"])
 
 

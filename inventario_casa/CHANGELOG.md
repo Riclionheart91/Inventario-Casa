@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.3 — 2026-10-31
+Foto dei prodotti nuovi: se la cartella Drive non è raggiungibile l'app ora lo dice in chiaro («controlla drive_folder_id e condividi la cartella con l'account di servizio come Editor») invece di mostrare l'errore tecnico 404. Funziona anche con cartelle di un Drive condiviso.
+
 ## 0.10.2 — 2026-10-31
 Codici più lunghi ancora, come i QR dei prodotti di pallavolo (21 cifre, es. 066400240330063025051): ora si accettano fino a 24 cifre. Gli zeri iniziali vengono ignorati, quindi il codice si salva e si ritrova senza lo zero davanti.
 

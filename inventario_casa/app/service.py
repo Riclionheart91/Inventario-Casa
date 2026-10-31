@@ -841,4 +841,7 @@ class Inventory:
         if not data or len(data) > 8 * 1024 * 1024:
             raise ApiError(400, "Immagine vuota o oltre 8 MB")
         name = "%s_%d.%s" % (k, int(self.clock()), mime.split("/")[1])
-        return {"ok": True, "url": self.store.upload_photo(name, data, mime)}
+        try:
+            return {"ok": True, "url": self.store.upload_photo(name, data, mime)}
+        except RuntimeError as e:
+            raise ApiError(502, str(e))
