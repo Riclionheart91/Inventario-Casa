@@ -12,7 +12,7 @@
     appr: '<path d="M5 13l4 4L19 7"/>',
     imp: '<circle cx="12" cy="12" r="3"/>'
   };
-  var TABS = [['mov', '+/-', 'Movimento +/-'], ['stock', 'Stock', 'Stock'], ['prod', 'Prodotti', 'Tutti i prodotti'], ['spesa', 'Spesa', 'Spesa'], ['bozze', 'Da inserire', 'Da inserire'], ['appr', 'Approvazioni', 'Approvazioni AI'], ['imp', 'Impostazioni', 'Impostazioni']];
+  var TABS = [['mov', '+/-', 'Movimento +/-'], ['stock', 'Stock', 'Stock'], ['prod', 'Prodotti', 'Tutti i prodotti'], ['spesa', 'Spesa', 'Spesa'], ['bozze', 'Da fare', 'Da inserire e approvare'], ['imp', 'Impostazioni', 'Impostazioni']];
   var $ = function (id) { return document.getElementById(id); };
   var st = { tipo: 'Carico', luogo: 'Casa', qta: 1, known: null, giac: [], riga: 0, cats: null, ro: true, fotoBlob: null, stock: [], filtro: 'Tutti', tab: 'mov' };
 
@@ -95,7 +95,7 @@
 
   /* ---------- navigazione ---------- */
   /* Da inserire e Approvazioni compaiono nella barra solo quando c'e qualcosa da fare (o se ci si e gia dentro) */
-  var NASCONDIBILI = { bozze: 'api/bozze', appr: 'api/approvazioni' };
+  var NASCONDIBILI = { bozze: ['api/bozze', 'api/approvazioni'] };
   function tabVisibile(id) { if (id === 'imp') return false; return !(id in NASCONDIBILI) || st.tab === id || (st.n && st.n[id] > 0); }
   function idVisibili() { return TABS.map(function (t) { return t[0]; }).filter(tabVisibile); }
   function applicaNav() {
@@ -106,7 +106,8 @@
   function aggiornaConteggi() {
     st.n = st.n || {};
     Object.keys(NASCONDIBILI).forEach(function (id) {
-      api('GET', NASCONDIBILI[id]).then(function (l) { st.n[id] = (l || []).length; applicaNav(); }).catch(function () { /* resta com'e */ });
+      Promise.all(NASCONDIBILI[id].map(function (u) { return api('GET', u).then(function (l) { return (l || []).length; }); }))
+        .then(function (n) { st.n[id] = n.reduce(function (a, b) { return a + b; }, 0); applicaNav(); }).catch(function () { /* resta com'e */ });
     });
   }
   function buildNav() {
@@ -162,10 +163,9 @@
     if (tab !== 'mov') stopScan();
     if (tab === 'stock') loadStock();
     if (tab === 'prod') loadProd();
-    if (tab === 'appr') loadAppr();
     if (tab === 'imp') loadImp();
     if (tab === 'spesa') loadSpesa();
-    if (tab === 'bozze') loadBozze();
+    if (tab === 'bozze') { loadBozze(); loadAppr(); }
     if (tab === 'mov') $('bc').focus();
     setStk();
   }
@@ -244,7 +244,7 @@
         if (toccato) { note(ainote, ''); return; }   // l'utente ha gia scelto qualcosa: non si sovrascrive
         if (a.categoria) { cat.value = a.categoria; fillSot(); if (a.sottocategoria) sot.value = a.sottocategoria; }
         if (a.tipo) tipo.value = a.tipo;
-        note(ainote, 'Suggerito dall\'AI: controlla e correggi se serve.' + (a.tipo_nuovo ? ' Il tipo «' + a.tipo + '» è nuovo: finirà in Approvazioni per la scorta minima.' : ''), 'ok');
+        note(ainote, 'Suggerito dall\'AI: controlla e correggi se serve.' + (a.tipo_nuovo ? ' Il tipo «' + a.tipo + '» è nuovo: finirà in Da fare per la scorta minima.' : ''), 'ok');
       }).catch(function (e) { note(ainote, 'Suggerimento AI non disponibile (' + e.message + '): scegli tu categoria e tipo.', 'warn'); });
     }
     box.appendChild(el('div', 'm', 'Il prodotto viene creato e caricato con la quantità e la posizione scelte qui sotto.'));
@@ -982,10 +982,16 @@
     ensureRef().then(function () { return api('GET', 'api/bozze'); }).then(function (l) { renderBozze(l || []); })
       .catch(function (e) { toast('Bozze non caricate: ' + e.message, true); });
   }
+  function aggiornaDaFare() {
+    var nb = st.nb || 0, na = st.na || 0, v = $('da-fare-vuoto');
+    if (v) v.hidden = !!(nb || na);
+    if (st.tab === 'bozze') $('sub').textContent = (nb || na) ? [nb ? nb + (nb === 1 ? ' da inserire' : ' da inserire') : '', na ? na + (na === 1 ? ' proposta AI' : ' proposte AI') : ''].filter(Boolean).join(' · ') : 'Niente da fare';
+  }
   function renderBozze(list) {
     var box = $('bozze-list'); box.textContent = '';
-    $('sub').textContent = list.length ? list.length + (list.length === 1 ? ' prodotto da completare' : ' prodotti da completare') : 'Niente da inserire';
-    if (!list.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto in attesa di essere inserito.')); return; }
+    st.nb = list.length; aggiornaDaFare();
+    if (list.length) box.appendChild(el('h3', 'sez', 'Da inserire (' + list.length + ')'));
+    if (!list.length) return;
     list.forEach(function (b) {
       var c = el('article', 'card');
       c.appendChild(el('h2', '', b.nome || ('Codice ' + b.barcode)));
@@ -1049,8 +1055,9 @@
   }
   function renderAppr(list) {
     var box = $('appr'); box.textContent = '';
-    $('sub').textContent = list.length ? list.length + (list.length === 1 ? ' proposta in attesa' : ' proposte in attesa') : 'Nessuna proposta in attesa';
-    if (!list.length) { box.appendChild(el('p', 'empty', 'Tutto approvato.')); return; }
+    st.na = list.length; aggiornaDaFare();
+    if (list.length) box.appendChild(el('h3', 'sez', 'Proposte AI da approvare (' + list.length + ')'));
+    if (!list.length) return;
     list.forEach(function (a) {
       var c = el('article', 'card'), pd = function (cls, k, v) { var r = el('div', 'pd ' + cls); r.appendChild(el('div', 'k', k)); r.appendChild(el('div', 'v', v)); return r; };
       c.appendChild(el('h2', '', a.titolo + (a.sicurezza != null ? ' · sicura al ' + a.sicurezza + '%' : '')));

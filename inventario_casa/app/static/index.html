@@ -7,7 +7,7 @@
 <title>Inventario</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=0.10.9">
+<link rel="stylesheet" href="style.css?v=0.10.10">
 </head>
 <body>
 <div id="app">
@@ -51,8 +51,7 @@
 </section>
 
 <section id="v-spesa" class="view" hidden><div class="stk" id="spesa-top"></div><div id="spesa-list"></div></section>
-<section id="v-bozze" class="view" hidden><div id="bozze-list"></div></section>
-<section id="v-appr" class="view" hidden><div id="appr"></div></section>
+<section id="v-bozze" class="view" hidden><p class="empty" id="da-fare-vuoto" hidden>Niente da inserire né da approvare.</p><div id="bozze-list"></div><div id="appr"></div></section>
 <section id="v-imp" class="view" hidden><div id="imp"></div></section>
 </main>
 
@@ -64,6 +63,6 @@
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="undo" role="status" hidden></div>
 </div>
-<script src="app.js?v=0.10.9"></script>
+<script src="app.js?v=0.10.10"></script>
 </body>
 </html>

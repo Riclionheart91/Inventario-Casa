@@ -13,7 +13,7 @@ Interfaccia dell'inventario domestico dietro Home Assistant. Legge e scrive il f
 ## AI per i prodotti nuovi (dalla 0.4.0)
 - **gemini_api_key**: chiave Google Gemini. Con la chiave, per un prodotto nuovo l'app suggerisce categoria, sottocategoria e tipo; li rivedi e salvi. Senza chiave i menu restano vuoti.
 - **gemini_modello**, **gemini_modello_riserva**: modelli da usare (vuoti = quelli del motore: gemini-3.5-flash-lite e gemini-3.1-flash-lite).
-- Un tipo nuovo entra in `ai_tipi` come DA_APPROVARE con scorta minima 0: lo trovi in Approvazioni.
+- Un tipo nuovo entra in `ai_tipi` come DA_APPROVARE con scorta minima 0: lo trovi nel tab «Da fare».
 
 ## Ricerca del codice: servizi a chiave (ripiego)
 Open Food Facts e gli altri database aperti non richiedono chiavi. Se inserisci una chiave, il servizio viene interrogato dopo di quelli:

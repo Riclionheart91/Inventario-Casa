@@ -160,3 +160,4 @@ details.g summary .gc b{color:var(--tx);font-weight:700}
 
 .bar.one{flex-wrap:nowrap;gap:6px}.bar.one .chips{flex-wrap:nowrap}.bar.one #prod-flt{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}.bar.one #prod-flt::-webkit-scrollbar{display:none}.bar.one .chip{white-space:nowrap;flex:none}.bar.one .fix{flex:none;padding-left:6px;border-left:1px solid var(--bd)}
 .chips.cats{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px}.chips.cats::-webkit-scrollbar{display:none}.chips.cats .chip{flex:none;white-space:nowrap}
+.sez{margin:14px 4px 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}

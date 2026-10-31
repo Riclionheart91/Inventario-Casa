@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.10 — 2026-10-31
+«Da inserire» e «Approvazioni» sono un unico tab, «Da fare»: in alto i prodotti da inserire, sotto le proposte AI da approvare, ciascuna sezione solo se ha elementi. Il tab compare solo quando c'è qualcosa da fare.
+
 ## 0.10.9 — 2026-10-31
 Categorie nuove: se nessuna categoria/sottocategoria esistente calza (es. concime per piante), l'AI — sia nel suggerimento sia nella lettura della foto — propone una categoria o sottocategoria nuova. La proposta finisce in Approvazioni (senza doppioni); la bozza resta senza categoria con una nota, e dopo l'approvazione la scegli dall'elenco.
 
