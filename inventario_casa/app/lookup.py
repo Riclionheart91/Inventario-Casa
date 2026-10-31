@@ -261,6 +261,10 @@ def cerca(barcode: str, fetch: Callable = fetch_http, providers=PROVIDERS, timeo
     bc = re.sub(r"\D", "", str(barcode))
     if not bc:
         return None
+    if len(bc) == 16 and bc.startswith("01"):   # GS1: identificativo 01 + GTIN-14 (es. QR dei prodotti sportivi)
+        bc = bc[2:]
+    if len(bc) > 14:   # oltre un GTIN: nessun archivio lo conosce, inutile interrogare la rete
+        return None
     risultati: Dict[int, Optional[dict]] = {}
     chiavi = {k: v for k, v in (chiavi or {}).items() if v}
     lavori = [(lambda f=f, h=h: _un_provider(bc, f, h, fetch, timeout_totale)) for f, h in providers]

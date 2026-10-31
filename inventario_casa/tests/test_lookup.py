@@ -148,3 +148,16 @@ class TestNomiEErrori(unittest.TestCase):
 
     def test_nulla_di_utile(self):
         self.assertIsNone(lookup.normalizza({}, "OFF"))
+
+
+class TCodiciLunghi(unittest.TestCase):
+    def test_gs1_01_e_oltre_gtin(self):
+        from app import lookup
+        visti = []
+        def fetch(url, *a, **k):
+            visti.append(url)
+            return None
+        self.assertIsNone(lookup.cerca("066400240330063025051", fetch=fetch))
+        self.assertEqual(visti, [])
+        lookup.cerca("0180232793411114", fetch=fetch)
+        self.assertTrue(visti and all("0180232793411114" not in u for u in visti))
