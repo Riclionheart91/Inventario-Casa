@@ -16,7 +16,7 @@ GIORNI = 182          # circa sei mesi
 MAX_AI = 20           # prodotti senza tipo per i quali si chiede un suggerimento all'AI, a ogni revisione
 MAX_ELENCO = 15
 LOTTO_CAT = 40        # prodotti per ogni domanda all'AI sulla categoria
-MAX_CAT = 200         # prodotti controllati a ogni revisione
+MAX_CAT = 3000        # tutti i prodotti, a gruppi (limite di sicurezza)
 FERMI_GIORNI = 365
 
 

@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.11.2 — 2026-10-31
+Revisione, controllo della categoria: ora riguarda tutti i prodotti (a gruppi di 40), non solo i primi 200.
+
 ## 0.11.1 — 2026-10-31
 La revisione controlla anche la categoria dei prodotti: l'AI guarda i prodotti a gruppi di 40 (fino a 200 per revisione) e segnala solo quelli chiaramente nella categoria sbagliata, sempre con una coppia categoria/sottocategoria che esiste già. In «Da fare» compare «Categoria da controllare» con attuale e proposta: «Sposta» la applica (come l'approvazione AI dei prodotti), «Ignora» la scarta.
 
