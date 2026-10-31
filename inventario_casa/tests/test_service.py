@@ -161,7 +161,7 @@ class T(unittest.TestCase):
 
     def test_foto(self):
         st, inv, _ = make()
-        self.assertTrue(inv.foto("123", b"abc", "image/jpeg")["url"].startswith("https://"))
+        self.assertEqual(inv.foto("123", b"abc", "image/jpeg")["url"], "")   # la foto non si salva
         with self.assertRaises(ApiError):
             inv.foto("123", b"abc", "text/html")
 

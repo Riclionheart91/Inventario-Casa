@@ -8,7 +8,7 @@ Interfaccia dell'inventario domestico dietro Home Assistant. Legge e scrive il f
 - **sola_lettura**: se attiva, l'app non scrive nulla.
 
 ## Opzioni facoltative
-- **shared_code**, **url_sicuro**, **drive_folder_id**: codice di accesso, indirizzo sicuro per la fotocamera, cartella foto.
+- **shared_code**, **url_sicuro**: codice di accesso, indirizzo sicuro per la fotocamera. **drive_folder_id** non serve più: le foto dei prodotti nuovi non si salvano.
 
 ## AI per i prodotti nuovi (dalla 0.4.0)
 - **gemini_api_key**: chiave Google Gemini. Con la chiave, per un prodotto nuovo l'app suggerisce categoria, sottocategoria e tipo; li rivedi e salvi. Senza chiave i menu restano vuoti.

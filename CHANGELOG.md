@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.4 — 2026-10-31
+Prodotto nuovo con la foto: la foto va direttamente a Gemini, che legge nome, marca, confezione e propone categoria, sottocategoria e tipo; la foto non si salva più su Drive (la cartella Drive e l'opzione `drive_folder_id` non servono più, e l'errore 404 sparisce). La bozza compare in «Da inserire» già compilata, pronta da confermare. Senza chiave Gemini la bozza arriva vuota, come prima.
+
 ## 0.10.3 — 2026-10-31
 Foto dei prodotti nuovi: se la cartella Drive non è raggiungibile l'app ora lo dice in chiaro («controlla drive_folder_id e condividi la cartella con l'account di servizio come Editor») invece di mostrare l'errore tecnico 404. Funziona anche con cartelle di un Drive condiviso.
 

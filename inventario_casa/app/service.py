@@ -365,6 +365,8 @@ class Inventory:
             raise ApiError(400, "La quantità deve essere maggiore di zero")
         qv = int(q) if float(q).is_integer() else q
         p = noto or self.prodotto(k)
+        if p is None and not prodotto:
+            prodotto = (self.__dict__.get("_analisi", {}).get(k) or {}).get("nome", "")
         if p is None and not foto:
             raise ApiError(409, "Codice sconosciuto: serve una foto per creare la bozza")
         cat0 = (categoria or (p["categoria"] if p else "")).strip()
@@ -393,6 +395,8 @@ class Inventory:
             r["ID_Movimento"] = uuid.uuid4().hex[:8]   # AppSheet lo genera da solo solo per le righe inserite da lui
             n = self.store.append_row(SH_MOV, r)
         self._drop(SH_MOV)
+        if p is None:
+            self._bozza_da_foto(k, tipo, location, qv)
         return {"ok": True, "riga": n, "righe": len(righe), "noto": p is not None}
 
     # --- fogli facoltativi ----------------------------------------------
@@ -840,8 +844,26 @@ class Inventory:
             raise ApiError(400, "Formato immagine non supportato")
         if not data or len(data) > 8 * 1024 * 1024:
             raise ApiError(400, "Immagine vuota o oltre 8 MB")
-        name = "%s_%d.%s" % (k, int(self.clock()), mime.split("/")[1])
+        return {"ok": True, "url": ""}   # la foto non si salva: la legge l'AI (main.foto) e si butta
+
+    def memorizza_analisi(self, barcode, analisi: dict) -> None:
+        if analisi:
+            self.__dict__.setdefault("_analisi", {})[nbc(barcode)] = analisi
+
+    def _bozza_da_foto(self, k: str, tipo: str, location: str, q) -> None:
+        """Bozza gia compilata dall'AI per un codice nuovo (se esiste l'analisi della foto)."""
+        a = self.__dict__.get("_analisi", {}).pop(k, None)
+        if not a:
+            return
         try:
-            return {"ok": True, "url": self.store.upload_photo(name, data, mime)}
-        except RuntimeError as e:
-            raise ApiError(502, str(e))
+            if any(nbc(b.get("Barcode")) == k and str(b.get("Stato", "") or "").strip().upper() in self.BOZZE_APERTE
+                   for b in self._opz("bozze", True)):
+                return
+            self.store.append_row("bozze", {
+                "ID": "A" + uuid.uuid4().hex[:7], "Barcode": bco(k), "Foto": "AI", "Prodotto": a.get("nome", ""), "Marca": a.get("marca", ""),
+                "Confezione": a.get("confezione", ""), "Categoria": a.get("categoria", ""), "Sottocategoria": a.get("sottocategoria", ""),
+                "Tipo": a.get("tipo", ""), "Stato": "PRONTA", "Fonte": "AI (foto)", "Location": location, "Movimento": tipo,
+                "Quantità": q, "Aggiornato": datetime.now().strftime("%d/%m/%Y")})
+            self._drop("bozze")
+        except Exception:
+            pass   # la bozza la crea comunque lo script dal movimento in sospeso

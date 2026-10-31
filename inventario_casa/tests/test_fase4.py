@@ -226,3 +226,29 @@ class TScorta(unittest.TestCase):
         self.assertEqual(st.sheets["ai_tipi"][2][:3], ["Uova", 6, "APPROVATO"])
         with self.assertRaises(ApiError):
             inv.imposta_scorta("Latte", -1)
+
+
+class TFotoAI(unittest.TestCase):
+    def test_bozza_compilata_dalla_foto(self):
+        st, inv = make()
+        inv.memorizza_analisi("8009999999999", {"nome": "Ghiaccio istantaneo", "marca": "Gima", "confezione": "1 pz",
+                                               "categoria": "Dispensa", "sottocategoria": "Bevande", "tipo": "Ghiaccio"})
+        r = inv.movimento("8009999999999", "Carico", "Cantina", 1, foto="AI")
+        self.assertFalse(r["noto"])
+        b = [x for x in inv.bozze() if x["barcode"] == "8009999999999"]
+        self.assertEqual(len(b), 1)
+        self.assertEqual((b[0]["nome"], b[0]["stato"], b[0]["location"]), ("Ghiaccio istantaneo", "PRONTA", "Cantina"))
+        self.assertEqual(righe(st, "movimenti", "Barcode", 8009999999999)[0][5], "Ghiaccio istantaneo")
+
+    def test_ai_foto_prodotto(self):
+        from app import ai
+        risposta = {"candidates": [{"content": {"parts": [{"text": '{"nome":"Ghiaccio","marca":"Gima","confezione":"1 pz","categoria":"Dispensa","sottocategoria":"Bevande","tipo":"Ghiaccio"}'}]}}]}
+        visto = {}
+        def post(url, chiave, corpo, t):
+            visto["parti"] = corpo["contents"][0]["parts"]
+            return risposta
+        cats = [{"categoria": "Dispensa", "sottocategorie": ["Bevande"]}]
+        a = ai.foto_prodotto(b"jpg", "image/jpeg", cats, ["Latte"], "K", post=post)
+        self.assertEqual((a["nome"], a["categoria"], a["tipo_nuovo"]), ("Ghiaccio", "Dispensa", True))
+        self.assertIn("inline_data", visto["parti"][1])
+        self.assertIsNone(ai.foto_prodotto(b"jpg", "image/jpeg", cats, [], "", post=post))

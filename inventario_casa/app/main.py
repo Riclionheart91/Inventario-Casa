@@ -7,6 +7,7 @@ from pathlib import Path
 import threading
 import time
 
+from starlette.concurrency import run_in_threadpool
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -378,7 +379,15 @@ def bozza_scarta(id_: str, x_code: str = Header(None)):
 async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: str = Header(None)):
     check(x_code)
     writable()
-    return inv().foto(barcode, await file.read(), file.content_type or "")
+    dati, mime = await file.read(), file.content_type or ""
+    out = inv().foto(barcode, dati, mime)
+    if _env("GEMINI_API_KEY"):   # la foto va solo a Gemini, non si salva da nessuna parte
+        a = await run_in_threadpool(ai.foto_prodotto, dati, mime, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"),
+                                    _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+        if a:
+            inv().memorizza_analisi(barcode, a)
+            out["analisi"] = a
+    return out
 
 
 STATIC = Path(__file__).resolve().parent / "static"

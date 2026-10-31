@@ -181,7 +181,7 @@
     }).catch(function (e) { if (my === lookupSeq) { setKnown(null); note($('hint'), 'Ricerca non riuscita: ' + e.message, 'warn'); } });
   }
   /* ---------- codice nuovo: proposta dai database ---------- */
-  var NOTA_NUOVO = 'Codice nuovo: scatta una foto, il prodotto va in "Da inserire" e lo compila l\'AI.';
+  var NOTA_NUOVO = 'Codice nuovo: scatta una foto, l\'AI la legge (la foto non si salva) e il prodotto va in "Da inserire" già compilato.';
   function hideProp() { $('prop').hidden = true; $('prop').textContent = ''; st.prop = null; $('save').hidden = false; }
   function cercaNuovo(bc, my) {
     var cats = st.cats ? Promise.resolve() : api('GET', 'api/categorie').then(function (c) { st.cats = c || []; }).catch(function () { st.cats = []; });
@@ -301,7 +301,7 @@
     var go = st.known === null ? lookup() : Promise.resolve();
     go.then(function () {
       if (st.known === false && !st.fotoBlob) { toast('Per un codice nuovo serve la foto.', true); throw new Error('stop'); }
-      return st.known === false ? api('POST', 'api/foto', undefined, undefined, (function () { var fd = new FormData(); fd.append('barcode', bc); fd.append('file', st.fotoBlob, 'foto.jpg'); return fd; })()).then(function (r) { return String(r.url || r.id || ''); }) : '';
+      return st.known === false ? api('POST', 'api/foto', undefined, undefined, (function () { var fd = new FormData(); fd.append('barcode', bc); fd.append('file', st.fotoBlob, 'foto.jpg'); return fd; })()).then(function (r) { return String(r.url || 'AI'); }) : '';
     }).then(function (foto) {
       var tipoVal = TIPI.filter(function (t) { return t[0] === st.tipo; })[0][1];
       var body = { barcode: bc, tipo: tipoVal, location: st.luogo, quantita: st.qta, prodotto: $('pr').value.trim(), foto: foto || undefined };
