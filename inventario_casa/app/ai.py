@@ -148,3 +148,35 @@ def traduci(testi: List[str], chiave: str, modello: str = "", riserva: str = "",
         if any(v is not None for v in out):
             break
     return out
+
+
+def cerca_web(barcode: str, chiave: str, modello: str = "", riserva: str = "", post: Callable = post_gemini) -> Optional[dict]:
+    """Per i codici che nessun archivio conosce: Gemini cerca su Google (strumento google_search) il prodotto e indica le pagine dove compare.
+    Ritorna {nome, marca, confezione, urls} oppure None. Non fornisce mai un'immagine inventata: l'immagine si prende dalla pagina (vedi pagina.py)."""
+    ULTIMO_ERRORE[0] = ""
+    bc = re.sub(r"\D", "", str(barcode))
+    if not chiave or not bc:
+        return None
+    prompt = ("Cerca su Google il prodotto con codice a barre (EAN/GTIN) %s. Rispondi SOLO con un oggetto JSON "
+              "{\"nome\":\"\",\"marca\":\"\",\"confezione\":\"\",\"url\":\"\"}. Nome breve e in italiano, senza marca ne peso; "
+              "confezione come peso o volume (es. 500 g); url = pagina di un negozio o del produttore dedicata a QUESTO prodotto e che riporta questo codice. "
+              "Se non sei sicuro lascia vuoti i campi: non inventare." % bc)
+    corpo = {"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}], "generationConfig": {"temperature": 0}}
+    for m in [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]:
+        r = post(URL % m, chiave, corpo, 60.0)
+        d = _estrai(r) or {}
+        urls: List[str] = []
+        u = str(d.get("url") or "").strip()
+        if u.startswith(("http://", "https://")):
+            urls.append(u)
+        try:
+            for c in r["candidates"][0]["groundingMetadata"]["groundingChunks"]:
+                w = str((c.get("web") or {}).get("uri") or "")
+                if w.startswith(("http://", "https://")) and w not in urls:
+                    urls.append(w)
+        except Exception:
+            pass
+        if d or urls:
+            return {"nome": str(d.get("nome") or "").strip()[:80], "marca": str(d.get("marca") or "").strip()[:60],
+                    "confezione": str(d.get("confezione") or "").strip()[:30], "urls": urls[:6]}
+    return None

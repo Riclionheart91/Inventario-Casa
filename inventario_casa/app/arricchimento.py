@@ -27,8 +27,8 @@ def _h(s: str) -> str:
 
 
 class Arricchitore:
-    def __init__(self, inv, cerca: Callable, traduci: Callable, percorso: str = "", oggi: Callable = datetime.now):
-        self.inv, self.cerca, self.traduci, self.oggi = inv, cerca, traduci, oggi
+    def __init__(self, inv, cerca: Callable, traduci: Callable, percorso: str = "", oggi: Callable = datetime.now, web: Optional[Callable] = None):
+        self.inv, self.cerca, self.traduci, self.oggi, self.web = inv, cerca, traduci, oggi, web
         self.percorso = percorso or os.path.join(os.environ.get("DATA_DIR") or ("/data" if os.path.isdir("/data") else tempfile.gettempdir()),
                                                  "arricchimento.json")
         self._lock = threading.Lock()
@@ -94,6 +94,13 @@ class Arricchitore:
                     info = self.cerca(bc)
                 except Exception:
                     info = None
+                if not info and self.web:   # nessun archivio lo conosce: ricerca su Google con l'AI (solo se la pagina riporta il codice)
+                    try:
+                        info = self.web(bc)
+                    except Exception:
+                        info = None
+                    if info:
+                        rap["da_web"] = rap.get("da_web", 0) + 1
                 prove[bc] = adesso.strftime("%Y-%m-%d")
                 if not info:
                     rap["non_trovati"] += 1     # nessuna scrittura: il prodotto resta com'e
@@ -104,7 +111,8 @@ class Arricchitore:
                 for n, v in nuovi:
                     ups.append((i + 2, n, v))
                 if "API Status" in ix and not cella(r, "API Status").startswith("✅"):
-                    ups.append((i + 2, "API Status", "✅ App (%s)" % (info.get("fonte") or "ricerca")))
+                    stato = "🔶 Web (AI)" if info.get("fonte") == "Web" else "✅ App (%s)" % (info.get("fonte") or "ricerca")
+                    ups.append((i + 2, "API Status", stato))
                 if "Aggiornato il" in ix:
                     ups.append((i + 2, "Aggiornato il", adesso.strftime("%d/%m/%Y")))
                 rap["completati"] += 1

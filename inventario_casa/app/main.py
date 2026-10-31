@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
-from . import ai, lookup
+from . import ai, lookup, pagina
 from .accesso import Accesso, _Mw
 from .store import make_store
 
@@ -40,8 +40,18 @@ def arr():
     if _arr is None:
         from .arricchimento import Arricchitore
         chiave = lambda: _env("GEMINI_API_KEY")
+        def web(bc):
+            if not chiave():
+                return None
+            r = ai.cerca_web(bc, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+            for u in (r or {}).get("urls", []):
+                img = pagina.immagine_da_pagina(u, bc)
+                if img:
+                    return {"nome": r["nome"], "marca": r["marca"], "confezione": r["confezione"], "immagine": img, "fonte": "Web",
+                            "dettagli": "", "composizione": "", "nutrizione": "", "punteggi": ""}
+            return None
         _arr = Arricchitore(inv(), lambda bc: lookup.cerca(bc, chiavi=chiavi()),
-                            lambda testi: ai.traduci(testi, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")))
+                            lambda testi: ai.traduci(testi, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")), web=web)
     return _arr
 
 
@@ -70,6 +80,8 @@ def _notturno():
 def _avvio():
     threading.Thread(target=_tieni_fresco, daemon=True).start()
     threading.Thread(target=_notturno, daemon=True).start()
+    if os.environ.get("ARRICCHIMENTO_AVVIO", "false").lower() == "true" and not READ_ONLY:   # una tantum: cerca subito i dati mancanti (anche con l'AI su Google)
+        threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60), 3000.0), daemon=True).start()
     if os.environ.get("TRADUZIONE_AVVIO", "false").lower() == "true" and not READ_ONLY:   # una tantum: traduce in italiano i testi esistenti
         threading.Thread(target=lambda: arr().esegui(0, 3000.0, True), daemon=True).start()
 _inv = None

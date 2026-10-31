@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.0 — 2026-10-31
+Prodotti che nessun archivio conosce: l'app chiede a Gemini (con la ricerca Google) nome, marca, confezione e le pagine dove il prodotto compare; l'immagine si prende dalla pagina solo se la pagina riporta davvero il codice a barre. Si riempiono solo i campi vuoti, lo stato diventa «🔶 Web (AI)», e se non trova niente il prodotto non cambia. Gira nell'arricchimento notturno e, una tantum, con la nuova opzione `arricchimento_all_avvio` (con `sola_lettura` spenta). Non si aprono mai indirizzi della rete di casa.
+
 ## 0.9.5 — 2026-10-30
 Riaccesa la porta diretta 8099 per chi non puo aprire l'app da Home Assistant (utenti non amministratori). Serve il codice di famiglia (opzione `shared_code`); per la fotocamera va servita in https con Tailscale (vedi DOCS). Da Home Assistant/ingress non cambia nulla.
 

@@ -7,7 +7,7 @@ export SHARED_CODE="$(bashio::config 'shared_code')"
 export READ_ONLY="$(bashio::config 'sola_lettura')"
 export SECURE_URL="$(bashio::config 'url_sicuro')"
 export SHORTCUT_SPESA="$(bashio::config 'shortcut_spesa')"
-export ARRICCHIMENTO="$(bashio::config 'arricchimento_notturno')" TRADUZIONE_AVVIO="$(bashio::config 'traduzione_all_avvio')"
+export ARRICCHIMENTO="$(bashio::config 'arricchimento_notturno')" TRADUZIONE_AVVIO="$(bashio::config 'traduzione_all_avvio')" ARRICCHIMENTO_AVVIO="$(bashio::config 'arricchimento_all_avvio')"
 # Chiavi opzionali dei servizi di ricerca e dell'AI (vuote = servizio saltato)
 opt() { local v; v="$(bashio::config "$1")"; [ "$v" = "null" ] && v=""; printf '%s' "$v"; }
 export ARRICCHIMENTO_ORA="$(opt arricchimento_ora)" ARRICCHIMENTO_MAX="$(opt arricchimento_max)"

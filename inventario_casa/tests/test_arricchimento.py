@@ -52,3 +52,31 @@ class T(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TWeb(unittest.TestCase):
+    def test_web_riempie_immagine_solo_se_la_pagina_ha_il_codice(self):
+        from app import pagina
+        html_ok = '<html><head><meta property="og:image" content="/img/p/8001.jpg"></head><body>EAN 8 0 0 1 990037511 8001990037511</body></html>'
+        html_altro = '<meta property="og:image" content="https://x/img/a.jpg"><body>altro prodotto 1234567890123</body>'
+        self.assertEqual(pagina.immagine_da_pagina("https://negozio.it/p/1", "8001990037511", lambda u: html_ok), "https://negozio.it/img/p/8001.jpg")
+        self.assertIsNone(pagina.immagine_da_pagina("https://negozio.it/p/2", "8001990037511", lambda u: html_altro))
+        self.assertFalse(pagina.indirizzo_pubblico("http://192.168.1.113:8123/x"))
+        self.assertFalse(pagina.indirizzo_pubblico("http://localhost/x"))
+
+    def test_arricchitore_usa_il_web_solo_dopo_gli_archivi(self):
+        st, inv, f = make()
+        web = lambda bc: {"nome": "Sconosciuto vero", "marca": "Marca X", "confezione": "1 l", "immagine": "https://n.it/i.jpg", "fonte": "Web"} if bc == "2" else None
+        a = Arricchitore(inv, lambda bc: INFO.get(bc), TR, f, oggi=lambda: datetime(2026, 10, 31), web=web)
+        r = a.esegui(10)
+        p = st.sheets["prodotti"]
+        self.assertEqual(p[2][1:5], ["Sconosciuto", "Marca X", "1 l", "https://n.it/i.jpg"])   # nome gia presente: intatto
+        self.assertEqual(p[2][7], "🔶 Web (AI)")
+        self.assertEqual(r["da_web"], 1)
+
+    def test_cerca_web_parsing(self):
+        risp = {"candidates": [{"content": {"parts": [{"text": '{"nome":"Sale","marca":"M","confezione":"1 kg","url":"https://a.it/p"}'}]},
+                                "groundingMetadata": {"groundingChunks": [{"web": {"uri": "https://b.it/x"}}]}}]}
+        r = ai.cerca_web("8001990037511", "k", post=lambda *a: risp)
+        self.assertEqual(r["urls"], ["https://a.it/p", "https://b.it/x"])
+        self.assertIsNone(ai.cerca_web("8001990037511", "", post=lambda *a: risp))
