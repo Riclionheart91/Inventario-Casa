@@ -281,6 +281,9 @@ def suggerisci(m: ChiediAi, x_code: str = Header(None)):
         return {"ai": False, "motivo": "chiave"}
     s = ai.suggerisci(m.nome, m.marca, m.confezione, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"),
                       _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+    if s and s.get("proposta") and not READ_ONLY:
+        p = s["proposta"]
+        inv().proponi_categoria(p["categoria"], p["sottocategoria"], m.nome, p.get("categoria_nuova", False))
     return dict(s, ai=True) if s else {"ai": False, "motivo": "risposta", "dettaglio": ai.ULTIMO_ERRORE[0]}
 
 
@@ -397,6 +400,9 @@ async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: s
                 w = None
             if w and w.get("immagine"):
                 a = dict(a or {}, immagine=w["immagine"])
+        if a and a.get("proposta") and not READ_ONLY:
+            p = a["proposta"]
+            inv().proponi_categoria(p["categoria"], p["sottocategoria"], a.get("nome", ""), p.get("categoria_nuova", False))
         if a:
             inv().memorizza_analisi(barcode, a)
             out["analisi"] = a

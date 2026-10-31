@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.9 — 2026-10-31
+Categorie nuove: se nessuna categoria/sottocategoria esistente calza (es. concime per piante), l'AI — sia nel suggerimento sia nella lettura della foto — propone una categoria o sottocategoria nuova. La proposta finisce in Approvazioni (senza doppioni); la bozza resta senza categoria con una nota, e dopo l'approvazione la scegli dall'elenco.
+
 ## 0.10.8 — 2026-10-31
 Impostazioni: l'icona ingranaggio in alto apre una schermata (fuori dal menu in basso) con lo stato dell'arricchimento — ultimo giro, se è in corso, se il notturno è acceso, esito dell'ultimo giro — e il pulsante «Avvia ora», che lancia subito lo stesso lavoro della notte. Serve la sola lettura spenta.
 

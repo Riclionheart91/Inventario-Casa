@@ -253,3 +253,25 @@ class TFotoAI(unittest.TestCase):
         self.assertEqual((a["nome"], a["categoria"], a["tipo_nuovo"]), ("Ghiaccio", "Dispensa", True))
         self.assertIn("inline_data", visto["parti"][1])
         self.assertIsNone(ai.foto_prodotto(b"jpg", "image/jpeg", cats, [], "", post=post))
+
+
+class TProposteCategoria(unittest.TestCase):
+    def test_valida_propone_nuova_coppia(self):
+        from app import ai
+        cats = [{"categoria": "Dispensa", "sottocategorie": ["Bevande"]}]
+        v = ai.valida({"categoria": "", "sottocategoria": "", "tipo": "Concime", "nuova_categoria": "giardino", "nuova_sottocategoria": "concimi"}, cats, [])
+        self.assertEqual(v["proposta"], {"categoria": "Giardino", "sottocategoria": "Concimi", "categoria_nuova": True})
+        v = ai.valida({"tipo": "X", "nuova_categoria": "dispensa", "nuova_sottocategoria": "Spezie"}, cats, [])
+        self.assertEqual(v["proposta"], {"categoria": "Dispensa", "sottocategoria": "Spezie", "categoria_nuova": False})
+        self.assertNotIn("proposta", ai.valida({"categoria": "Dispensa", "sottocategoria": "Bevande", "tipo": "Y"}, cats, []))
+
+    def test_proponi_categoria_in_coda_senza_doppioni(self):
+        st, inv = make()
+        self.assertTrue(inv.proponi_categoria("Giardino", "Concimi", "Concime piante", True))
+        self.assertFalse(inv.proponi_categoria("giardino", "concimi", "", True))   # gia in attesa
+        self.assertFalse(inv.proponi_categoria("Dispensa", "Bevande"))              # esiste gia
+        r = righe(st, "ai_categorie", "Categoria", "Giardino")[0]
+        self.assertEqual((r[0], r[6]), ("AGGIUNGI_CATEGORIA", "PROPOSTA"))
+        ids = [a["id"] for a in inv.approvazioni() if a["id"].startswith("C_")]
+        inv.decidi(ids[-1], "APPROVA")
+        self.assertIn("Giardino", [c["categoria"] for c in inv.categorie()])

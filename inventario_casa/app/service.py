@@ -730,6 +730,28 @@ class Inventory:
             return "APPLICATA", 1
         return "ERRORE", 0
 
+    def proponi_categoria(self, categoria: str, sotto: str, esempio: str = "", nuova_categoria: bool = False) -> bool:
+        """Mette in coda Approvazioni una categoria/sottocategoria nuova suggerita dall'AI (se non e gia presente o gia in attesa)."""
+        categoria, sotto = (categoria or "").strip(), (sotto or "").strip()
+        if not categoria or not sotto:
+            return False
+        try:
+            for c in self.categorie():
+                if c["categoria"].casefold() == categoria.casefold() and any(x.casefold() == sotto.casefold() for x in c["sottocategorie"]):
+                    return False
+            for a in self._opz(SH_AIC, True):
+                if (str(a.get("Stato", "") or "").strip() == ST_PENDING[SH_AIC] and str(a.get("Categoria", "") or "").strip().casefold() == categoria.casefold()
+                        and str(a.get("Sottocategoria", "") or "").strip().casefold() == sotto.casefold()):
+                    return False
+            self.store.append_row(SH_AIC, {"Azione": "AGGIUNGI_CATEGORIA" if nuova_categoria else "AGGIUNGI_SOTTOCATEGORIA", "Categoria": categoria,
+                                           "Sottocategoria": sotto, "Nuovo_Nome": "", "Motivo": "nessuna categoria esistente calza (proposta dall'app)",
+                                           "Prodotti_Esempio": (esempio or "")[:120], "Stato": ST_PENDING[SH_AIC],
+                                           "Aggiornato": datetime.now().strftime("%d/%m/%Y")})
+            self._drop(SH_AIC)
+            return True
+        except Exception:
+            return False
+
     def _registra_cat(self, prima, dopo, fonte):
         try:
             self.store.append_row("log_ai", {"Quando": datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "Barcode": "", "Campo": "categorie",
@@ -862,7 +884,7 @@ class Inventory:
             self.store.append_row("bozze", {
                 "ID": "A" + uuid.uuid4().hex[:7], "Barcode": bco(k), "Foto": "AI", "Prodotto": a.get("nome", ""), "Marca": a.get("marca", ""),
                 "Confezione": a.get("confezione", ""), "Categoria": a.get("categoria", ""), "Sottocategoria": a.get("sottocategoria", ""),
-                "Tipo": a.get("tipo", ""), "Immagine": a.get("immagine", ""), "Stato": "PRONTA", "Fonte": "AI (foto)", "Location": location, "Movimento": tipo,
+                "Tipo": a.get("tipo", ""), "Immagine": a.get("immagine", ""), "Nota": ("Categoria proposta dall'AI, da approvare: %s > %s" % (a["proposta"]["categoria"], a["proposta"]["sottocategoria"])) if a.get("proposta") else "", "Stato": "PRONTA", "Fonte": "AI (foto)", "Location": location, "Movimento": tipo,
                 "Quantità": q, "Aggiornato": datetime.now().strftime("%d/%m/%Y")})
             self._drop("bozze")
         except Exception:
