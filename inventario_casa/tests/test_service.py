@@ -205,3 +205,8 @@ class TBarcode16(unittest.TestCase):
         self.assertEqual(nbc("0123456789012345"), "123456789012345")
         self.assertEqual(_testo("1234567890123456"), "'1234567890123456")
         self.assertEqual(_testo(8001234567890), 8001234567890)
+
+    def test_qr_21_cifre(self):
+        from app.service import bco, nbc
+        self.assertEqual(nbc("066400240330063025051"), "66400240330063025051")
+        self.assertEqual(bco("066400240330063025051"), "66400240330063025051")

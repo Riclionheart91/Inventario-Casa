@@ -163,7 +163,7 @@
   var lookupSeq = 0;
   function lookup() {
     var bc = $('bc').value.trim();
-    if (!/^\d{6,16}$/.test(bc)) { hideProp(); setKnown(null); note($('hint'), bc ? 'Il codice deve avere solo cifre (6-16).' : '', bc ? 'warn' : ''); return Promise.resolve(); }
+    if (!/^\d{6,24}$/.test(bc)) { hideProp(); setKnown(null); note($('hint'), bc ? 'Il codice deve avere solo cifre (6-24).' : '', bc ? 'warn' : ''); return Promise.resolve(); }
     var my = ++lookupSeq; hideProp();
     note($('hint'), 'Cerco il prodotto…');
     return api('GET', 'api/prodotto/' + encodeURIComponent(bc)).then(function (r) {
@@ -296,7 +296,7 @@
   function save(ev) {
     ev.preventDefault();
     var bc = $('bc').value.trim();
-    if (!/^\d{6,16}$/.test(bc)) { toast('Inserisci un barcode valido.', true); $('bc').focus(); return; }
+    if (!/^\d{6,24}$/.test(bc)) { toast('Inserisci un barcode valido.', true); $('bc').focus(); return; }
     var btn = $('save'); btn.disabled = true;
     var go = st.known === null ? lookup() : Promise.resolve();
     go.then(function () {
@@ -1150,7 +1150,7 @@
     $('f').addEventListener('submit', save);
     var dbt;
     $('bc').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); lookup().then(function () { (st.known === false ? $('pr') : $('save')).focus(); }); } });
-    $('bc').addEventListener('input', function () { clearTimeout(dbt); setKnown(null); if (/^\d{8,16}$/.test($('bc').value.trim())) dbt = setTimeout(lookup, 450); });
+    $('bc').addEventListener('input', function () { clearTimeout(dbt); setKnown(null); if (/^\d{8,24}$/.test($('bc').value.trim())) dbt = setTimeout(lookup, 450); });
     $('bc').addEventListener('change', lookup);
     $('file').addEventListener('change', function () {
       var f = $('file').files[0]; if (!f) return;

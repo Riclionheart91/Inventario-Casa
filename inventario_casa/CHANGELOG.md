@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.2 — 2026-10-31
+Codici più lunghi ancora, come i QR dei prodotti di pallavolo (21 cifre, es. 066400240330063025051): ora si accettano fino a 24 cifre. Gli zeri iniziali vengono ignorati, quindi il codice si salva e si ritrova senza lo zero davanti.
+
 ## 0.10.1 — 2026-10-31
 Codici a barre fino a 16 cifre (prima 14): servono per alcuni prodotti di pallavolo. L'app li accetta nel campo, nella ricerca e nella scansione; oltre 15 cifre il codice si scrive sul foglio come testo (i numeri di Fogli perdono precisione dopo 15 cifre) e nell'app resta una stringa. Gli zeri iniziali continuano a essere ignorati.
 
