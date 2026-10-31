@@ -31,6 +31,12 @@ def nbc(x) -> str:
     return s.lstrip("0")
 
 
+def bco(k):
+    """Barcode per l'uscita e per il foglio: numero fino a 15 cifre, testo oltre (precisione di Fogli e JSON)."""
+    k = nbc(k)
+    return int(k) if len(k) <= 15 else k
+
+
 def data_it(x) -> str:
     """Data in formato gg/mm/aaaa: accetta il numero seriale di Google Sheets, il testo ISO o una data gia italiana."""
     from datetime import timedelta
@@ -118,7 +124,7 @@ class Inventory:
             return None
         for p in self._dicts(SH_PROD):
             if nbc(p.get("Barcode")) == k:
-                return {"barcode": int(k), "prodotto": p.get("Prodotto", ""), "marca": p.get("Marca", ""),
+                return {"barcode": bco(k), "prodotto": p.get("Prodotto", ""), "marca": p.get("Marca", ""),
                         "categoria": p.get("Categoria", ""), "sottocategoria": p.get("Sottocategoria", ""),
                         "tipo": p.get("Tipo", "")}
         return None
@@ -164,7 +170,7 @@ class Inventory:
                 raise ApiError(400, "Categoria non prevista")
             if sottocategoria not in ammesse[categoria]:
                 raise ApiError(400, "Sottocategoria non prevista per la categoria %s" % categoria)
-        valori = {"Barcode": int(k), "Prodotto": nome, "Marca": (marca or "").strip(), "Categoria": categoria,
+        valori = {"Barcode": bco(k), "Prodotto": nome, "Marca": (marca or "").strip(), "Categoria": categoria,
                   "API Status": "✅ App (%s)" % (fonte or "App"), "Confezione": (confezione or "").strip(),
                   "Dettagli prodotto": dettagli, "Punteggi": punteggi, "Composizione": composizione,
                   "Nutrizione (100g)": nutrizione, "Immagine": (immagine or "").strip(),
@@ -175,7 +181,7 @@ class Inventory:
             self.store.append_row(SH_AIT, {"Tipo": tipo, "Scorta_min": 0, "Stato": ST_PENDING[SH_AIT], "Note": "creato dall'app"})
             self._drop(SH_AIT)
         self._drop(SH_PROD)
-        out = {"ok": True, "riga": riga, "barcode": int(k), "movimento": False}
+        out = {"ok": True, "riga": riga, "barcode": bco(k), "movimento": False}
         if location:   # il carico usa i dati appena inseriti, senza rileggere il foglio
             self.movimento(k, "Carico", location, quantita or 1,
                            noto={"prodotto": nome, "categoria": categoria, "sottocategoria": sottocategoria})
@@ -235,11 +241,11 @@ class Inventory:
             if not k:
                 continue
             g = lambda n: str(p.get(n, "") or "").strip()
-            out.append({"barcode": int(k), "nome": g("Prodotto") or "(senza nome)", "marca": g("Marca"), "conf": g("Confezione"),
+            out.append({"barcode": bco(k), "nome": g("Prodotto") or "(senza nome)", "marca": g("Marca"), "conf": g("Confezione"),
                         "tipo": g("Tipo"), "categoria": g("Categoria"), "sotto": g("Sottocategoria"), "img": g("Immagine"),
-                        "qta": tot.get(str(int(k)), 0),
-                        "minima": minima.get(str(int(k)), scorte.get(g("Tipo").lower(), 0)),   # anche per i prodotti senza giacenza
-                        "posti": [{"luogo": l, "qta": q} for l, q in sorted(posti.get(str(int(k)), {}).items()) if q]})
+                        "qta": tot.get(k, 0),
+                        "minima": minima.get(k, scorte.get(g("Tipo").lower(), 0)),   # anche per i prodotti senza giacenza
+                        "posti": [{"luogo": l, "qta": q} for l, q in sorted(posti.get(k, {}).items()) if q]})
         return sorted(out, key=lambda e: (e["nome"].casefold(), e["marca"].casefold()))
 
     def scheda(self, barcode) -> Optional[dict]:
@@ -253,9 +259,9 @@ class Inventory:
             g = lambda *names: next((str(p[n]).strip() for n in names if n in p and str(p[n]).strip()), "")
             tipo = g("Tipo")
             giac = [{"luogo": e["luogo"], "categoria": e["categoria"], "qta": e["qta"], "minima": e["minima"]}
-                    for e in self.stock() if str(e["barcode"]) == str(int(k))]
+                    for e in self.stock() if str(e["barcode"]) == k]
             minima = self._scorte_tipo().get(tipo.lower(), _minima(p)) if tipo else (giac[0]["minima"] if giac else _minima(p))
-            return {"barcode": int(k), "nome": g("Prodotto"), "marca": g("Marca"), "confezione": g("Confezione"),
+            return {"barcode": bco(k), "nome": g("Prodotto"), "marca": g("Marca"), "confezione": g("Confezione"),
                     "categoria": g("Categoria"), "sottocategoria": g("Sottocategoria"), "tipo": tipo,
                     "immagine": g("Immagine"), "dettagli": g("Dettagli prodotto"), "punteggi": g("Punteggi"),
                     "composizione": g("Composizione"), "free_from": g("Free-from"), "nutrizione": g("Nutrizione (100g)"),
@@ -316,7 +322,7 @@ class Inventory:
                 continue
             c = cat.get(k, {})
             catm = str(m.get("Categoria", "") or "").strip() or c.get("categoria", "")   # riga senza categoria: vale quella del prodotto
-            e = acc.setdefault((k, loc, catm), {"barcode": int(k), "nome": c.get("nome") or m.get("Prodotto", ""),
+            e = acc.setdefault((k, loc, catm), {"barcode": bco(k), "nome": c.get("nome") or m.get("Prodotto", ""),
                                           "marca": c.get("marca", ""), "conf": c.get("conf", ""), "img": c.get("img", ""),
                                           "categoria": catm,   # la categoria appartiene alla riga di stock (stesso prodotto, categorie diverse)
                                           "sotto": c.get("sotto") or m.get("Sottocategoria", ""),   # la sottocategoria e del prodotto
@@ -362,7 +368,7 @@ class Inventory:
         if p is None and not foto:
             raise ApiError(409, "Codice sconosciuto: serve una foto per creare la bozza")
         cat0 = (categoria or (p["categoria"] if p else "")).strip()
-        base = {"Barcode": int(k), "Quantità": qv, "Prodotto": (p["prodotto"] if p else prodotto),
+        base = {"Barcode": bco(k), "Quantità": qv, "Prodotto": (p["prodotto"] if p else prodotto),
                 "Sottocategoria": p["sottocategoria"] if p else "", "Foto": foto,
                 "Data": datetime.now().strftime("%d/%m/%Y"), "Chi": "App"}   # come nel foglio: gg/mm/aaaa
         righe = []
@@ -406,7 +412,7 @@ class Inventory:
 
     def _log_ai(self, barcode, campo, prima, dopo, fonte="APPROVATO", conf="", modo="MANUALE"):
         try:
-            self.store.append_row("log_ai", {"Quando": datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "Barcode": int(nbc(barcode)),
+            self.store.append_row("log_ai", {"Quando": datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "Barcode": bco(barcode),
                                              "Campo": campo, "Prima": prima, "Dopo": dopo, "Fonte": fonte, "Confidenza": conf,
                                              "Modo": modo, "Annullato": ""})
         except Exception:
@@ -538,7 +544,7 @@ class Inventory:
         self._scrivi("bozze", riga, {"Prodotto": nome, "Marca": marca, "Confezione": conf, "Categoria": cat, "Sottocategoria": sotto,
                                      "Tipo": tipo, "Stato": "INSERITA", "Aggiornato": datetime.now().strftime("%d/%m/%Y")}, h)
         self._drop("bozze", SH_PROD, SH_MOV)
-        return {"ok": True, "barcode": int(k), "movimento": not esistenti}
+        return {"ok": True, "barcode": bco(k), "movimento": not esistenti}
 
     def imposta_scorta(self, tipo: str, scorta) -> dict:
         """Scorta minima di un TIPO (foglio ai_tipi). Se il tipo non c'e lo crea gia APPROVATO; se era in attesa o rifiutato lo approva."""

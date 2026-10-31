@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.10.1 — 2026-10-31
+Codici a barre fino a 16 cifre (prima 14): servono per alcuni prodotti di pallavolo. L'app li accetta nel campo, nella ricerca e nella scansione; oltre 15 cifre il codice si scrive sul foglio come testo (i numeri di Fogli perdono precisione dopo 15 cifre) e nell'app resta una stringa. Gli zeri iniziali continuano a essere ignorati.
+
 ## 0.10.0 — 2026-10-31
 Prodotti che nessun archivio conosce: l'app chiede a Gemini (con la ricerca Google) nome, marca, confezione e le pagine dove il prodotto compare; l'immagine si prende dalla pagina solo se la pagina riporta davvero il codice a barre. Si riempiono solo i campi vuoti, lo stato diventa «🔶 Web (AI)», e se non trova niente il prodotto non cambia. Gira nell'arricchimento notturno e, una tantum, con la nuova opzione `arricchimento_all_avvio` (con `sola_lettura` spenta). Non si aprono mai indirizzi della rete di casa.
 

@@ -65,6 +65,11 @@ class MemoryStore(SheetsStore):
         return "https://drive.example/mock/" + name
 
 
+def _testo(v):
+    """Cifre lunghe (oltre 15) restano testo: i numeri di Fogli perdono precisione."""
+    return "'" + v if isinstance(v, str) and v.isdigit() and len(v) > 15 else v
+
+
 class GoogleStore(SheetsStore):
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
@@ -107,7 +112,7 @@ class GoogleStore(SheetsStore):
 
     def append_row(self, sheet, values):
         headers, rows = self.get_rows(sheet)
-        row = [values.get(h, "") for h in headers]
+        row = [_testo(values.get(h, "")) for h in headers]
         self.sheets.values().append(spreadsheetId=self.sheet_id, range="'%s'!A1" % sheet,
                                     valueInputOption="USER_ENTERED", insertDataOption="INSERT_ROWS",
                                     body={"values": [row]}).execute(num_retries=3)
@@ -117,14 +122,14 @@ class GoogleStore(SheetsStore):
         headers, _ = self.get_rows(sheet)
         c = self._col(headers.index(header))
         self.sheets.values().update(spreadsheetId=self.sheet_id, range="'%s'!%s%d" % (sheet, c, row),
-                                    valueInputOption="USER_ENTERED", body={"values": [[value]]}).execute(num_retries=3)
+                                    valueInputOption="USER_ENTERED", body={"values": [[_testo(value)]]}).execute(num_retries=3)
 
     def update_cells(self, sheet, items):
         items = list(items)
         if not items:
             return
         headers, _ = self.get_rows(sheet)
-        data = [{"range": "'%s'!%s%d" % (sheet, self._col(headers.index(h)), r), "values": [[v]]} for r, h, v in items]
+        data = [{"range": "'%s'!%s%d" % (sheet, self._col(headers.index(h)), r), "values": [[_testo(v)]]} for r, h, v in items]
         for i in range(0, len(data), 400):
             self.sheets.values().batchUpdate(spreadsheetId=self.sheet_id,
                                              body={"valueInputOption": "USER_ENTERED", "data": data[i:i + 400]}).execute(num_retries=3)

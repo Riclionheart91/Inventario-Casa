@@ -194,3 +194,14 @@ class TElencoPosti(unittest.TestCase):
         self.assertEqual(latte["qta"], 6)
         self.assertEqual({(p["luogo"], p["qta"]) for p in latte["posti"]}, {("Casa", 4), ("Cantina", 2)})
         self.assertEqual(e[9000000000001]["posti"], [])
+
+
+class TBarcode16(unittest.TestCase):
+    def test_bco_e_testo(self):
+        from app.service import bco, nbc
+        from app.store import _testo
+        self.assertEqual(bco("8001234567890"), 8001234567890)
+        self.assertEqual(bco("1234567890123456"), "1234567890123456")
+        self.assertEqual(nbc("0123456789012345"), "123456789012345")
+        self.assertEqual(_testo("1234567890123456"), "'1234567890123456")
+        self.assertEqual(_testo(8001234567890), 8001234567890)
