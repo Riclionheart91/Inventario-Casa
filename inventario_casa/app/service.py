@@ -478,10 +478,11 @@ class Inventory:
         voci = []
         for k, g in gruppi.items():
             minima = scorta[k]
-            if minima <= 0:
-                continue
             tot = g["tot"]
-            if not (tot <= minima if self.SPESA_CONFRONTO == "LE" else tot < minima):
+            if minima <= 0:   # scorta 0: non serve tenerne in casa, ma quando finisce compare comunque in lista
+                if tot > 0:
+                    continue
+            elif not (tot <= minima if self.SPESA_CONFRONTO == "LE" else tot < minima):
                 continue
             best = max(g["bcs"], key=lambda b: ultimo.get(nbc(b), -1))
             f = lambda x: int(x) if float(x).is_integer() else x

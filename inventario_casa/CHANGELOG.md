@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.11.4 — 2026-11-01
+Scorta minima 0: vuol dire «non mi serve tenerne in casa», ma quando il tipo è finito compare comunque nella lista della spesa (prima con 0 non compariva mai). Con scorta 1 o più resta come prima: compare quando la giacenza scende a quel numero. La revisione non segnala più i tipi con scorta 0.
+
 ## 0.11.3 — 2026-10-31
 Revisione, categoria: l'AI ora sa che la categoria dice dove tieni il prodotto, non che cos'è: il latte UHT chiuso, le conserve e simili restano in Dispensa anche se dopo l'apertura vanno in frigo. Quello che scegli «Ignora» non viene più riproposto nelle revisioni successive (vale per categoria, tipo, unioni e tipi senza prodotti).
 

@@ -149,12 +149,6 @@ class Revisione:
                 voci.append(self._voce("vuoto", nome, "Tipo senza prodotti: %s" % nome, dopo="Rifiuta il tipo",
                                        motivo="Nessun prodotto lo usa. Se serve di nuovo, lo ricrea l'AI o lo scegli dal menu.",
                                        azione={"t": "rifiuta_tipo", "tipo": nome}, etichetta="Rifiuta il tipo"))
-        # 4) scorte minime a zero
-        zero = [str(t.get("Tipo", "")) for t in tipi_righe if str(t.get("Stato", "")).upper() == "APPROVATO"
-                and _num(t.get("Scorta_min", t.get("Scorta min", 0))) == 0 and per_tipo.get(str(t.get("Tipo", "")).strip().casefold())]
-        if zero:
-            voci.append(self._voce("scorta0", "n", "%d tipi con scorta minima 0" % len(zero),
-                                   motivo="Non entrano mai nella spesa. Imposta la scorta dalla scheda di un prodotto del tipo: " + self._elenco(zero)))
         # 5) dati mancanti
         nimg = sum(1 for p in prodotti if nbc(p.get("Barcode")) and not str(p.get("Immagine", "") or "").strip())
         nmar = sum(1 for p in prodotti if nbc(p.get("Barcode")) and not str(p.get("Marca", "") or "").strip())

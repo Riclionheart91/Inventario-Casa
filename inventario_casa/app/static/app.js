@@ -540,7 +540,7 @@
     var row = el('div', 'sc-edit'), inp = el('input', ''), ok = el('button', 'btn primary', 'Salva'); ok.type = 'button';
     inp.type = 'number'; inp.min = '0'; inp.max = '999'; inp.step = '1'; inp.inputMode = 'numeric'; inp.value = String(p.scorta_minima || 0); inp.setAttribute('aria-label', 'Scorta minima');
     row.appendChild(inp); row.appendChild(ok); s.appendChild(row);
-    s.appendChild(el('p', 'note', 'Quando la giacenza totale del tipo scende a questo numero, finisce nella lista della spesa. Con 0 non compare mai.'));
+    s.appendChild(el('p', 'note', 'Quando la giacenza totale del tipo scende a questo numero, finisce nella lista della spesa. Con 0 non serve tenerne in casa, ma quando è finito compare comunque in lista.'));
     box.appendChild(s);
     ok.addEventListener('click', function () {
       ok.disabled = true;

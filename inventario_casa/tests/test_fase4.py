@@ -395,3 +395,14 @@ class TIgnoraResta(unittest.TestCase):
         r.decidi(v["id"], "RIFIUTA")
         r.esegui()
         self.assertFalse([x for x in r.voci_aperte() if x["titolo"].startswith("Categoria da controllare")])
+
+
+class TScortaZero(unittest.TestCase):
+    def test_scorta_zero_in_lista_solo_se_finito(self):
+        st, inv = make()
+        # Riso: scorta 0, ne ho 1 -> non compare; lo scarico -> compare come FINITO
+        self.assertNotIn("Riso", [v["tipo"] for v in inv.spesa()["voci"]])
+        inv.movimento(8003333333333, "Scarico", "Casa", 1, categoria="Dispensa")
+        v = [x for x in inv.spesa()["voci"] if x["tipo"] == "Riso"]
+        self.assertEqual(len(v), 1)
+        self.assertEqual((v[0]["stato"], v[0]["minima"]), ("FINITO", 0))
