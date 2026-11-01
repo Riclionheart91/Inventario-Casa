@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.10 — 2026-11-01
+Prodotti: nuovo filtro per posizione (Ovunque / Casa / Cantina), combinabile con categoria, tipo e con gli altri filtri. Si ricorda tra un'apertura e l'altra.
+
 ## 0.12.9 — 2026-11-01
 Prodotti: i filtri «Esauriti» e «Sotto scorta» ragionano per tipo, come la lista della spesa. «Esauriti» mostra i prodotti a zero solo se anche il tipo è finito (se ne hai un altro dello stesso tipo, non compaiono). «Sotto scorta» mostra i prodotti in casa il cui tipo sta finendo. Anche il «da comprare» sulle righe segue la stessa regola.
 

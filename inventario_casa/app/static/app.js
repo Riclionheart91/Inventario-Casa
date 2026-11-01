@@ -792,9 +792,17 @@
       box.appendChild(b);
     });
   }
+  var prodLuogo = (function () { try { var l = localStorage.getItem('prodLuogo'); return l === 'Casa' || l === 'Cantina' ? l : ''; } catch (e) { return ''; } })();
+  function buildLuogoProd() {   // dove si trova: Casa o Cantina (si combina con gli altri filtri)
+    var box = $('prod-luogo'); if (!box) return; box.textContent = '';
+    [['', 'Ovunque'], ['Casa', '🏠 Casa'], ['Cantina', '🏚️ Cantina']].forEach(function (o) {
+      var b = el('button', 'chip', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(prodLuogo === o[0]));
+      b.addEventListener('click', function () { prodLuogo = o[0]; try { localStorage.setItem('prodLuogo', o[0]); } catch (e) { /* ok */ } buildLuogoProd(); renderProd(); }); box.appendChild(b);
+    });
+  }
   var prodSotto = '', prodTipo = '';
   function vediProdotti(cat, sotto, tipo) {   // dalla scheda all'elenco prodotti filtrato
-    prodCat = cat || ''; prodSotto = sotto || ''; prodTipo = tipo || ''; prodFiltro = 'tutti';
+    prodCat = cat || ''; prodSotto = sotto || ''; prodTipo = tipo || ''; prodFiltro = 'tutti'; prodLuogo = '';
     try { localStorage.setItem('prodCat', prodCat); localStorage.setItem('prodFiltro', 'tutti'); } catch (e) { /* ok */ }
     $('qp2').value = ''; closeScheda(); show('prod'); buildFiltriProd(); renderProd();
   }
@@ -827,11 +835,12 @@
   function righePosti(r) { return (r.posti || []).map(function (p) { return p.luogo + ' ' + p.qta; }).join(' · '); }
   function renderProd() {   // una sola vista: gruppi per tipo (A-Z, "Senza tipo" in fondo), prodotti in ordine alfabetico dentro il gruppo
     var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist');
-    box.textContent = ''; buildCatProd(); buildSottoProd(); buildTipoProd();
+    box.textContent = ''; buildCatProd(); buildSottoProd(); buildTipoProd(); buildLuogoProd();
     var list = (st.prod || []).filter(function (r) {
       if (prodCat && ((r.categoria || '').trim() || 'Senza categoria') !== prodCat) return false;
       if (prodSotto && ((r.sotto || '').trim() || 'Senza sottocategoria') !== prodSotto) return false;
       if (prodTipo && (r.tipo || '').trim().toLowerCase() !== prodTipo.toLowerCase()) return false;
+      if (prodLuogo && !(r.posti || []).some(function (x) { return x.luogo === prodLuogo && x.qta > 0; })) return false;
       if (prodFiltro === 'casa' && !(r.qta > 0)) return false;
       if (prodFiltro === 'esauriti' && !(!(r.qta > 0) && tipoFinito(r))) return false;   // a zero E tipo finito (altrimenti ne hai un altro dello stesso tipo)
       if (prodFiltro === 'sotto' && !(r.qta > 0 && sottoScorta(r))) return false;
