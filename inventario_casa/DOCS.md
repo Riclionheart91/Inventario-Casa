@@ -49,7 +49,15 @@ Per ricevere una notifica sul telefono imposta nelle opzioni: `scadenza_notifica
 
 ## Riordino del foglio
 
-Impostazioni › *Riordino del foglio* (da fare con `sola_lettura` spenta, dopo una copia di sicurezza): nasconde i fogli e le colonne usati solo da AppSheet (non cancella nulla), mette in ordine schede e colonne, fissa le intestazioni, aggiunge filtri, formato data per la scadenza e menu a tendina per tipo, posizione e stato. Si puo ripetere. I fogli nascosti si riaprono da Visualizza › Fogli nascosti.
+Impostazioni › *Riordino del foglio* (con `sola_lettura` spenta; due tocchi). È un riordino profondo, pensato per quando AppSheet non serve più:
+
+- elimina i fogli solo di calcolo di AppSheet (`Stock_ByLoc`, `lista_spesa`, `spesa_menu`, `spesa_tipo`, `BARCODES`, `RESULTS`, `coda`); `FALLBACK_SOURCES` contiene dati e resta nascosto;
+- elimina le colonne calcolate da AppSheet (prodotti: `Quantità`, `Scorta Minima`, `Giacenza Attuale`, `Location Default`; movimenti: `ID_INGRESSO`);
+- sposta nel foglio `archivio` le righe chiuse (bozze inserite o scartate, proposte AI già applicate o senza modifica);
+- aggiunge a `categorie` le coppie categoria/sottocategoria usate dai prodotti e a `ai_tipi` i tipi dei prodotti che non hanno una riga (scorta 0);
+- mette in ordine schede e colonne, fissa le intestazioni, aggiunge filtri, formato data per la scadenza e menu a tendina.
+
+Prima fai una copia di sicurezza del foglio su Drive: ripristina tutto. L'operazione si può ripetere.
 
 Opzione `traduzione_all_avvio`: accendila una volta (con `sola_lettura` spenta) e riavvia l'app per tradurre i testi gia presenti; poi rispegnila.
 

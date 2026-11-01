@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.13.1 — 2026-11-01
+Riordino del foglio in versione profonda: elimina i fogli e le colonne calcolati da AppSheet, sposta nel foglio «archivio» le righe chiuse (bozze inserite, proposte già applicate), aggiunge a categorie e tipi quelli usati dai prodotti ma mancanti negli elenchi, e mette in ordine schede e colonne con intestazioni fisse, filtri, formato data e menu a tendina. Serve una copia di sicurezza su Drive (già fatta).
+
 ## 0.13.0 — 2026-11-01
 - **Scadenze**: nel carico c'è il campo «Scadenza» (facoltativo), salvato nei movimenti. I prodotti si consumano a partire da quelli che scadono prima e la scadenza segue spostamenti e cambi di categoria. Scaduti e in scadenza compaiono in «Da fare».
 - **Avviso**: una notifica di Home Assistant al giorno (opzioni `scadenza_notifica`, `scadenza_giorni`, `scadenza_ora`), con pulsante di prova in Impostazioni. L'app ora può parlare con Home Assistant: dopo l'aggiornamento riavvia l'app.

@@ -155,7 +155,7 @@
   var impTimer = null;
   function loadFoglio(box) {   // riordino del foglio Google: due tocchi (il secondo conferma)
     var c = el('div', 'card'); c.appendChild(el('h2', '', 'Riordino del foglio'));
-    c.appendChild(el('p', 'm', 'Nasconde i fogli e le colonne usati solo da AppSheet (non cancella nulla), mette in ordine schede e colonne, fissa le intestazioni e aggiunge filtri, formato data e menu a tendina. Si può ripetere. Prima fai una copia di sicurezza del foglio.'));
+    c.appendChild(el('p', 'm', 'Riordino profondo: elimina i fogli e le colonne calcolati da AppSheet, sposta nel foglio «archivio» le righe chiuse (bozze inserite, proposte già applicate), aggiunge le categorie e i tipi che mancano negli elenchi, mette in ordine schede e colonne e aggiunge intestazioni fisse, filtri, formato data e menu a tendina. Si può ripetere. Con la copia di sicurezza su Drive non si perde nulla.'));
     var b = el('button', 'btn', 'Riordina il foglio'); b.type = 'button'; b.disabled = st.ro; var pronto = false;
     if (st.ro) c.appendChild(el('p', 'm', 'Sola lettura attiva: spegnila nelle opzioni per riordinare.'));
     b.addEventListener('click', function () {
