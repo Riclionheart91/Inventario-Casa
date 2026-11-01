@@ -1,13 +1,16 @@
 #!/usr/bin/with-contenv bashio
 # Le opzioni arrivano da Home Assistant; mai stampate nei log.
-export SHEET_ID="$(bashio::config 'sheet_id')"
+export SHEET_ID="$(bashio::config 'sheet_id')"; [ "$SHEET_ID" = "null" ] && SHEET_ID=""
 export DRIVE_FOLDER_ID="$(bashio::config 'drive_folder_id')"
 export SERVICE_ACCOUNT_JSON="$(bashio::config 'service_account_json')"
+export CREA_FOGLIO="$(bashio::config 'crea_foglio')"
 export SHARED_CODE="$(bashio::config 'shared_code')"
 export READ_ONLY="$(bashio::config 'sola_lettura')"
 export SECURE_URL="$(bashio::config 'url_sicuro')"
 export SHORTCUT_SPESA="$(bashio::config 'shortcut_spesa')"
 export ARRICCHIMENTO="$(bashio::config 'arricchimento_notturno')" TRADUZIONE_AVVIO="$(bashio::config 'traduzione_all_avvio')" ARRICCHIMENTO_AVVIO="$(bashio::config 'arricchimento_all_avvio')"
+opt() { local v; v="$(bashio::config "$1")"; [ "$v" = "null" ] && v=""; printf '%s' "$v"; }
+export CONDIVIDI_CON="$(opt condividi_con)"
 # Chiavi opzionali dei servizi di ricerca e dell'AI (vuote = servizio saltato)
 opt() { local v; v="$(bashio::config "$1")"; [ "$v" = "null" ] && v=""; printf '%s' "$v"; }
 export ARRICCHIMENTO_ORA="$(opt arricchimento_ora)" ARRICCHIMENTO_MAX="$(opt arricchimento_max)"

@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.14.0 — 2026-11-01
+**Primo avvio**: nuova opzione `crea_foglio`. Se è attiva e `sheet_id` è vuoto (o il foglio non esiste più), l'app crea da sola il foglio Google con tutte le schede e le intestazioni, nella cartella `drive_folder_id` se indicata, e lo condivide con l'indirizzo `condividi_con`. L'indirizzo del foglio compare nel registro dell'app e resta salvato: ai riavvii riusa lo stesso foglio senza crearne altri. `sheet_id` ora è facoltativo.
+
 ## 0.13.2 — 2026-11-01
 Ogni proposta (correzioni dei prodotti, nuovi tipi, categorie e voci della revisione) mostra ora anche i prodotti che l'hanno generata, così puoi giudicare se il suggerimento è giusto.
 

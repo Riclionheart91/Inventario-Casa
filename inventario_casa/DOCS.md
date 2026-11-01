@@ -3,9 +3,17 @@
 Interfaccia dell'inventario domestico dietro Home Assistant. Legge e scrive il foglio Google indicato nelle opzioni.
 
 ## Opzioni obbligatorie
-- **sheet_id**: ID del foglio Google.
+- **sheet_id**: ID del foglio Google (può restare vuoto se usi `crea_foglio`).
 - **service_account_json**: chiave del service account che ha accesso al foglio.
 - **sola_lettura**: se attiva, l'app non scrive nulla.
+
+## Primo avvio: creare il foglio (dalla 0.14.0)
+Se non hai ancora il foglio, attiva **crea_foglio** e lascia **sheet_id** vuoto. All'avvio l'app crea «Inventario Casa» su Google Drive con tutte le schede (movimenti, prodotti, categorie, ai_tipi, alias, location, bozze, ai_prodotti, ai_categorie, log_ai) e le intestazioni giuste.
+- **drive_folder_id**: cartella di Drive dove metterlo. Conviene indicarne una condivisa con il service account (il foglio eredita la condivisione); senza cartella nasce nello spazio del service account.
+- **condividi_con**: il tuo indirizzo Google, per vedere e modificare il foglio (come editor).
+- L'indirizzo del foglio compare nel registro dell'app. L'ID resta salvato: ai riavvii l'app riusa lo stesso foglio. Se vuoi, copialo in **sheet_id** e spegni **crea_foglio**.
+- Se `sheet_id` è indicato ma il foglio non esiste più (risposta 404 di Google), l'app ne crea uno nuovo; per errori di rete o di permessi non fa nulla.
+- Le categorie partono vuote: aggiungile dall'app o nel foglio «categorie».
 
 ## Opzioni facoltative
 - **shared_code**, **url_sicuro**: codice di accesso, indirizzo sicuro per la fotocamera. **drive_folder_id** non serve più: le foto dei prodotti nuovi non si salvano.

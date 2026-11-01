@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.13.2"
+version: "0.14.0"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
@@ -19,6 +19,8 @@ ports_description:
 boot: auto
 options:
   sheet_id: ""
+  crea_foglio: false
+  condividi_con: ""
   drive_folder_id: ""
   service_account_json: ""
   shared_code: ""
@@ -52,7 +54,9 @@ options:
   google_books_key: ""
   openfda_key: ""
 schema:
-  sheet_id: str
+  sheet_id: str?
+  crea_foglio: bool?
+  condividi_con: str?
   drive_folder_id: str?
   service_account_json: password
   shared_code: password?

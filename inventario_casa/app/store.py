@@ -195,4 +195,9 @@ for _n in ("get_rows", "get_many", "append_row", "update_cell", "update_cells", 
 def make_store() -> SheetsStore:
     if os.environ.get("MOCK") == "1":
         return MemoryStore()
-    return GoogleStore(os.environ["SHEET_ID"], os.environ.get("DRIVE_FOLDER_ID", ""), os.environ["SERVICE_ACCOUNT_JSON"])
+    sid, cartella, sa = os.environ.get("SHEET_ID", ""), os.environ.get("DRIVE_FOLDER_ID", ""), os.environ["SERVICE_ACCOUNT_JSON"]
+    if os.environ.get("CREA_FOGLIO", "").lower() in ("1", "true"):
+        from . import avvio
+        g = GoogleStore("", cartella, sa)   # solo per i client Google
+        sid = avvio.risolvi(sid, True, g.sheets, g.drive, cartella, os.environ.get("CONDIVIDI_CON", ""))
+    return GoogleStore(sid, cartella, sa)
