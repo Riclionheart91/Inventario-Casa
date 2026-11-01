@@ -24,6 +24,14 @@ class SheetsStore:
         """Scrive piu celle in una volta: items = [(riga 1-based, intestazione, valore)]."""
         raise NotImplementedError
 
+    def crea_foglio(self, sheet: str, headers) -> None:
+        """Crea il foglio con le intestazioni se non esiste."""
+        raise NotImplementedError
+
+    def elimina_riga(self, sheet: str, row: int) -> None:
+        """Elimina la riga (numero come nel foglio, la 1 e l'intestazione)."""
+        raise NotImplementedError
+
     def upload_photo(self, name: str, data: bytes, mime: str) -> str:
         raise NotImplementedError
 
@@ -59,6 +67,13 @@ class MemoryStore(SheetsStore):
     def update_cells(self, sheet, items):
         for row, header, value in items:
             self.update_cell(sheet, row, header, value)
+
+    def crea_foglio(self, sheet, headers):
+        if not self.sheets.get(sheet):
+            self.sheets[sheet] = [list(headers)]
+
+    def elimina_riga(self, sheet, row):
+        del self.sheets[sheet][row - 1]
 
     def upload_photo(self, name, data, mime):
         self.photos[name] = data
@@ -118,6 +133,20 @@ class GoogleStore(SheetsStore):
                                     body={"values": [row]}).execute(num_retries=3)
         return len(rows) + 2
 
+    def crea_foglio(self, sheet, headers):
+        meta = self.sheets.get(spreadsheetId=self.sheet_id, fields="sheets.properties").execute(num_retries=3)
+        if any(x["properties"]["title"] == sheet for x in meta.get("sheets", [])):
+            return
+        self.sheets.batchUpdate(spreadsheetId=self.sheet_id, body={"requests": [{"addSheet": {"properties": {"title": sheet}}}]}).execute(num_retries=3)
+        self.sheets.values().update(spreadsheetId=self.sheet_id, range="'%s'!A1" % sheet, valueInputOption="RAW",
+                                    body={"values": [list(headers)]}).execute(num_retries=3)
+
+    def elimina_riga(self, sheet, row):
+        meta = self.sheets.get(spreadsheetId=self.sheet_id, fields="sheets.properties").execute(num_retries=3)
+        sid = next(x["properties"]["sheetId"] for x in meta["sheets"] if x["properties"]["title"] == sheet)
+        self.sheets.batchUpdate(spreadsheetId=self.sheet_id, body={"requests": [{"deleteDimension": {"range": {
+            "sheetId": sid, "dimension": "ROWS", "startIndex": row - 1, "endIndex": row}}}]}).execute(num_retries=3)
+
     def update_cell(self, sheet, row, header, value):
         headers, _ = self.get_rows(sheet)
         c = self._col(headers.index(header))
@@ -159,7 +188,7 @@ def _una_alla_volta(f):
     return w
 
 
-for _n in ("get_rows", "get_many", "append_row", "update_cell", "update_cells", "upload_photo"):
+for _n in ("get_rows", "get_many", "append_row", "update_cell", "update_cells", "upload_photo", "crea_foglio", "elimina_riga"):
     setattr(GoogleStore, _n, _una_alla_volta(getattr(GoogleStore, _n)))
 
 

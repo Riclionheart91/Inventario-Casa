@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.6 — 2026-11-01
+La revisione trova lo stesso prodotto censito con due codici (stessi nome, marca e confezione) e in «Da fare» propone «Unisci i prodotti». All'approvazione le giacenze e i movimenti passano al prodotto principale (quello con più dati); l'altro codice resta come **alias** nel nuovo foglio `alias` (creato dall'app) e la sua riga esce dal catalogo. Scansionando l'alias si apre il principale e i nuovi movimenti vanno su quello.
+
 ## 0.12.5 — 2026-11-01
 - Correzione: «Sotto scorta» si calcola sul totale del **tipo** (la scorta minima è del tipo), non sul singolo prodotto. Tre confezioni di pasta con 7 pezzi in tutto non risultano più sotto scorta; la scheda mostra anche il totale del tipo.
 - Punteggi (Nutri-Score, NOVA, Eco-Score) e modalità di riciclo: se non li trova negli archivi dei codici a barre, l'arricchimento li cerca con l'AI su Google (solo celle vuote, mai inventati; se non trova nulla il prodotto resta com'è).

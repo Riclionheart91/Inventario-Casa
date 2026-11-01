@@ -475,3 +475,25 @@ class TTotaleTipo(unittest.TestCase):
         self.assertEqual(el["Pasta penne"]["tot_tipo"], 8)   # 3 penne + 5 fusilli: la scorta minima e del tipo
         self.assertEqual(inv.scheda(8001111111111)["totale_tipo"], 8)
         self.assertEqual(el["Riso"]["tot_tipo"], 1)
+
+
+class TUnisciProdotti(unittest.TestCase):
+    def test_unione_con_alias(self):
+        import tempfile
+        from app.revisione import Revisione
+        st, inv = make()
+        st.sheets["prodotti"].append([8001111111999, "Pasta  Penne", "Y", "Dispensa", "Snack e Dolci", "Pasta", ""])
+        st.sheets["movimenti"].append(["z", 8001111111999, "Carico", "Casa", 2, "Pasta penne", "Dispensa", "Snack e Dolci"])
+        r = Revisione(inv, None, None, None, None, percorso=os.path.join(tempfile.mkdtemp(), "r.json"))
+        r.esegui()
+        v = [x for x in r.voci_aperte() if x["titolo"].startswith("Stesso prodotto")]
+        self.assertEqual(len(v), 1)
+        r.decidi(v[0]["id"], "APPROVA")
+        bcs = [str(x[0]) for x in st.sheets["prodotti"][1:]]
+        self.assertEqual(len([b for b in bcs if b in ("8001111111111", "8001111111999")]), 1)   # una sola riga resta
+        princ = [b for b in bcs if b in ("8001111111111", "8001111111999")][0]
+        alias = [b for b in ("8001111111111", "8001111111999") if b != princ][0]
+        self.assertEqual(inv.prodotto(alias)["prodotto"], inv.prodotto(princ)["prodotto"])   # lo scan dell'alias apre il principale
+        self.assertEqual(sum(e["qta"] for e in inv.stock() if str(e["barcode"]) == princ), 5)   # 3 + 2
+        inv.movimento(alias, "Carico", "Casa", 1, categoria="Dispensa")
+        self.assertEqual(sum(e["qta"] for e in inv.stock() if str(e["barcode"]) == princ), 6)

@@ -119,8 +119,18 @@ class Inventory:
         return [dict(zip(h, list(r) + [""] * (len(h) - len(r)))) for r in rows]
 
     # --- prodotti -------------------------------------------------------
+    def alias(self) -> Dict[str, str]:
+        """Codici unificati: {codice alias: codice principale}, dal foglio `alias` (se manca, nessuno)."""
+        if "alias" not in self._memo:
+            self._memo["alias"] = {nbc(r.get("Alias")): nbc(r.get("Principale")) for r in self._opz("alias") if nbc(r.get("Alias")) and nbc(r.get("Principale"))}
+        return self._memo["alias"]
+
+    def risolvi(self, k: str) -> str:
+        """Un codice alias vale quello del prodotto principale."""
+        return self.alias().get(k, k)
+
     def prodotto(self, barcode) -> Optional[dict]:
-        k = nbc(barcode)
+        k = self.risolvi(nbc(barcode))
         if not k:
             return None
         for p in self._dicts(SH_PROD):
@@ -312,7 +322,7 @@ class Inventory:
 
     def scheda(self, barcode) -> Optional[dict]:
         """Scheda prodotto: dati del catalogo + giacenze per posizione e categoria."""
-        k = nbc(barcode)
+        k = self.risolvi(nbc(barcode))
         if not k:
             return None
         for p in self._dicts(SH_PROD):
@@ -421,7 +431,7 @@ class Inventory:
                   destinazione: str = "", categoria: str = "", categoria_new: str = "", noto: Optional[dict] = None) -> dict:
         """Carico/Scarico = una riga. Move (cambio posizione) e Cng (cambio categoria) = coppia di righe nette:
         Scarico alla situazione vecchia + Carico alla nuova, come fanno i bot di AppSheet (la riga Move/Cng non resta nel foglio)."""
-        k = nbc(barcode)
+        k = self.risolvi(nbc(barcode))
         if not k:
             raise ApiError(400, "Barcode non valido: servono solo cifre")
         tipo = ALIAS_MOV.get(tipo, tipo)
@@ -875,6 +885,41 @@ class Inventory:
         """Cambia il nome di una categoria (sub vuota) o sottocategoria su categorie, prodotti e movimenti."""
         attuale = next((c["categoria"] for c in self.categorie() if senza_emoji(c["categoria"]).casefold() == senza_emoji(cat).casefold()), cat)
         return self._rinomina_categoria(attuale, sub, nuovo)   # la categoria puo essere stata rinominata poco prima
+
+    def unisci_prodotti(self, da, a) -> dict:
+        """Due codici dello stesso prodotto: movimenti e giacenze passano al principale `a`, il codice `da` resta come alias
+        (foglio `alias`) e la sua riga esce dal catalogo. Scansionando `da` si apre `a`."""
+        kd, ka = nbc(da), nbc(a)
+        if not kd or not ka or kd == ka:
+            raise ApiError(400, "Codici non validi")
+        h, rows = self._rows(SH_PROD, True)
+        ib = h.index("Barcode")
+        riga = next((i for i, r in enumerate(rows) if len(r) > ib and nbc(r[ib]) == kd), None)
+        if riga is None or not any(len(r) > ib and nbc(r[ib]) == ka for r in rows):
+            raise ApiError(404, "Prodotto non trovato")
+        nome = str(dict(zip(h, list(rows[riga]) + [""] * len(h))).get("Prodotto", "") or "")
+        for foglio in (SH_MOV, SH_AIP):   # i movimenti passano al principale; le proposte AI sul vecchio codice si chiudono
+            try:
+                hh, rr = self._rows(foglio, True)
+            except Exception:
+                continue
+            if "Barcode" not in hh:
+                continue
+            j = hh.index("Barcode")
+            mio = [i + 2 for i, r in enumerate(rr) if len(r) > j and nbc(r[j]) == kd]
+            if foglio == SH_MOV:
+                self.store.update_cells(foglio, [(n, "Barcode", bco(ka)) for n in mio])
+            elif "Stato" in hh:
+                self.store.update_cells(foglio, [(n, "Stato", ST_NO) for n in mio])
+        self.store.crea_foglio("alias", ["Alias", "Principale", "Creato", "Nome"])
+        for i, r in enumerate(self._opz("alias", True)):   # gli alias che puntavano a `da` ora puntano ad `a`
+            if nbc(r.get("Principale")) == kd:
+                self.store.update_cell("alias", i + 2, "Principale", bco(ka))
+        self.store.append_row("alias", {"Alias": bco(kd), "Principale": bco(ka), "Creato": datetime.now().strftime("%d/%m/%Y"), "Nome": nome})
+        self.store.elimina_riga(SH_PROD, riga + 2)
+        self._drop(SH_MOV, SH_PROD, SH_AIP, "alias")
+        self._log_ai(ka, "Unione prodotti", bco(kd), bco(ka), fonte="REVISIONE")
+        return {"ok": True, "principale": bco(ka), "alias": bco(kd)}
 
     def unisci_tipo(self, da: str, a: str) -> int:
         """I prodotti del tipo `da` passano ad `a`; il tipo `da` viene rifiutato (unito)."""

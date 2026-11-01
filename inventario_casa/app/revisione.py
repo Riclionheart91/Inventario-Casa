@@ -156,6 +156,26 @@ class Revisione:
                                            prima="Tipo %s" % a.get("tipo", ""), dopo="Tipo %s" % x["tipo"],
                                            motivo="Il tipo è la famiglia di prodotti, non il singolo prodotto." + (" (tipo nuovo, scorta 0)" if x.get("nuovo") else ""),
                                            azione={"t": "tipo", "bc": x["bc"], "tipo": x["tipo"]}, etichetta="Cambia il tipo"))
+        # 1c) lo stesso prodotto con due codici: si unisce tenendo i due codici (il secondo resta come alias)
+        tot_pz: Dict[str, float] = {}
+        for e in inv.stock():
+            tot_pz[str(nbc(e["barcode"]))] = tot_pz.get(str(nbc(e["barcode"])), 0) + e["qta"]
+        gdoppi: Dict[str, List[dict]] = {}
+        for p in prodotti:
+            kk = nbc(p.get("Barcode"))
+            nm = _chiave(p.get("Prodotto"))
+            if kk and len(nm) >= 3:
+                gdoppi.setdefault("|".join([nm, _chiave(p.get("Marca")), _chiave(p.get("Confezione"))]), []).append(p)
+        for gr in gdoppi.values():
+            if len(gr) < 2:
+                continue
+            gr = sorted(gr, key=lambda p: (-sum(1 for x in p.values() if str(x or "").strip()), -tot_pz.get(nbc(p.get("Barcode")), 0), nbc(p.get("Barcode"))))
+            for altro in gr[1:]:
+                ka, kd = nbc(gr[0].get("Barcode")), nbc(altro.get("Barcode"))
+                voci.append(self._voce("prod_doppio", kd + ">" + ka, "Stesso prodotto con due codici: %s" % str(gr[0].get("Prodotto", "")).strip(),
+                                       prima="Codici %s e %s" % (kd, ka), dopo="Unisci in %s (l'altro codice resta come alias)" % ka,
+                                       motivo="Stessi nome, marca e confezione. Giacenze e movimenti di %s passano a %s." % (kd, ka),
+                                       azione={"t": "unisci_prodotti", "da": kd, "a": ka}, etichetta="Unisci i prodotti"))
         # 2) tipi quasi uguali da unire
         attivi = [str(t.get("Tipo", "") or "").strip() for t in tipi_righe
                   if str(t.get("Tipo", "") or "").strip() and str(t.get("Stato", "")).upper() != "RIFIUTATO"]
@@ -291,6 +311,8 @@ class Revisione:
                 self.inv.rinomina_voce_categoria(a["cat"], a["sub"], a["nuovo"])
             elif t == "unisci":
                 self.inv.unisci_tipo(a["da"], a["a"])
+            elif t == "unisci_prodotti":
+                self.inv.unisci_prodotti(a["da"], a["a"])
             elif t == "rifiuta_tipo":
                 self.inv.rifiuta_tipo(a["tipo"])
             elif t == "arricchisci" and self.arricchisci:
@@ -298,7 +320,7 @@ class Revisione:
             v["stato"] = "FATTA"
         else:
             v["stato"] = "IGNORATA"
-            if (v.get("azione") or {}).get("t") in ("categoria", "tipo", "unisci", "rifiuta_tipo", "emoji"):   # le voci riassuntive tornano ogni volta
+            if (v.get("azione") or {}).get("t") in ("categoria", "tipo", "unisci", "unisci_prodotti", "rifiuta_tipo", "emoji"):   # le voci riassuntive tornano ogni volta
                 d["ignorate"] = sorted(set(d.get("ignorate", [])) | {v["id"]})
         self._salva(d)
         return {"ok": True, "stato": v["stato"]}
