@@ -1374,9 +1374,15 @@
       }
       function invia(azione, campi, msg) {
         [ok, cor, no].forEach(function (x) { x.disabled = true; });
+        var riga = c.parentNode ? c : null;
+        if (riga) { riga.style.transition = 'opacity .15s'; riga.style.opacity = '.35'; riga.style.pointerEvents = 'none'; }   // risposta immediata: la carta si attenua mentre il foglio si aggiorna
         api('POST', 'api/approvazioni/' + encodeURIComponent(a.id), { azione: azione, campi: campi }).then(function () {
-          toast(msg); azzeraCache(); loadAppr();
-        }).catch(function (e) { [ok, cor, no].forEach(function (x) { x.disabled = false; }); toast('Non riuscito: ' + e.message, true); });
+          toast(msg); azzeraCache();
+          var wrap = (riga && riga.closest('.sw')) || riga;   // niente nuova lettura dell'elenco: si toglie la carta e si aggiorna il contatore
+          if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+          st.na = Math.max(0, (st.na || 1) - 1); aggiornaDaFare();
+          var h3 = box.querySelector('h3.sez'); if (h3) { if (st.na) h3.textContent = 'Proposte AI da approvare (' + st.na + ')'; else h3.remove(); }
+        }).catch(function (e) { [ok, cor, no].forEach(function (x) { x.disabled = false; }); if (riga) { riga.style.opacity = ''; riga.style.pointerEvents = ''; } toast('Non riuscito: ' + e.message, true); });
       }
       function valido() {
         if (a.genere === 'T' && !nome.value.trim()) { toast('Il nome del tipo non può essere vuoto.', true); form.hidden = false; return false; }

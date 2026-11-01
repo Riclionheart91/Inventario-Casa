@@ -113,11 +113,12 @@ class Inventory:
         self.store, self.ttl, self.clock = store, ttl, clock
         self._cache: Dict[str, tuple] = {}
 
+    RECENTE = 3   # secondi: una lettura piu recente vale come fresca (dentro la stessa operazione si legge una volta sola)
     CORE = (SH_AIP, SH_AIT, SH_PROD, SH_MOV)   # i fogli che servono a Stock e Prodotti: si leggono insieme
 
     def _rows(self, sheet: str, fresh: bool = False):
         hit = self._cache.get(sheet)
-        if hit and not fresh and self.clock() - hit[0] < self.ttl:
+        if hit and self.clock() - hit[0] < (self.RECENTE if fresh else self.ttl):   # «fresco» = riletto da pochi secondi: non serve richiederlo a Google di nuovo
             return hit[1], hit[2]
         if sheet in self.CORE and not fresh:
             self.refresh()
@@ -830,7 +831,15 @@ class Inventory:
         sheet = {"P": SH_AIP, "T": SH_AIT, "C": SH_AIC}.get(kind)
         if not sheet or not key:
             raise ApiError(400, "Id non valido")
-        h, rows = self._rows(sheet, True)
+        # un'unica lettura da Google per la scheda della proposta e (se serve) per prodotti e movimenti: poi le scritture usano la memoria
+        nomi = (sheet,) + ((SH_PROD, SH_MOV) if kind == "P" and azione == "APPROVA" else ())
+        try:
+            letti = self.store.get_many(nomi)
+        except Exception:
+            letti = {n: self.store.get_rows(n) for n in nomi}
+        for n, (hh, rr) in letti.items():
+            self._put(n, hh, rr)
+        h, rows = letti[sheet]
         if "Stato" not in h:
             raise ApiError(500, "Colonna Stato mancante in %s" % sheet)
         idx, decisa = None, False

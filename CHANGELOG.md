@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.14.2 — 2026-11-01
+Approvare o rifiutare una proposta è molto più rapido: l'app legge il foglio una volta sola invece di rileggerlo a ogni passaggio, e la pagina toglie subito la carta senza ricaricare l'intero elenco.
+
 ## 0.14.1 — 2026-11-01
 La pagina delle proposte AI si apre più in fretta: i tre fogli delle proposte si leggono con una sola chiamata a Google invece di tre, e l'elenco dei prodotti non viene più ricostruito per ogni proposta (con la 0.13.2 era diventato più lento).
 
