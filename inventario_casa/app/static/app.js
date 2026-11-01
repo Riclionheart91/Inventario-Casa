@@ -821,7 +821,9 @@
       b.addEventListener('click', function () { prodFiltro = o[0]; try { localStorage.setItem('prodFiltro', o[0]); } catch (e) { /* ok */ } buildFiltriProd(); renderProd(); }); box.appendChild(b);
     });
   }
-  function sottoScorta(r) { return r.minima > 0 && (r.tot_tipo == null ? (r.qta || 0) : r.tot_tipo) <= r.minima; }
+  function totTipo(r) { return r.tot_tipo == null ? (r.qta || 0) : r.tot_tipo; }
+  function tipoFinito(r) { return totTipo(r) <= 0; }   // il tipo e finito: compare in spesa come «finito»
+  function sottoScorta(r) { return r.minima > 0 && totTipo(r) > 0 && totTipo(r) <= r.minima; }   // il tipo sta finendo: compare in spesa come «in esaurimento»
   function righePosti(r) { return (r.posti || []).map(function (p) { return p.luogo + ' ' + p.qta; }).join(' · '); }
   function renderProd() {   // una sola vista: gruppi per tipo (A-Z, "Senza tipo" in fondo), prodotti in ordine alfabetico dentro il gruppo
     var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist');
@@ -831,11 +833,11 @@
       if (prodSotto && ((r.sotto || '').trim() || 'Senza sottocategoria') !== prodSotto) return false;
       if (prodTipo && (r.tipo || '').trim().toLowerCase() !== prodTipo.toLowerCase()) return false;
       if (prodFiltro === 'casa' && !(r.qta > 0)) return false;
-      if (prodFiltro === 'esauriti' && r.qta > 0) return false;
-      if (prodFiltro === 'sotto' && !sottoScorta(r)) return false;
+      if (prodFiltro === 'esauriti' && !(!(r.qta > 0) && tipoFinito(r))) return false;   // a zero E tipo finito (altrimenti ne hai un altro dello stesso tipo)
+      if (prodFiltro === 'sotto' && !(r.qta > 0 && sottoScorta(r))) return false;
       return !q || [r.nome, r.marca, r.conf, r.categoria, r.sotto, r.tipo, String(r.barcode)].join(' ').toLowerCase().indexOf(q) >= 0;
     });
-    var pezzi = 0, sotto = 0; list.forEach(function (r) { pezzi += r.qta || 0; if (sottoScorta(r)) sotto++; });
+    var pezzi = 0, sotto = 0; list.forEach(function (r) { pezzi += r.qta || 0; if (r.qta > 0 && sottoScorta(r)) sotto++; });
     $('prod-sum').textContent = list.length + ' prodotti · ' + pezzi + ' pezzi in casa' + (sotto ? ' · ' + sotto + ' sotto scorta' : '');
     if (!list.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto trovato.')); return; }
     var gruppi = {}, chiavi = [];
@@ -858,9 +860,9 @@
         if (l2) n.appendChild(el('span', 'm1', l2));
         var cs = [r.categoria, r.sotto].filter(Boolean).join(' › '); if (cs) n.appendChild(el('span', 'm2', cs));
         it.appendChild(n);
-        var zero = !r.qta, low = !zero && sottoScorta(r), q2 = el('div', 'qp ' + (zero ? 'zero' : low ? 'low' : 'ok'));
+        var zero = !r.qta && tipoFinito(r), low = !!r.qta && sottoScorta(r), q2 = el('div', 'qp ' + (zero ? 'zero' : low ? 'low' : 'ok'));
         q2.appendChild(el('b', '', String(r.qta || 0))); q2.appendChild(el('small', '', 'pz'));
-        if ((zero || low) && r.minima > 0) q2.appendChild(el('i', '', 'da comprare'));
+        if ((zero || low) && (low ? r.minima > 0 : true)) q2.appendChild(el('i', '', 'da comprare'));
         it.appendChild(q2);
         (function (bc) { it.addEventListener('click', function () { openScheda(bc); }); it.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openScheda(bc); } }); })(r.barcode);
         d.appendChild(swipeRiga(it, { right: { label: '+1 Carico', ok: function () { return !st.ro; }, fn: function () { movRapidoProd('Carico', r); } },
