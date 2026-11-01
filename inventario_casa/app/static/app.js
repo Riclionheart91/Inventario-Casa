@@ -529,9 +529,13 @@
       head.appendChild(im); head.appendChild(t); box.appendChild(head);
       /* percorso: categoria › sottocategoria, tipo */
       var pills = el('div', 'pills');
-      if (p.categoria) pills.appendChild(el('span', 'cat', p.categoria));
-      if (p.sottocategoria) pills.appendChild(el('span', 'cat', p.sottocategoria));
-      if (p.tipo) pills.appendChild(el('span', 'tipo', 'Tipo · ' + p.tipo));
+      function pillola(testo, cls, titolo, cat, sotto, tipo) {   // tocca: elenco dei prodotti di quella categoria, sottocategoria o tipo
+        var b = el('button', cls, testo); b.type = 'button'; b.setAttribute('aria-label', titolo);
+        b.addEventListener('click', function () { vediProdotti(cat, sotto, tipo); }); pills.appendChild(b);
+      }
+      if (p.categoria) pillola(p.categoria, 'cat', 'Vedi tutti i prodotti della categoria ' + p.categoria, p.categoria, '', '');
+      if (p.sottocategoria) pillola(p.sottocategoria, 'cat', 'Vedi tutti i prodotti della sottocategoria ' + p.sottocategoria, p.categoria, p.sottocategoria, '');
+      if (p.tipo) pillola('Tipo · ' + p.tipo, 'tipo', 'Vedi tutti i prodotti del tipo ' + p.tipo, '', '', p.tipo);
       box.appendChild(pills);
       /* giacenza: numero grande + stato + dove */
       var gi = el('div', 'sc-stock ' + stato[0]), gn = el('div', 'sc-num'); gn.appendChild(el('b', '', String(tot))); gn.appendChild(el('small', '', 'pz in casa'));
@@ -775,11 +779,19 @@
     if (prodCat && !conta[prodCat]) prodCat = '';
     [''].concat(nomi).forEach(function (c) {
       var b = el('button', 'chip', c ? c + ' ' + conta[c] : 'Tutte'); b.type = 'button'; b.setAttribute('aria-pressed', String(prodCat === c));
-      b.addEventListener('click', function () { prodCat = c; prodSotto = ''; try { localStorage.setItem('prodCat', c); } catch (e) { /* ok */ } buildCatProd(); renderProd(); });
+      b.addEventListener('click', function () { prodCat = c; prodSotto = ''; prodTipo = ''; try { localStorage.setItem('prodCat', c); } catch (e) { /* ok */ } buildCatProd(); renderProd(); });
       box.appendChild(b);
     });
   }
-  var prodSotto = '';
+  var prodSotto = '', prodTipo = '';
+  function vediProdotti(cat, sotto, tipo) {   // dalla scheda all'elenco prodotti filtrato
+    prodCat = cat || ''; prodSotto = sotto || ''; prodTipo = tipo || ''; prodFiltro = 'tutti';
+    try { localStorage.setItem('prodCat', prodCat); localStorage.setItem('prodFiltro', 'tutti'); } catch (e) { /* ok */ }
+    $('qp2').value = ''; closeScheda(); show('prod'); buildFiltriProd(); renderProd();
+  }
+  function buildTipoProd() {
+    var b = $('prod-tipo'); if (!b) return; b.hidden = !prodTipo; b.textContent = prodTipo ? 'Tipo: ' + prodTipo + '  ✕' : '';
+  }
   function buildSottoProd() {   // seconda riga: le sottocategorie della categoria scelta
     var box = $('prod-sotto'); if (!box) return; box.textContent = '';
     box.hidden = !prodCat; if (!prodCat) { prodSotto = ''; return; }
@@ -804,10 +816,11 @@
   function righePosti(r) { return (r.posti || []).map(function (p) { return p.luogo + ' ' + p.qta; }).join(' · '); }
   function renderProd() {   // una sola vista: gruppi per tipo (A-Z, "Senza tipo" in fondo), prodotti in ordine alfabetico dentro il gruppo
     var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist');
-    box.textContent = ''; buildCatProd(); buildSottoProd();
+    box.textContent = ''; buildCatProd(); buildSottoProd(); buildTipoProd();
     var list = (st.prod || []).filter(function (r) {
       if (prodCat && ((r.categoria || '').trim() || 'Senza categoria') !== prodCat) return false;
       if (prodSotto && ((r.sotto || '').trim() || 'Senza sottocategoria') !== prodSotto) return false;
+      if (prodTipo && (r.tipo || '').trim().toLowerCase() !== prodTipo.toLowerCase()) return false;
       if (prodFiltro === 'casa' && !(r.qta > 0)) return false;
       if (prodFiltro === 'esauriti' && r.qta > 0) return false;
       if (prodFiltro === 'sotto' && !sottoScorta(r)) return false;
@@ -1370,6 +1383,7 @@
     $('f').addEventListener('submit', save);
     var dbt;
     $('bc').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); lookup().then(function () { (st.known === false ? $('pr') : $('save')).focus(); }); } });
+    $('prod-tipo').addEventListener('click', function () { prodTipo = ''; renderProd(); });
     $('imp-btn').addEventListener('click', function () { show('imp'); });
     $('bc').addEventListener('input', function () { clearTimeout(dbt); setKnown(null); if (/^\d{8,24}$/.test($('bc').value.trim())) dbt = setTimeout(lookup, 450); });
     $('bc').addEventListener('change', lookup);

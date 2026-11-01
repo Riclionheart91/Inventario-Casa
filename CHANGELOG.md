@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.4 — 2026-11-01
+Scheda prodotto: categoria, sottocategoria e tipo sono pulsanti. Toccandoli si apre l'elenco Prodotti già filtrato su quella categoria, sottocategoria o tipo (il filtro del tipo si toglie con la ✕).
+
 ## 0.12.3 — 2026-11-01
 Scheda prodotto: sotto Nutri-Score, NOVA ed Eco c'è una mini spiegazione del valore (es. «Qualità media», «Lavorato», «Impatto medio») e una riga che dice cosa significa ciascun punteggio. Il riciclo della confezione è sempre visibile: per ogni materiale (carta, plastica, vetro, metalli…) dice dove va e come prepararlo; senza dati lo dice. Sono indicazioni generali: i comuni possono avere regole diverse.
 
