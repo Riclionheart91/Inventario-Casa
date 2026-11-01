@@ -172,10 +172,10 @@ class TCategorie(unittest.TestCase):
     def test_aggiungi_e_rinomina_con_unione(self):
         st, inv = self._inv()
         self.assertEqual(inv.decidi("C_2", "APPROVA")["stato"], "APPLICATA")
-        self.assertIn(["Dispensa", "Conserve", "Dispensa_Conserve"], st.sheets["categorie"][1:])
+        self.assertIn(["Dispensa", "🔹 Conserve", "Dispensa_🔹 Conserve"], st.sheets["categorie"][1:])
         inv.decidi("C_3", "APPROVA")
         cats = [(r[0], r[1]) for r in st.sheets["categorie"][1:] if r[0]]
-        self.assertEqual(cats, [("Dispensa", "Bevande"), ("Dispensa", "Dolci"), ("Dispensa", "Conserve")])   # Snack->Dolci unito al doppione
+        self.assertEqual(cats, [("Dispensa", "Bevande"), ("Dispensa", "Dolci"), ("Dispensa", "🔹 Conserve")])   # Snack->Dolci unito al doppione
         self.assertEqual(st.sheets["prodotti"][2][3], "Dolci")
 
     def test_proposta_incompleta_e_rifiuto(self):
@@ -260,9 +260,9 @@ class TProposteCategoria(unittest.TestCase):
         from app import ai
         cats = [{"categoria": "Dispensa", "sottocategorie": ["Bevande"]}]
         v = ai.valida({"categoria": "", "sottocategoria": "", "tipo": "Concime", "nuova_categoria": "giardino", "nuova_sottocategoria": "concimi"}, cats, [])
-        self.assertEqual(v["proposta"], {"categoria": "Giardino", "sottocategoria": "Concimi", "categoria_nuova": True})
+        self.assertEqual(v["proposta"], {"categoria": "🪴 Giardino", "sottocategoria": "🌱 Concimi", "categoria_nuova": True})
         v = ai.valida({"tipo": "X", "nuova_categoria": "dispensa", "nuova_sottocategoria": "Spezie"}, cats, [])
-        self.assertEqual(v["proposta"], {"categoria": "Dispensa", "sottocategoria": "Spezie", "categoria_nuova": False})
+        self.assertEqual(v["proposta"], {"categoria": "Dispensa", "sottocategoria": "🔹 Spezie", "categoria_nuova": False})
         self.assertNotIn("proposta", ai.valida({"categoria": "Dispensa", "sottocategoria": "Bevande", "tipo": "Y"}, cats, []))
 
     def test_proponi_categoria_in_coda_senza_doppioni(self):
@@ -270,11 +270,11 @@ class TProposteCategoria(unittest.TestCase):
         self.assertTrue(inv.proponi_categoria("Giardino", "Concimi", "Concime piante", True))
         self.assertFalse(inv.proponi_categoria("giardino", "concimi", "", True))   # gia in attesa
         self.assertFalse(inv.proponi_categoria("Dispensa", "Bevande"))              # esiste gia
-        r = righe(st, "ai_categorie", "Categoria", "Giardino")[0]
+        r = righe(st, "ai_categorie", "Categoria", "🪴 Giardino")[0]
         self.assertEqual((r[0], r[6]), ("AGGIUNGI_CATEGORIA", "PROPOSTA"))
         ids = [a["id"] for a in inv.approvazioni() if a["id"].startswith("C_")]
         inv.decidi(ids[-1], "APPROVA")
-        self.assertIn("Giardino", [c["categoria"] for c in inv.categorie()])
+        self.assertIn("🪴 Giardino", [c["categoria"] for c in inv.categorie()])
 
 
 class TCorreggiTipo(unittest.TestCase):
@@ -406,3 +406,47 @@ class TScortaZero(unittest.TestCase):
         v = [x for x in inv.spesa()["voci"] if x["tipo"] == "Riso"]
         self.assertEqual(len(v), 1)
         self.assertEqual((v[0]["stato"], v[0]["minima"]), ("FINITO", 0))
+
+
+class TTipoGenerico(unittest.TestCase):
+    def test_voce_tipo_troppo_specifico(self):
+        import tempfile, os
+        from app.revisione import Revisione
+        st, inv = make()
+        st.sheets["prodotti"].append([8009999999999, "Spinaci", "", "Surgelati", "Verdure", "Spinaci", ""])
+        gen = lambda prodotti, tipi: [{"bc": x["bc"], "tipo": "Verdure surgelate", "nuovo": True} for x in prodotti if x["nome"] == "Spinaci"]
+        r = Revisione(inv, None, None, None, gen, percorso=os.path.join(tempfile.mkdtemp(), "r.json"))
+        r.esegui()
+        v = [x for x in r.voci_aperte() if x["titolo"].startswith("Tipo troppo specifico")]
+        self.assertEqual(len(v), 1)
+        r.decidi(v[0]["id"], "APPROVA")
+        h = st.sheets["prodotti"][0]
+        self.assertEqual(st.sheets["prodotti"][-1][h.index("Tipo")], "Verdure surgelate")
+
+    def test_ai_tipi_generici(self):
+        from app import ai
+        txt = '{"tipi":[{"bc":"8009999999999","tipo":"verdure surgelate"},{"bc":"1","tipo":"X"},{"bc":"8001111111111","tipo":"Pasta"}]}'
+        post = lambda u, k, c, t: {"candidates": [{"content": {"parts": [{"text": txt}]}}]}
+        pr = [{"bc": "8009999999999", "nome": "Spinaci", "tipo": "Spinaci", "categoria": "S", "sotto": "V"},
+              {"bc": "8001111111111", "nome": "Pasta penne", "tipo": "Pasta", "categoria": "D", "sotto": "P"}]
+        r = ai.tipi_generici(pr, ["Pasta", "Verdure surgelate"], "K", post=post)
+        self.assertEqual(r, [{"bc": "8009999999999", "tipo": "Verdure surgelate", "nuovo": False}])
+
+
+class TEmojiCategorie(unittest.TestCase):
+    def test_voci_emoji_e_rinomina(self):
+        import tempfile, os
+        from app.revisione import Revisione
+        st, inv = make()
+        st.sheets["categorie"].append(["Piante e Giardino", "Concimi e Terricci"])
+        st.sheets["prodotti"].append([8008888888888, "Concime", "", "Piante e Giardino", "Concimi e Terricci", "Concime", ""])
+        r = Revisione(inv, None, None, None, None, percorso=os.path.join(tempfile.mkdtemp(), "r.json"))
+        r.esegui()
+        voci = [v for v in r.voci_aperte() if "senza emoji" in v["titolo"] and ("Giardino" in v["titolo"] or "Concimi" in v["titolo"])]
+        self.assertEqual(len(voci), 2)
+        for v in sorted(voci, key=lambda x: x["titolo"]):   # prima la categoria, poi la sottocategoria
+            r.decidi(v["id"], "APPROVA")
+        h = st.sheets["prodotti"][0]
+        riga = st.sheets["prodotti"][-1]
+        self.assertEqual((riga[h.index("Categoria")], riga[h.index("Sottocategoria")]), ("🪴 Piante e Giardino", "🌱 Concimi e Terricci"))
+        self.assertIn(["🪴 Piante e Giardino", "🌱 Concimi e Terricci"], [x[:2] for x in st.sheets["categorie"][1:]])

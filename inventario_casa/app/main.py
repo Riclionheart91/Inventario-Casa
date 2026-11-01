@@ -64,7 +64,11 @@ def rev():
             if not _env("GEMINI_API_KEY"):
                 return None
             return ai.controlla_categorie(prodotti, cats, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
-        _rev = Revisione(inv(), sugg, controlla=ctrl, arricchisci=lambda: threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60)), daemon=True).start())
+        def gen(prodotti, tipi):
+            if not _env("GEMINI_API_KEY"):
+                return None
+            return ai.tipi_generici(prodotti, tipi, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+        _rev = Revisione(inv(), sugg, controlla=ctrl, generalizza=gen, arricchisci=lambda: threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60)), daemon=True).start())
     return _rev
 
 

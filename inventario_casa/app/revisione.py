@@ -10,6 +10,7 @@ import unicodedata
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List, Optional
 
+from .emoji import con_emoji
 from .service import SH_AIT, SH_MOV, SH_PROD, SH_CAT, nbc, data_it, _num
 
 GIORNI = 182          # circa sei mesi
@@ -27,9 +28,9 @@ def _chiave(t: str) -> str:
 
 
 class Revisione:
-    def __init__(self, inv, suggerisci: Optional[Callable] = None, arricchisci: Optional[Callable] = None, controlla: Optional[Callable] = None, percorso: str = "",
+    def __init__(self, inv, suggerisci: Optional[Callable] = None, arricchisci: Optional[Callable] = None, controlla: Optional[Callable] = None, generalizza: Optional[Callable] = None, percorso: str = "",
                  oggi: Callable = datetime.now):
-        self.inv, self.suggerisci, self.arricchisci, self.controlla, self.oggi = inv, suggerisci, arricchisci, controlla, oggi
+        self.inv, self.suggerisci, self.arricchisci, self.controlla, self.generalizza, self.oggi = inv, suggerisci, arricchisci, controlla, generalizza, oggi
         self.percorso = percorso or os.path.join(os.environ.get("DATA_DIR") or ("/data" if os.path.isdir("/data") else tempfile.gettempdir()),
                                                  "revisione.json")
         self._lock = threading.Lock()
@@ -130,6 +131,31 @@ class Revisione:
                 voci.append(self._voce("tipo_info", "n", "%d prodotti senza tipo" % resto,
                                        motivo="Aprili dalla scheda e scegli il tipo dal menu, oppure lancia di nuovo la revisione: " +
                                        self._elenco([n for _, n, _ in senza_tipo])))
+        # 1b) tipo troppo specifico (coincide col nome del prodotto): l'AI propone la famiglia
+        if self.generalizza and ha_tipo:
+            from .ai import _n
+            usati = {k: len(v) for k, v in per_tipo.items()}
+            sosp = []
+            for k, ps in per_tipo.items():
+                for p in ps:
+                    nome = _n(p.get("Prodotto", "")); t = _n(p.get("Tipo", ""))
+                    if t and nome and usati.get(k, 0) <= 2 and (t in nome or nome in t):
+                        sosp.append({"bc": nbc(p.get("Barcode")), "nome": str(p.get("Prodotto", "") or "").strip(), "tipo": str(p.get("Tipo", "")).strip(),
+                                     "categoria": str(p.get("Categoria", "") or "").strip(), "sotto": str(p.get("Sottocategoria", "") or "").strip()})
+            sosp = sosp[:MAX_CAT]
+            elenco_tipi = inv.tipi()
+            for i in range(0, len(sosp), LOTTO_CAT):
+                try:
+                    res = self.generalizza(sosp[i:i + LOTTO_CAT], elenco_tipi) or []
+                except Exception:
+                    res = []
+                att = {x["bc"]: x for x in sosp}
+                for x in res:
+                    a = att.get(x["bc"], {})
+                    voci.append(self._voce("tipo_gen", "%s>%s" % (x["bc"], x["tipo"]), "Tipo troppo specifico: %s" % a.get("nome", x["bc"]),
+                                           prima="Tipo %s" % a.get("tipo", ""), dopo="Tipo %s" % x["tipo"],
+                                           motivo="Il tipo è la famiglia di prodotti, non il singolo prodotto." + (" (tipo nuovo, scorta 0)" if x.get("nuovo") else ""),
+                                           azione={"t": "tipo", "bc": x["bc"], "tipo": x["tipo"]}, etichetta="Cambia il tipo"))
         # 2) tipi quasi uguali da unire
         attivi = [str(t.get("Tipo", "") or "").strip() for t in tipi_righe
                   if str(t.get("Tipo", "") or "").strip() and str(t.get("Stato", "")).upper() != "RIFIUTATO"]
@@ -177,6 +203,20 @@ class Revisione:
                                            dopo="%s › %s" % (x["categoria"], x["sottocategoria"]), motivo=x.get("motivo") or "proposto dall'AI",
                                            azione={"t": "categoria", "bc": x["bc"], "categoria": x["categoria"], "sotto": x["sottocategoria"]},
                                            etichetta="Sposta"))
+        # 5c) nomi di categorie e sottocategorie senza emoji (o senza spazio dopo l'emoji)
+        for c in inv.categorie():
+            nuovo = con_emoji(c["categoria"])
+            if nuovo != c["categoria"]:
+                voci.append(self._voce("emoji", c["categoria"], "Categoria senza emoji: %s" % c["categoria"], prima=c["categoria"], dopo=nuovo,
+                                       motivo="Ogni categoria e sottocategoria ha un'emoji. Il nome cambia anche su prodotti e movimenti.",
+                                       azione={"t": "emoji", "cat": c["categoria"], "sub": "", "nuovo": nuovo}, etichetta="Aggiungi l'emoji"))
+            for s in c["sottocategorie"]:
+                nuovo = con_emoji(s)
+                if nuovo != s:
+                    voci.append(self._voce("emoji", c["categoria"] + ">" + s, "Sottocategoria senza emoji: %s" % s, prima="%s › %s" % (c["categoria"], s),
+                                           dopo="%s › %s" % (c["categoria"], nuovo),
+                                           motivo="Ogni categoria e sottocategoria ha un'emoji. Il nome cambia anche su prodotti e movimenti.",
+                                           azione={"t": "emoji", "cat": c["categoria"], "sub": s, "nuovo": nuovo}, etichetta="Aggiungi l'emoji"))
         # 6) sottocategorie senza prodotti
         usate = {(str(p.get("Categoria", "") or "").strip().casefold(), str(p.get("Sottocategoria", "") or "").strip().casefold()) for p in prodotti}
         vuote = ["%s › %s" % (c["categoria"], s) for c in inv.categorie() for s in c["sottocategorie"]
@@ -245,6 +285,8 @@ class Revisione:
                 self.inv.imposta_tipo(a["bc"], a["tipo"])
             elif t == "categoria":
                 self.inv.imposta_categoria(a["bc"], a["categoria"], a["sotto"])
+            elif t == "emoji":
+                self.inv.rinomina_voce_categoria(a["cat"], a["sub"], a["nuovo"])
             elif t == "unisci":
                 self.inv.unisci_tipo(a["da"], a["a"])
             elif t == "rifiuta_tipo":
@@ -254,7 +296,7 @@ class Revisione:
             v["stato"] = "FATTA"
         else:
             v["stato"] = "IGNORATA"
-            if (v.get("azione") or {}).get("t") in ("categoria", "tipo", "unisci", "rifiuta_tipo"):   # le voci riassuntive tornano ogni volta
+            if (v.get("azione") or {}).get("t") in ("categoria", "tipo", "unisci", "rifiuta_tipo", "emoji"):   # le voci riassuntive tornano ogni volta
                 d["ignorate"] = sorted(set(d.get("ignorate", [])) | {v["id"]})
         self._salva(d)
         return {"ok": True, "stato": v["stato"]}

@@ -629,7 +629,13 @@
     if (!order.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto trovato.')); return; }
     order.forEach(function (g) {
       var d = el('details', 'g'); d.open = true; d.appendChild(el('summary', '', g + ' (' + groups[g].length + ')'));
-      groups[g].forEach(function (r) {
+      var sub = {}, sord = [];   // dentro la categoria, le sottocategorie aggregano come le categorie
+      groups[g].forEach(function (r) { var s = r.sotto || 'Altro'; if (!sub[s]) { sub[s] = []; sord.push(s); } sub[s].push(r); });
+      sord.sort(function (x, y) { if (x === 'Altro') return 1; if (y === 'Altro') return -1; return x.localeCompare(y, 'it'); });
+      sord.forEach(function (sn) {
+       var ds = el('details', 'g sub'); ds.open = true; var pz = 0; sub[sn].forEach(function (r) { pz += r.qta || 0; });
+       var sm = el('summary', ''); sm.appendChild(el('span', 'gn', sn)); var sc = el('span', 'gc', ''); sc.appendChild(el('b', '', pz + ' pz')); sc.appendChild(document.createTextNode(' · ' + sub[sn].length)); sm.appendChild(sc); ds.appendChild(sm);
+       sub[sn].forEach(function (r) {
         var it = el('div', 'item'), n = el('div', 'n'), th = el('div', 'th');
         if (r.img) thumbLazy(th, r.img);
         it.appendChild(th); it.tabIndex = 0; it.setAttribute('role', 'button'); it.setAttribute('aria-label', 'Apri la scheda di ' + r.nome);
@@ -639,8 +645,10 @@
         if (r.tipo) n.appendChild(el('span', 'tipo', r.tipo)); n.appendChild(el('span', '', [r.sotto, r.luogo].filter(Boolean).join(' · ')));
         it.appendChild(n); it.appendChild(el('span', 'badge' + (isLow(r) ? ' low' : ''), isLow(r) ? 'Sotto scorta' : 'Ok'));
         it.appendChild(el('div', 'qta', String(r.qta)));
-        d.appendChild(swipeRiga(it, { right: { label: '+1 Carico', ok: function () { return !st.ro; }, fn: function () { movRapidoStock('Carico', r); } },
+        ds.appendChild(swipeRiga(it, { right: { label: '+1 Carico', ok: function () { return !st.ro; }, fn: function () { movRapidoStock('Carico', r); } },
                                       left: { label: '−1 Scarico', ok: function () { return !st.ro && r.qta > 0; }, fn: function () { movRapidoStock('Scarico', r); } } }));
+       });
+       d.appendChild(ds);
       });
       box.appendChild(d);
     });
@@ -667,8 +675,20 @@
     if (prodCat && !conta[prodCat]) prodCat = '';
     [''].concat(nomi).forEach(function (c) {
       var b = el('button', 'chip', c ? c + ' ' + conta[c] : 'Tutte'); b.type = 'button'; b.setAttribute('aria-pressed', String(prodCat === c));
-      b.addEventListener('click', function () { prodCat = c; try { localStorage.setItem('prodCat', c); } catch (e) { /* ok */ } buildCatProd(); renderProd(); });
+      b.addEventListener('click', function () { prodCat = c; prodSotto = ''; try { localStorage.setItem('prodCat', c); } catch (e) { /* ok */ } buildCatProd(); renderProd(); });
       box.appendChild(b);
+    });
+  }
+  var prodSotto = '';
+  function buildSottoProd() {   // seconda riga: le sottocategorie della categoria scelta
+    var box = $('prod-sotto'); if (!box) return; box.textContent = '';
+    box.hidden = !prodCat; if (!prodCat) { prodSotto = ''; return; }
+    var conta = {}; (st.prod || []).forEach(function (r) { if (((r.categoria || '').trim() || 'Senza categoria') === prodCat) { var s = (r.sotto || '').trim() || 'Senza sottocategoria'; conta[s] = (conta[s] || 0) + 1; } });
+    var nomi = Object.keys(conta).sort(function (x, y) { if (x === 'Senza sottocategoria') return 1; if (y === 'Senza sottocategoria') return -1; return x.localeCompare(y, 'it'); });
+    if (prodSotto && !conta[prodSotto]) prodSotto = '';
+    [''].concat(nomi).forEach(function (s) {
+      var b = el('button', 'chip', s ? s + ' ' + conta[s] : 'Tutte'); b.type = 'button'; b.setAttribute('aria-pressed', String(prodSotto === s));
+      b.addEventListener('click', function () { prodSotto = s; renderProd(); }); box.appendChild(b);
     });
   }
   function chiusiProd() { try { return JSON.parse(localStorage.getItem('prodChiusi') || '[]') || []; } catch (e) { return []; } }
@@ -684,9 +704,10 @@
   function righePosti(r) { return (r.posti || []).map(function (p) { return p.luogo + ' ' + p.qta; }).join(' · '); }
   function renderProd() {   // una sola vista: gruppi per tipo (A-Z, "Senza tipo" in fondo), prodotti in ordine alfabetico dentro il gruppo
     var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist');
-    box.textContent = ''; buildCatProd();
+    box.textContent = ''; buildCatProd(); buildSottoProd();
     var list = (st.prod || []).filter(function (r) {
       if (prodCat && ((r.categoria || '').trim() || 'Senza categoria') !== prodCat) return false;
+      if (prodSotto && ((r.sotto || '').trim() || 'Senza sottocategoria') !== prodSotto) return false;
       if (prodFiltro === 'casa' && !(r.qta > 0)) return false;
       if (prodFiltro === 'esauriti' && r.qta > 0) return false;
       if (prodFiltro === 'sotto' && !sottoScorta(r)) return false;

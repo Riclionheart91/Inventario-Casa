@@ -5,6 +5,7 @@ import time
 import unicodedata
 import uuid
 from datetime import datetime
+from .emoji import con_emoji, senza_emoji
 from typing import Dict, List, Optional
 
 # TODO: verificare sul foglio reale i nomi esatti di colonne e valori (vedi README).
@@ -750,11 +751,13 @@ class Inventory:
         if az in ("RINOMINA", "UNISCI"):
             if not nuovo or not cat:
                 return "ERRORE", 0
-            return "APPLICATA", self._rinomina_categoria(cat, sub, nuovo)
+            return "APPLICATA", self._rinomina_categoria(cat, sub, self._nome_cat(nuovo, bool(sub), cat))
         if az in ("AGGIUNGI_CATEGORIA", "AGGIUNGI_SOTTOCATEGORIA"):
             c, sc = cat, sub or nuovo
             if not c or not sc:
                 return "ERRORE", 0
+            c = self._nome_cat(c)
+            sc = self._nome_cat(sc, True, c)
             h, rows = self._rows(SH_CAT, True)
             if any(len(r) > 1 and str(r[0]).strip() == c and str(r[1]).strip() == sc for r in rows):
                 return "GIA_PRESENTE", 0
@@ -767,12 +770,24 @@ class Inventory:
             return "APPLICATA", 1
         return "ERRORE", 0
 
+    def _nome_cat(self, nome: str, sotto: bool = False, cat: str = "") -> str:
+        """Nome con emoji: se esiste gia una voce uguale senza emoji/spazio si usa quella, altrimenti si aggiunge l'emoji."""
+        nome = str(nome or "").strip()
+        for c in self.categorie():
+            voci = c["sottocategorie"] if sotto and c["categoria"] == cat else ([] if sotto else [c["categoria"]])
+            for v in voci:
+                if senza_emoji(v).casefold() == senza_emoji(nome).casefold():
+                    return v
+        return con_emoji(nome)
+
     def proponi_categoria(self, categoria: str, sotto: str, esempio: str = "", nuova_categoria: bool = False) -> bool:
         """Mette in coda Approvazioni una categoria/sottocategoria nuova suggerita dall'AI (se non e gia presente o gia in attesa)."""
         categoria, sotto = (categoria or "").strip(), (sotto or "").strip()
         if not categoria or not sotto:
             return False
         try:
+            categoria = self._nome_cat(categoria)
+            sotto = self._nome_cat(sotto, True, categoria)
             for c in self.categorie():
                 if c["categoria"].casefold() == categoria.casefold() and any(x.casefold() == sotto.casefold() for x in c["sottocategorie"]):
                     return False
@@ -812,6 +827,11 @@ class Inventory:
         self.modifica_prodotto(k, sottocategoria)
         self._log_ai(k, "Categoria", p.get("categoria", ""), categoria, fonte="REVISIONE")
         return {"ok": True}
+
+    def rinomina_voce_categoria(self, cat: str, sub: str, nuovo: str) -> int:
+        """Cambia il nome di una categoria (sub vuota) o sottocategoria su categorie, prodotti e movimenti."""
+        attuale = next((c["categoria"] for c in self.categorie() if senza_emoji(c["categoria"]).casefold() == senza_emoji(cat).casefold()), cat)
+        return self._rinomina_categoria(attuale, sub, nuovo)   # la categoria puo essere stata rinominata poco prima
 
     def unisci_tipo(self, da: str, a: str) -> int:
         """I prodotti del tipo `da` passano ad `a`; il tipo `da` viene rifiutato (unito)."""

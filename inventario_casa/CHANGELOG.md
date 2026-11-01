@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.0 — 2026-11-01
+Emoji: ogni categoria e sottocategoria nuova (proposta dall'AI o rinominata) ha l'emoji davanti, con lo spazio. La revisione segnala quelle che non ce l'hanno (es. «Piante e Giardino», «Concimi e Terricci») o senza spazio dopo l'emoji (es. «🧴Corpo e Capelli»): «Aggiungi l'emoji» le rinomina anche su prodotti e movimenti.
+Tipi: l'AI ora sceglie il tipo come famiglia di prodotti, non il singolo prodotto (Verdure surgelate, non Spinaci o Piselli). La revisione propone di rendere generici i tipi che coincidono col nome del prodotto.
+Stock e Prodotti: le sottocategorie aggregano come le categorie. In Stock ogni categoria contiene gruppi per sottocategoria con pezzi e prodotti; in Prodotti, scelta una categoria, compare la riga delle sottocategorie.
+
 ## 0.11.5 — 2026-11-01
 Scorta minima: accanto al numero ci sono i pulsanti − e + (da 0 a 999), senza tastiera; vale nella scheda del prodotto e nella correzione di un tipo nuovo in «Da fare».
 
