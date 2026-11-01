@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.14.1 — 2026-11-01
+La pagina delle proposte AI si apre più in fretta: i tre fogli delle proposte si leggono con una sola chiamata a Google invece di tre, e l'elenco dei prodotti non viene più ricostruito per ogni proposta (con la 0.13.2 era diventato più lento).
+
 ## 0.14.0 — 2026-11-01
 **Primo avvio**: nuova opzione `crea_foglio`. Se è attiva e `sheet_id` è vuoto (o il foglio non esiste più), l'app crea da sola il foglio Google con tutte le schede e le intestazioni, nella cartella `drive_folder_id` se indicata, e lo condivide con l'indirizzo `condividi_con`. L'indirizzo del foglio compare nel registro dell'app e resta salvato: ai riavvii riusa lo stesso foglio senza crearne altri. `sheet_id` ora è facoltativo.
 

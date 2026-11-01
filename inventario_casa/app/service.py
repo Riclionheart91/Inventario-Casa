@@ -164,11 +164,10 @@ class Inventory:
         k = self.risolvi(nbc(barcode))
         if not k:
             return None
-        for p in self._dicts(SH_PROD):
-            if nbc(p.get("Barcode")) == k:
-                return {"barcode": bco(k), "prodotto": p.get("Prodotto", ""), "marca": p.get("Marca", ""),
-                        "categoria": p.get("Categoria", ""), "sottocategoria": p.get("Sottocategoria", ""),
-                        "tipo": p.get("Tipo", "")}
+        for p in self._indice_prodotti()["bc"].get(k, [])[:1]:
+            return {"barcode": bco(k), "prodotto": p.get("Prodotto", ""), "marca": p.get("Marca", ""),
+                    "categoria": p.get("Categoria", ""), "sottocategoria": p.get("Sottocategoria", ""),
+                    "tipo": p.get("Tipo", "")}
         return None
 
     def categorie(self) -> List[dict]:
@@ -750,7 +749,15 @@ class Inventory:
         """Coda di approvazione: proposte AI sui prodotti, tipi nuovi, categorie proposte. Stesse regole di aiRebuildCoda."""
         out = []
         j = lambda xs: " · ".join(x for x in xs if x)
-        for a in self._dicts(SH_AIP, True):
+        # le tre schede delle proposte si rileggono insieme (una sola chiamata a Google invece di tre)
+        try:
+            letti = self.store.get_many((SH_AIP, SH_AIT, SH_AIC))
+        except Exception:
+            letti = {n: self.store.get_rows(n) for n in (SH_AIP, SH_AIT, SH_AIC)}
+        for n, (h, r) in letti.items():
+            self._put(n, h, r)
+        idx = self._indice_prodotti()
+        for a in self._dicts(SH_AIP):
             if str(a.get("Stato", "")) != ST_PENDING[SH_AIP]:
                 continue
             pr = self.prodotto(a.get("Barcode")) or {}
@@ -765,33 +772,46 @@ class Inventory:
                         "prima": j([cur or "(nome vuoto)", cat_old, ("tipo " + pr["tipo"]) if pr.get("tipo") else ""]),
                         "dopo": j([sug or cur or "(nome vuoto)", cat_new or cat_old, ("tipo " + (t_new or pr.get("tipo", ""))) if (t_new or pr.get("tipo")) else ""]),
                         "sicurezza": pct, "motivo": a.get("Motivo", ""),
-                        "prodotti": elenco_prodotti([p for p in self._dicts(SH_PROD) if nbc(p.get("Barcode")) == nbc(a.get("Barcode"))]),
+                        "prodotti": elenco_prodotti(idx["bc"].get(nbc(a.get("Barcode")), [])),
                         "campi": {"nome": sug or cur, "categoria": str(a.get("Categoria_Suggerita", "") or pr.get("categoria", "")),
                                   "sottocategoria": str(a.get("Sottocategoria_Suggerita", "") or pr.get("sottocategoria", "")),
                                   "tipo": t_new or pr.get("tipo", "")}})
-        for a in self._dicts(SH_AIT, True):
+        bozze_tipo: Dict[str, list] = {}
+        for b in self._opz("bozze"):
+            if str(b.get("Stato", "")).upper() not in ("INSERITA", "SCARTATA"):
+                bozze_tipo.setdefault(str(b.get("Tipo", "")).strip().casefold(), []).append({"Prodotto": b.get("Prodotto"), "Marca": b.get("Marca"), "Confezione": b.get("Confezione")})
+        for a in self._dicts(SH_AIT):
             if str(a.get("Stato", "")) == ST_PENDING[SH_AIT]:
                 sm = a.get("Scorta_min", a.get("Scorta min", ""))
                 out.append({"id": "T_%s" % a.get("Tipo"), "gruppo": "Nuovi tipi", "genere": "T", "titolo": "Nuovo tipo: %s" % a.get("Tipo"),
                             "prima": "", "dopo": "Tipo %s" % a.get("Tipo"), "sicurezza": None,
                             "motivo": a.get("Note", "") or "L'AI vuole creare questo tipo di prodotto. Imposta la scorta minima e approva.",
-                            "prodotti": elenco_prodotti([p for p in self._dicts(SH_PROD) if str(p.get("Tipo", "")).strip().casefold() == str(a.get("Tipo", "")).strip().casefold()]
-                                                        + [{"Prodotto": b.get("Prodotto"), "Marca": b.get("Marca"), "Confezione": b.get("Confezione")} for b in self._opz("bozze")
-                                                           if str(b.get("Tipo", "")).strip().casefold() == str(a.get("Tipo", "")).strip().casefold() and str(b.get("Stato", "")).upper() not in ("INSERITA", "SCARTATA")]),
+                            "prodotti": elenco_prodotti(idx["tipo"].get(str(a.get("Tipo", "")).strip().casefold(), []) + bozze_tipo.get(str(a.get("Tipo", "")).strip().casefold(), [])),
                             "campi": {"tipo": str(a.get("Tipo", "")), "scorta_min": _num(sm)}})
-        for i, a in enumerate(self._dicts(SH_AIC, True)):
+        for i, a in enumerate(self._dicts(SH_AIC)):
             if str(a.get("Stato", "")) == ST_PENDING[SH_AIC]:
                 out.append({"id": "C_%d" % (i + 2), "gruppo": "Categorie proposte", "genere": "C",
                             "titolo": "Categoria: %s → %s" % (a.get("Azione", ""), a.get("Nuovo_Nome") or a.get("Sottocategoria", "")),
                             "prima": str(a.get("Sottocategoria", "")), "dopo": str(a.get("Nuovo_Nome", "")),
                             "sicurezza": None, "motivo": a.get("Motivo", ""), "campi": {},
-                            "prodotti": self._prodotti_categoria(a)})
+                            "prodotti": self._prodotti_categoria(a, idx)})
         return out
 
-    def _prodotti_categoria(self, a: dict) -> List[str]:
+    def _indice_prodotti(self) -> dict:
+        """Prodotti del catalogo come dizionari, raggruppati per codice e per tipo (calcolati una volta finche i dati non cambiano)."""
+        if "idx_prod" not in self._memo:
+            tutti = self._dicts(SH_PROD)
+            bc, tipo = {}, {}
+            for p in tutti:
+                bc.setdefault(nbc(p.get("Barcode")), []).append(p)
+                tipo.setdefault(str(p.get("Tipo", "")).strip().casefold(), []).append(p)
+            self._memo["idx_prod"] = {"tutti": tutti, "bc": bc, "tipo": tipo}
+        return self._memo["idx_prod"]
+
+    def _prodotti_categoria(self, a: dict, idx: Optional[dict] = None) -> List[str]:
         """Prodotti toccati da una proposta di categoria: quelli della categoria o sottocategoria indicata, e gli esempi che l'AI ha citato."""
         cat, sub = str(a.get("Categoria", "") or "").strip().casefold(), str(a.get("Sottocategoria", "") or "").strip().casefold()
-        ps = [p for p in self._dicts(SH_PROD) if (not cat or str(p.get("Categoria", "")).strip().casefold() == cat) and (not sub or str(p.get("Sottocategoria", "")).strip().casefold() == sub)] if (cat or sub) else []
+        ps = [p for p in (idx or self._indice_prodotti())["tutti"] if (not cat or str(p.get("Categoria", "")).strip().casefold() == cat) and (not sub or str(p.get("Sottocategoria", "")).strip().casefold() == sub)] if (cat or sub) else []
         out = elenco_prodotti(ps)
         ex = str(a.get("Prodotti_Esempio", "") or "").strip()
         if ex and not ps:
