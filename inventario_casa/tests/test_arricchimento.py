@@ -80,3 +80,42 @@ class TWeb(unittest.TestCase):
         r = ai.cerca_web("8001990037511", "k", post=lambda *a: risp)
         self.assertEqual(r["urls"], ["https://a.it/p", "https://b.it/x"])
         self.assertIsNone(ai.cerca_web("8001990037511", "", post=lambda *a: risp))
+
+
+class TExtraAI(unittest.TestCase):
+    def _mk(self):
+        st = MemoryStore({"prodotti": [
+            ["Barcode", "Prodotto", "Marca", "Confezione", "Immagine", "Punteggi", "Smaltimento/riciclo", "API Status", "Aggiornato il"],
+            [1, "Biscotti", "Mulino", "300 g", "http://i", "", "", "✅ App (OFF)", ""],
+            [2, "Pasta", "Barilla", "500 g", "http://i", "Nutri 🟢 A", "", "✅ App (OFF)", ""]]})
+        return st, Inventory(st, ttl=0), os.path.join(tempfile.mkdtemp(), "a.json")
+
+    def test_ai_riempie_solo_i_vuoti_punteggi_e_riciclo(self):
+        st, inv, f = self._mk()
+        extra = lambda bc, nome, marca, conf: {"punteggi": "Nutri 🔴 D", "smaltimento": "📦 Carta"}
+        a = Arricchitore(inv, lambda bc: None, None, f, oggi=lambda: datetime(2026, 10, 30), extra=extra)
+        r = a.esegui(10)
+        p = st.sheets["prodotti"]
+        self.assertEqual(p[1][5:7], ["Nutri 🔴 D", "📦 Carta"])
+        self.assertEqual(p[2][5:7], ["Nutri 🟢 A", "📦 Carta"])   # punteggio gia presente: intatto
+        self.assertEqual(r["da_ai"], 2)
+
+    def test_ai_non_trova_nulla_prodotto_invariato(self):
+        st, inv, f = self._mk()
+        a = Arricchitore(inv, lambda bc: None, None, f, oggi=lambda: datetime(2026, 10, 30), extra=lambda *x: None)
+        a.esegui(10)
+        self.assertEqual(st.sheets["prodotti"][1][5:7], ["", ""])
+
+    def test_forzato_ignora_l_attesa(self):
+        st, inv, f = self._mk()
+        n = []
+        a = Arricchitore(inv, lambda bc: None, None, f, oggi=lambda: datetime(2026, 10, 30), extra=lambda *x: n.append(1))
+        a.esegui(10); n.clear()
+        a.esegui(10); self.assertEqual(n, [])
+        a.esegui(10, ignora_prove=True); self.assertTrue(n)
+
+    def test_integra_scheda_formato_e_validazione(self):
+        risp = {"candidates": [{"content": {"parts": [{"text": '{"nutri":"d","nova":"4","eco":"Z","materiali":["carta","plastica","uranio"]}'}]}}]}
+        out = ai.integra_scheda("123", "Biscotti", "M", "300 g", "k", post=lambda *a: risp)
+        self.assertEqual(out, {"punteggi": "Nutri 🔴 D  |  NOVA 🏭 4", "smaltimento": "📦 Carta  🧴 Plastica"})
+        self.assertIsNone(ai.integra_scheda("123", "x", "", "", "", post=lambda *a: risp))

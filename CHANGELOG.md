@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.5 — 2026-11-01
+- Correzione: «Sotto scorta» si calcola sul totale del **tipo** (la scorta minima è del tipo), non sul singolo prodotto. Tre confezioni di pasta con 7 pezzi in tutto non risultano più sotto scorta; la scheda mostra anche il totale del tipo.
+- Punteggi (Nutri-Score, NOVA, Eco-Score) e modalità di riciclo: se non li trova negli archivi dei codici a barre, l'arricchimento li cerca con l'AI su Google (solo celle vuote, mai inventati; se non trova nulla il prodotto resta com'è).
+- La revisione semestrale e «Avvia la revisione» contano anche i prodotti senza punteggi o senza riciclo, e l'arricchimento forzato ignora l'attesa dei 30 giorni.
+
 ## 0.12.4 — 2026-11-01
 Scheda prodotto: categoria, sottocategoria e tipo sono pulsanti. Toccandoli si apre l'elenco Prodotti già filtrato su quella categoria, sottocategoria o tipo (il filtro del tipo si toglie con la ✕).
 

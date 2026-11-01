@@ -27,8 +27,9 @@ def _h(s: str) -> str:
 
 
 class Arricchitore:
-    def __init__(self, inv, cerca: Callable, traduci: Callable, percorso: str = "", oggi: Callable = datetime.now, web: Optional[Callable] = None):
-        self.inv, self.cerca, self.traduci, self.oggi, self.web = inv, cerca, traduci, oggi, web
+    def __init__(self, inv, cerca: Callable, traduci: Callable, percorso: str = "", oggi: Callable = datetime.now, web: Optional[Callable] = None,
+                 extra: Optional[Callable] = None):
+        self.inv, self.cerca, self.traduci, self.oggi, self.web, self.extra = inv, cerca, traduci, oggi, web, extra
         self.percorso = percorso or os.path.join(os.environ.get("DATA_DIR") or ("/data" if os.path.isdir("/data") else tempfile.gettempdir()),
                                                  "arricchimento.json")
         self._lock = threading.Lock()
@@ -58,7 +59,7 @@ class Arricchitore:
     def da_fare_oggi(self) -> bool:
         return self._leggi().get("ultimo", "") != self.oggi().strftime("%Y-%m-%d")
 
-    def esegui(self, massimo: int = 60, budget_s: float = 1500.0, traduci_testi: bool = True) -> dict:
+    def esegui(self, massimo: int = 60, budget_s: float = 1500.0, traduci_testi: bool = True, ignora_prove: bool = False) -> dict:
         """Un giro: cerca i dati dei prodotti incompleti e traduce i testi non italiani. Ritorna il rapporto."""
         if not self._lock.acquire(blocking=False):
             return {"errore": "gia in corso"}
@@ -78,11 +79,12 @@ class Arricchitore:
             candidati = []
             for i, r in enumerate(rows):
                 bc = nbc(r[ix["Barcode"]]) if len(r) > ix["Barcode"] else ""
-                if not bc or prove.get(bc, "") > limite:
+                if not bc or (not ignora_prove and prove.get(bc, "") > limite):
                     continue
                 vuoti = [n for n in ("Marca", "Confezione", "Immagine") if n in ix and not cella(r, n)]
                 incompleto = bool(vuoti) or not cella(r, "API Status").startswith("✅")
-                if incompleto:
+                senza_extra = bool(self.extra) and any(n in ix and not cella(r, n) for n in ("Punteggi", "Smaltimento/riciclo"))
+                if incompleto or senza_extra:
                     candidati.append((0 if not cella(r, "API Status") else 1, i, bc))
             candidati.sort()
             for _, i, bc in candidati[:massimo]:
@@ -90,11 +92,12 @@ class Arricchitore:
                     break
                 r = rows[i]
                 rap["cercati"] += 1
+                incompleto = any(n in ix and not cella(r, n) for n in ("Marca", "Confezione", "Immagine")) or not cella(r, "API Status").startswith("✅")
                 try:
                     info = self.cerca(bc)
                 except Exception:
                     info = None
-                if not info and self.web:   # nessun archivio lo conosce: ricerca su Google con l'AI (solo se la pagina riporta il codice)
+                if not info and self.web and incompleto:   # nessun archivio lo conosce: ricerca su Google con l'AI (solo se la pagina riporta il codice)
                     try:
                         info = self.web(bc)
                     except Exception:
@@ -102,15 +105,26 @@ class Arricchitore:
                     if info:
                         rap["da_web"] = rap.get("da_web", 0) + 1
                 prove[bc] = adesso.strftime("%Y-%m-%d")
-                if not info:
+                if not info and incompleto:
                     rap["non_trovati"] += 1     # nessuna scrittura: il prodotto resta com'e
-                    continue
-                nuovi = [(n, str(info.get(k) or "").strip()) for n, k in CAMPI if n in ix and not cella(r, n) and str(info.get(k) or "").strip()]
+                nuovi = [(n, str((info or {}).get(k) or "").strip()) for n, k in CAMPI if n in ix and not cella(r, n) and str((info or {}).get(k) or "").strip()]
+                if self.extra:   # punteggi e riciclo ancora vuoti: li cerca l'AI (solo se non c'erano gia)
+                    gia = {n for n, _ in nuovi}
+                    mancano = [n for n in ("Punteggi", "Smaltimento/riciclo") if n in ix and not cella(r, n) and n not in gia]
+                    if mancano:
+                        try:
+                            ex = self.extra(bc, cella(r, "Prodotto"), cella(r, "Marca") or str((info or {}).get("marca") or ""), cella(r, "Confezione") or str((info or {}).get("confezione") or "")) or {}
+                        except Exception:
+                            ex = {}
+                        add = [(n, str(ex.get(k) or "").strip()) for n, k in (("Punteggi", "punteggi"), ("Smaltimento/riciclo", "smaltimento")) if n in mancano and str(ex.get(k) or "").strip()]
+                        if add:
+                            rap["da_ai"] = rap.get("da_ai", 0) + 1
+                            nuovi += add
                 if not nuovi:
                     continue
                 for n, v in nuovi:
                     ups.append((i + 2, n, v))
-                if "API Status" in ix and not cella(r, "API Status").startswith("✅"):
+                if info and "API Status" in ix and not cella(r, "API Status").startswith("✅"):
                     stato = "🔶 Web (AI)" if info.get("fonte") == "Web" else "✅ App (%s)" % (info.get("fonte") or "ricerca")
                     ups.append((i + 2, "API Status", stato))
                 if "Aggiornato il" in ix:

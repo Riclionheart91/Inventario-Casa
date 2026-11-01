@@ -293,6 +293,10 @@ class Inventory:
             minima[k] = e["minima"]
             posti.setdefault(k, {})[e["luogo"]] = posti.get(k, {}).get(e["luogo"], 0) + e["qta"]
         scorte = self._scorte_tipo()
+        tt: Dict[str, float] = {}
+        for e in self.stock():
+            if e["tipo"]:
+                tt[e["tipo"].lower()] = tt.get(e["tipo"].lower(), 0) + e["qta"]
         out = []
         for p in self._dicts(SH_PROD):
             k = nbc(p.get("Barcode"))
@@ -301,7 +305,7 @@ class Inventory:
             g = lambda n: str(p.get(n, "") or "").strip()
             out.append({"barcode": bco(k), "nome": g("Prodotto") or "(senza nome)", "marca": g("Marca"), "conf": g("Confezione"),
                         "tipo": g("Tipo"), "categoria": g("Categoria"), "sotto": g("Sottocategoria"), "img": g("Immagine"),
-                        "qta": tot.get(k, 0),
+                        "qta": tot.get(k, 0), "tot_tipo": tt.get(g("Tipo").lower(), tot.get(k, 0)) if g("Tipo") else tot.get(k, 0),
                         "minima": minima.get(k, scorte.get(g("Tipo").lower(), 0)),   # anche per i prodotti senza giacenza
                         "posti": [{"luogo": l, "qta": q} for l, q in sorted(posti.get(k, {}).items()) if q]})
         return sorted(out, key=lambda e: (e["nome"].casefold(), e["marca"].casefold()))
@@ -324,7 +328,8 @@ class Inventory:
                     "immagine": g("Immagine"), "dettagli": g("Dettagli prodotto"), "punteggi": g("Punteggi"),
                     "composizione": g("Composizione"), "free_from": g("Free-from"), "nutrizione": g("Nutrizione (100g)"),
                     "smaltimento": g("Smaltimento/riciclo"), "aggiornato": data_it(g("Aggiornato il")),
-                    "scorta_minima": minima, "giacenze": giac, "totale": sum(x["qta"] for x in giac)}
+                    "scorta_minima": minima, "giacenze": giac, "totale": sum(x["qta"] for x in giac),
+                    "totale_tipo": sum(e["qta"] for e in self.stock() if tipo and e["tipo"].lower() == tipo.lower()) if tipo else sum(x["qta"] for x in giac)}
         return None
 
     # --- stock ----------------------------------------------------------
@@ -390,6 +395,12 @@ class Inventory:
         out = [e for e in acc.values() if zeri or e["qta"] != 0]
         for e in out:
             e["qta"] = int(e["qta"]) if float(e["qta"]).is_integer() else e["qta"]
+        tt: Dict[str, float] = {}
+        for e in out:   # la scorta minima e del tipo: si confronta con il totale di tutti i prodotti di quel tipo
+            if e["tipo"]:
+                tt[e["tipo"].lower()] = tt.get(e["tipo"].lower(), 0) + e["qta"]
+        for e in out:
+            e["tot_tipo"] = tt[e["tipo"].lower()] if e["tipo"] else None
         return sorted(out, key=lambda e: (e["categoria"], e["nome"], e["luogo"]))
 
     # --- movimenti ------------------------------------------------------

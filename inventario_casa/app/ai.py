@@ -307,3 +307,44 @@ def tipi_generici(prodotti: List[dict], tipi: List[str], chiave: str, modello: s
                 out.append({"bc": nbc_(x.get("bc")), "tipo": t, "nuovo": esist is None})
         return out
     return None
+
+
+_NUTRI_EMO = {"A": "🟢", "B": "🟢", "C": "🟡", "D": "🔴", "E": "🔴"}
+_MATERIALI = {"carta": "📦 Carta", "plastica": "🧴 Plastica", "vetro": "🫙 Vetro", "alluminio": "🥫 Alluminio", "acciaio": "🥫 Acciaio",
+              "tetra pak": "🧃 Tetra Pak", "legno": "🪵 Legno", "organico": "🍂 Organico"}
+
+
+def integra_scheda(barcode: str, nome: str, marca: str, confezione: str, chiave: str, modello: str = "", riserva: str = "",
+                   post: Callable = post_gemini) -> Optional[dict]:
+    """Per un prodotto senza punteggi o senza dati di riciclo: Gemini con la ricerca Google cerca Nutri-Score, NOVA, Eco-Score e i materiali
+    della confezione. Valori solo se trovati o ben desumibili (mai inventati). Ritorna {punteggi, smaltimento} nel formato del foglio, oppure None."""
+    ULTIMO_ERRORE[0] = ""
+    bc = re.sub(r"\D", "", str(barcode))
+    if not chiave or not bc:
+        return None
+    prompt = ("Cerca su Google il prodotto con codice a barre %s (%s %s %s). Rispondi SOLO con JSON "
+              "{\"nutri\":\"A-E o vuoto\",\"nova\":\"1-4 o vuoto\",\"eco\":\"A-E o vuoto\",\"materiali\":[\"...\"]}. "
+              "nutri = Nutri-Score, nova = gruppo NOVA, eco = Eco-Score, solo se li trovi (Open Food Facts, sito del produttore, negozi). "
+              "materiali = materiali della confezione scelti SOLO tra: carta, plastica, vetro, alluminio, acciaio, tetra pak, legno, organico "
+              "(se la confezione non e nota lascia la lista vuota). Non inventare: nel dubbio lascia vuoto."
+              % (bc, str(nome)[:80], str(marca)[:40], str(confezione)[:30]))
+    corpo = {"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}], "generationConfig": {"temperature": 0}}
+    for m in [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]:
+        d = _estrai(post(URL % m, chiave, corpo, 60.0))
+        if not d:
+            continue
+        nu = str(d.get("nutri") or "").strip().upper()[:1]
+        nv = str(d.get("nova") or "").strip()[:1]
+        ec = str(d.get("eco") or "").strip().upper()[:1]
+        parti = []
+        if nu in _NUTRI_EMO: parti.append("Nutri %s %s" % (_NUTRI_EMO[nu], nu))
+        if nv in ("1", "2", "3", "4"): parti.append("NOVA 🏭 %s" % nv)
+        if ec in _NUTRI_EMO: parti.append("Eco 🌱 %s" % ec)
+        mat = []
+        for x in (d.get("materiali") or []) if isinstance(d.get("materiali"), list) else []:
+            e = _MATERIALI.get(str(x).strip().lower())
+            if e and e not in mat:
+                mat.append(e)
+        if parti or mat:
+            return {"punteggi": "  |  ".join(parti), "smaltimento": "  ".join(mat)}
+    return None

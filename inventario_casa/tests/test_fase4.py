@@ -464,3 +464,14 @@ class TModificaDati(unittest.TestCase):
         self.assertEqual(righe(st, "movimenti", "ID_Movimento", "d")[0][hm.index("Prodotto")], "Riso Carnaroli")
         with self.assertRaises(ApiError):
             inv.modifica_dati(8003333333333, " ")
+
+
+class TTotaleTipo(unittest.TestCase):
+    def test_totale_del_tipo_su_elenco_e_scheda(self):
+        st, inv = make()
+        st.sheets["movimenti"].append(["f", 8002222222222, "Carico", "Casa", 5, "Pasta fusilli", "Dispensa", "Snack e Dolci"])
+        el = {p["nome"]: p for p in inv.elenco_prodotti()}
+        self.assertEqual(el["Pasta penne"]["qta"], 3)
+        self.assertEqual(el["Pasta penne"]["tot_tipo"], 8)   # 3 penne + 5 fusilli: la scorta minima e del tipo
+        self.assertEqual(inv.scheda(8001111111111)["totale_tipo"], 8)
+        self.assertEqual(el["Riso"]["tot_tipo"], 1)

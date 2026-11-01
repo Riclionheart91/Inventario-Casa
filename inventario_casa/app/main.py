@@ -68,7 +68,7 @@ def rev():
             if not _env("GEMINI_API_KEY"):
                 return None
             return ai.tipi_generici(prodotti, tipi, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
-        _rev = Revisione(inv(), sugg, controlla=ctrl, generalizza=gen, arricchisci=lambda: threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60)), daemon=True).start())
+        _rev = Revisione(inv(), sugg, controlla=ctrl, generalizza=gen, arricchisci=lambda: threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60), ignora_prove=True), daemon=True).start())
     return _rev
 
 
@@ -80,8 +80,12 @@ def arr():
         def web(bc):
             r = _web(bc)
             return r and dict(r, fonte="Web", dettagli="", composizione="", nutrizione="", punteggi="")
+        def extra(bc, nome, marca, conf):   # punteggi e riciclo che nessun archivio ha: li cerca l'AI con Google
+            if not chiave():
+                return None
+            return ai.integra_scheda(bc, nome, marca, conf, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
         _arr = Arricchitore(inv(), lambda bc: lookup.cerca(bc, chiavi=chiavi()),
-                            lambda testi: ai.traduci(testi, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")), web=web)
+                            lambda testi: ai.traduci(testi, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")), web=web, extra=extra)
     return _arr
 
 
@@ -236,7 +240,7 @@ def arricchimento_avvia(x_code: str = Header(None)):
     """Lancia subito un giro (stesso lavoro della notte)."""
     check(x_code)
     writable()
-    threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60)), daemon=True).start()
+    threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60), ignora_prove=True), daemon=True).start()
     return {"ok": True, "avviato": True}
 
 

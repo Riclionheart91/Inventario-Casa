@@ -516,8 +516,8 @@
     st.schedaBc = barcode; var box = $('sc-body'); box.textContent = 'Carico…'; $('scheda').hidden = false; $('sc-close').focus();
     api('GET', 'api/scheda/' + barcode).then(function (p) {
       box.textContent = '';
-      var tot = p.totale || 0, min = p.scorta_minima || 0;
-      var stato = tot <= 0 ? ['zero', 'Esaurito'] : (min > 0 && tot <= min ? ['low', 'Sotto scorta'] : ['ok', 'In casa']);
+      var tot = p.totale || 0, min = p.scorta_minima || 0, tt = p.totale_tipo == null ? tot : p.totale_tipo;
+      var stato = tot <= 0 ? ['zero', 'Esaurito'] : (min > 0 && tt <= min ? ['low', 'Sotto scorta'] : ['ok', 'In casa']);
       /* testata: immagine grande, nome, marca, codice */
       var head = el('div', 'sc-hero'), im = el('div', 'sc-img'), t = el('div', 'sc-tit');
       if (p.immagine) thumb(im, p.immagine); else im.appendChild(el('span', 'sc-noimg', '📦'));
@@ -540,7 +540,7 @@
       /* giacenza: numero grande + stato + dove */
       var gi = el('div', 'sc-stock ' + stato[0]), gn = el('div', 'sc-num'); gn.appendChild(el('b', '', String(tot))); gn.appendChild(el('small', '', 'pz in casa'));
       var gs = el('div', 'sc-stat'); gs.appendChild(el('span', 'sc-badge', stato[1]));
-      gs.appendChild(el('span', 'sc-min', min > 0 ? 'Scorta minima del tipo: ' + min : 'Nessuna scorta minima (compare in lista quando è finito)'));
+      gs.appendChild(el('span', 'sc-min', min > 0 ? 'Scorta minima del tipo: ' + min + (p.tipo && p.totale_tipo != null ? ' · in casa per tutto il tipo: ' + p.totale_tipo : '') : 'Nessuna scorta minima (compare in lista quando è finito)'));
       gi.appendChild(gn); gi.appendChild(gs); box.appendChild(gi);
       if ((p.giacenze || []).length) {
         var dove = el('div', 'sc-dove');
@@ -721,7 +721,7 @@
       box.appendChild(b);
     });
   }
-  function isLow(r) { return r.minima > 0 && r.qta <= r.minima; }
+  function isLow(r) { return r.minima > 0 && (r.tot_tipo == null ? r.qta : r.tot_tipo) <= r.minima; }
   function renderStock() {
     var q = $('q').value.trim().toLowerCase(), box = $('stock'), groups = {}, order = [];
     box.textContent = '';
@@ -812,7 +812,7 @@
       b.addEventListener('click', function () { prodFiltro = o[0]; try { localStorage.setItem('prodFiltro', o[0]); } catch (e) { /* ok */ } buildFiltriProd(); renderProd(); }); box.appendChild(b);
     });
   }
-  function sottoScorta(r) { return r.minima > 0 && (r.qta || 0) <= r.minima; }
+  function sottoScorta(r) { return r.minima > 0 && (r.tot_tipo == null ? (r.qta || 0) : r.tot_tipo) <= r.minima; }
   function righePosti(r) { return (r.posti || []).map(function (p) { return p.luogo + ' ' + p.qta; }).join(' · '); }
   function renderProd() {   // una sola vista: gruppi per tipo (A-Z, "Senza tipo" in fondo), prodotti in ordine alfabetico dentro il gruppo
     var q = $('qp2').value.trim().toLowerCase(), box = $('prodlist');

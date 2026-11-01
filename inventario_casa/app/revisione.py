@@ -179,9 +179,11 @@ class Revisione:
         nimg = sum(1 for p in prodotti if nbc(p.get("Barcode")) and not str(p.get("Immagine", "") or "").strip())
         nmar = sum(1 for p in prodotti if nbc(p.get("Barcode")) and not str(p.get("Marca", "") or "").strip())
         ncon = sum(1 for p in prodotti if nbc(p.get("Barcode")) and not str(p.get("Confezione", "") or "").strip())
-        if nimg or nmar or ncon:
-            voci.append(self._voce("incompleti", "n", "Dati mancanti: %d senza immagine · %d senza marca · %d senza confezione" % (nimg, nmar, ncon),
-                                   motivo="L'arricchimento cerca online i campi vuoti (non tocca quelli già compilati).",
+        npun = sum(1 for p in prodotti if nbc(p.get("Barcode")) and not str(p.get("Punteggi", "") or "").strip())
+        nsma = sum(1 for p in prodotti if nbc(p.get("Barcode")) and not str(p.get("Smaltimento/riciclo", "") or "").strip())
+        if nimg or nmar or ncon or npun or nsma:
+            voci.append(self._voce("incompleti", "n", "Dati mancanti: %d senza immagine · %d senza marca · %d senza confezione · %d senza punteggi · %d senza riciclo" % (nimg, nmar, ncon, npun, nsma),
+                                   motivo="L'arricchimento cerca i campi vuoti negli archivi dei codici a barre e, se non li trova, con l'AI su Google (non tocca quelli già compilati).",
                                    azione={"t": "arricchisci"} if self.arricchisci else None, etichetta="Avvia l'arricchimento"))
         # 5b) categoria sbagliata: l'AI guarda i prodotti a gruppi
         if self.controlla:
