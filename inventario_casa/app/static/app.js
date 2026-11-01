@@ -126,6 +126,17 @@
     var ind = el('div', ''); ind.id = 'nav-ind'; ind.setAttribute('aria-hidden', 'true'); nav.appendChild(ind);
     applicaNav(); aggiornaConteggi();
   }
+  /* campi di ricerca: una ✕ per svuotarli con un tocco */
+  function aggiungiX(inp) {
+    if (inp._x) return; inp._x = true;
+    var w = inp.parentNode, b = el('button', 'clr', '✕'); b.type = 'button'; b.hidden = true; b.setAttribute('aria-label', 'Cancella la ricerca');
+    w.classList.add('has-clr'); w.appendChild(b);
+    var agg = function () { b.hidden = !inp.value; };
+    inp.addEventListener('input', agg);
+    b.addEventListener('click', function () { inp.value = ''; agg(); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.focus(); });
+    agg();
+  }
+  document.querySelectorAll('input[type=search]').forEach(aggiungiX);
   function setStk() {   // altezza della barra fissa della pagina visibile: da li partono le categorie fisse
     var v = document.querySelector('.view:not([hidden]) .stk');
     document.documentElement.style.setProperty('--stk', (v ? v.offsetHeight : 0) + 'px');

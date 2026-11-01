@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.11 — 2026-11-01
+Campi di ricerca (Stock e Prodotti): quando scrivi compare una ✕ per cancellare il testo con un tocco.
+
 ## 0.12.10 — 2026-11-01
 Prodotti: nuovo filtro per posizione (Ovunque / Casa / Cantina), combinabile con categoria, tipo e con gli altri filtri. Si ricorda tra un'apertura e l'altra.
 
