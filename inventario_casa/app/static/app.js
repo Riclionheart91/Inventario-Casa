@@ -591,24 +591,28 @@
       }
       acc('🧪 Ingredienti', comp.replace(/\s*—\s*⚠️?\s*Allergeni:[^—]*/i, '').replace(/^🧪\s*Ingredienti:\s*/i, '').trim(), false);
       acc('🌍 Produttore e dettagli', (p.dettagli || '').split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n'), false);
-      /* riciclo della confezione: sempre visibile, materiale per materiale */
-      var rs = el('div', 'sc-sec sc-ric'); rs.appendChild(el('h3', '', '♻️ Come smaltire la confezione'));
-      var DEST = [[/carta|cartone|cartoncino/i, 'Carta e cartone', 'Appiattisci e lascia pulito.'], [/tetra|poliaccopp|brik|cartone per bevande/i, 'Carta (o plastica, secondo il tuo comune)', 'Svuota, schiaccia e chiudi.'],
-                  [/vetro|bottiglia di vetro|barattolo/i, 'Vetro', 'Svuota e sciacqua; togli il tappo.'], [/alluminio|acciaio|latta|metall|lattina|banda stagnata/i, 'Metalli (spesso insieme alla plastica)', 'Svuota e schiaccia.'],
-                  [/plastic|pet|hdpe|ldpe|pp\b|ps\b|pvc|film|sacchett|busta/i, 'Plastica', 'Svuota; i film sporchi vanno nell\'indifferenziato.'], [/organic|umido|bucce|residui/i, 'Umido', 'Solo se compostabile.'],
-                  [/legno|sughero/i, 'Legno (secondo il comune)', 'Porta all\'isola ecologica.']];
-      var parti = (p.smaltimento || '').split(/\s{2,}|\||;|,/).map(function (x) { return x.trim(); }).filter(Boolean);
-      if (!parti.length) rs.appendChild(el('p', 'note', 'Nessuna indicazione per questo prodotto. Se il comune la richiede, controlla le scritte sulla confezione.'));
-      parti.forEach(function (x) {
-        var r = el('div', 'sc-r'), d = DEST.filter(function (q) { return q[0].test(x); })[0];
-        r.appendChild(el('b', '', x)); r.appendChild(el('span', '', d ? '→ ' + d[1] : '→ Indifferenziato, se non riciclabile')); if (d && d[2]) r.appendChild(el('small', '', d[2])); rs.appendChild(r);
-      });
-      rs.appendChild(el('p', 'sc-leg', 'Indicazioni generali: le regole possono cambiare da comune a comune.')); box.appendChild(rs);
       /* modifica: classificazione e scorta, raccolte in una sezione */
       if (!st.ro) {
         var ed = el('details', 'sc-acc modifica'); ed.appendChild(el('summary', '', '✎ Modifica classificazione e scorta'));
         editSotto(ed, p); editTipo(ed, p); if (p.tipo) editScorta(ed, p); box.appendChild(ed);
       }
+      /* riciclo della confezione: ultima informazione, un colpo d'occhio (materiale → bidone) */
+      var DEST = [[/tetra|poliaccopp|brik|cartone per bevande/i, 'Carta', 'carta'], [/carta|cartone|cartoncino/i, 'Carta', 'carta'],
+                  [/vetro|barattolo/i, 'Vetro', 'vetro'], [/alluminio|acciaio|latta|metall|lattina|banda stagnata/i, 'Metalli', 'metallo'],
+                  [/plastic|pet|hdpe|ldpe|pp\b|ps\b|pvc|film|sacchett|busta/i, 'Plastica', 'plastica'], [/organic|umido|bucce|residui/i, 'Umido', 'umido'],
+                  [/legno|sughero/i, 'Isola ecologica', 'legno']];
+      var rs = el('div', 'sc-sec sc-ric'); rs.appendChild(el('h3', '', '♻️ Smaltimento'));
+      var parti = (p.smaltimento || '').split(/\s{2,}|\||;|,/).map(function (x) { return x.trim(); }).filter(Boolean);
+      if (!parti.length) rs.appendChild(el('p', 'note', 'Nessuna indicazione: guarda le scritte sulla confezione.'));
+      else {
+        var rw = el('div', 'sc-bins');
+        parti.forEach(function (x) {
+          var d = DEST.filter(function (q) { return q[0].test(x); })[0], r = el('div', 'sc-bin ' + (d ? d[2] : 'indiff'));
+          r.appendChild(el('span', 'm', x)); r.appendChild(el('b', '', '→ ' + (d ? d[1] : 'Indifferenziato'))); rw.appendChild(r);
+        });
+        rs.appendChild(rw); rs.appendChild(el('small', 'sc-leg', 'Indicativo: le regole cambiano da comune a comune.'));
+      }
+      box.appendChild(rs);
       if (p.aggiornato) box.appendChild(el('div', 'sc-agg', 'Dati aggiornati il ' + p.aggiornato));
     }).catch(function (e) { box.textContent = 'Scheda non disponibile: ' + e.message; });
   }

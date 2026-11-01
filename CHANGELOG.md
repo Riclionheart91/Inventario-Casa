@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.7 — 2026-11-01
+Scheda prodotto: lo smaltimento è l'ultima informazione e si legge a colpo d'occhio: un riquadro colorato per ogni materiale (carta blu, plastica gialla, vetro verde, metalli grigio, umido marrone) con il bidone dove va, senza testi lunghi.
+
 ## 0.12.6 — 2026-11-01
 La revisione trova lo stesso prodotto censito con due codici (stessi nome, marca e confezione) e in «Da fare» propone «Unisci i prodotti». All'approvazione le giacenze e i movimenti passano al prodotto principale (quello con più dati); l'altro codice resta come **alias** nel nuovo foglio `alias` (creato dall'app) e la sua riga esce dal catalogo. Scansionando l'alias si apre il principale e i nuovi movimenti vanno su quello.
 
