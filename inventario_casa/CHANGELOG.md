@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.3 — 2026-11-01
+Scheda prodotto: sotto Nutri-Score, NOVA ed Eco c'è una mini spiegazione del valore (es. «Qualità media», «Lavorato», «Impatto medio») e una riga che dice cosa significa ciascun punteggio. Il riciclo della confezione è sempre visibile: per ogni materiale (carta, plastica, vetro, metalli…) dice dove va e come prepararlo; senza dati lo dice. Sono indicazioni generali: i comuni possono avere regole diverse.
+
 ## 0.12.2 — 2026-11-01
 Scheda prodotto rifatta: in alto immagine grande con nome, marca e codice; sotto categoria, sottocategoria e tipo come etichette; poi la giacenza con il numero grande e lo stato (In casa / Sotto scorta / Esaurito) a colori, con le posizioni; Nutri-Score, NOVA ed Eco come tre riquadri colorati; i valori nutrizionali in quattro riquadri; adatto a e allergeni come etichette. Ingredienti, produttore e smaltimento stanno in sezioni da aprire; le modifiche (sottocategoria, tipo, scorta) sono raccolte in «Modifica classificazione e scorta».
 

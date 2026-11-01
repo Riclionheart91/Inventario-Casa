@@ -48,7 +48,7 @@
     var m;
     if (path === 'api/stock') return MOCKDB.stock;
     if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta, posti: [{ luogo: e.luogo, qta: e.qta }].concat(e.nome.length % 2 ? [{ luogo: 'Cantina', qta: 1 }] : []) }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
-    if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero (origine: Italia), sale.  —  ⚠️ Allergeni: latte, soia  —  🏷️ en:green-dot', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }, { luogo: 'Cantina', categoria: 'Bevande', qta: 2, minima: 0 }] };
+    if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero (origine: Italia), sale.  —  ⚠️ Allergeni: latte, soia  —  🏷️ en:green-dot', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP  🫙 Vetro', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }, { luogo: 'Cantina', categoria: 'Bevande', qta: 2, minima: 0 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
     if (/^api\/prodotto\/.+\/tipo$/.test(path)) return { ok: true, tipo: (body && body.tipo) || '', nuovo: false };
@@ -552,9 +552,14 @@
           if (/NOVA/i.test(nome) && /^[1-4]$/.test(val)) cl = ['g', 'y', 'o', 'r'][+val - 1];
           if (/Eco/i.test(nome) && /^[A-E]$/i.test(val)) cl = {A: 'g', B: 'g', C: 'y', D: 'o', E: 'r'}[val.toUpperCase()];
           if (/Nutri/i.test(nome) && /^[A-E]$/i.test(val)) cl = {A: 'g', B: 'g', C: 'y', D: 'o', E: 'r'}[val.toUpperCase()];
-          var c = el('div', 'sc-sc ' + cl); c.appendChild(el('small', '', nome)); c.appendChild(el('b', '', val && val.length < 9 ? val : '?')); pb.appendChild(c);
+          var c = el('div', 'sc-sc ' + cl); c.appendChild(el('small', '', nome)); c.appendChild(el('b', '', val && val.length < 9 ? val : '?'));
+          var V = (val || '').toUpperCase(), nut = {A: 'Ottima', B: 'Buona', C: 'Media', D: 'Scarsa', E: 'Pessima'}, eco = {A: 'Impatto molto basso', B: 'Impatto basso', C: 'Impatto medio', D: 'Impatto alto', E: 'Impatto molto alto'},
+              nova = {'1': 'Non lavorato', '2': 'Ingrediente culinario', '3': 'Lavorato', '4': 'Ultra-lavorato'};
+          var cap = /Nutri/i.test(nome) ? (nut[V] ? 'Qualità ' + nut[V].toLowerCase() : 'Non calcolato') : /NOVA/i.test(nome) ? (nova[V] || 'Non calcolato') : /Eco/i.test(nome) ? (eco[V] || 'Non calcolato') : '';
+          if (cap) c.appendChild(el('i', '', cap)); pb.appendChild(c);
         });
         box.appendChild(pb);
+        box.appendChild(el('p', 'sc-leg', 'Nutri-Score: qualità nutrizionale da A (migliore) a E · NOVA: grado di lavorazione da 1 (naturale) a 4 (ultra-lavorato) · Eco-Score: impatto ambientale da A (basso) a E (alto).'));
       }
       /* nutrizione: riquadri con emoji e valore */
       if (p.nutrizione) {
@@ -582,7 +587,19 @@
       }
       acc('🧪 Ingredienti', comp.replace(/\s*—\s*⚠️?\s*Allergeni:[^—]*/i, '').replace(/^🧪\s*Ingredienti:\s*/i, '').trim(), false);
       acc('🌍 Produttore e dettagli', (p.dettagli || '').split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n'), false);
-      acc('♻️ Smaltimento e riciclo', p.smaltimento, false);
+      /* riciclo della confezione: sempre visibile, materiale per materiale */
+      var rs = el('div', 'sc-sec sc-ric'); rs.appendChild(el('h3', '', '♻️ Come smaltire la confezione'));
+      var DEST = [[/carta|cartone|cartoncino/i, 'Carta e cartone', 'Appiattisci e lascia pulito.'], [/tetra|poliaccopp|brik|cartone per bevande/i, 'Carta (o plastica, secondo il tuo comune)', 'Svuota, schiaccia e chiudi.'],
+                  [/vetro|bottiglia di vetro|barattolo/i, 'Vetro', 'Svuota e sciacqua; togli il tappo.'], [/alluminio|acciaio|latta|metall|lattina|banda stagnata/i, 'Metalli (spesso insieme alla plastica)', 'Svuota e schiaccia.'],
+                  [/plastic|pet|hdpe|ldpe|pp\b|ps\b|pvc|film|sacchett|busta/i, 'Plastica', 'Svuota; i film sporchi vanno nell\'indifferenziato.'], [/organic|umido|bucce|residui/i, 'Umido', 'Solo se compostabile.'],
+                  [/legno|sughero/i, 'Legno (secondo il comune)', 'Porta all\'isola ecologica.']];
+      var parti = (p.smaltimento || '').split(/\s{2,}|\||;|,/).map(function (x) { return x.trim(); }).filter(Boolean);
+      if (!parti.length) rs.appendChild(el('p', 'note', 'Nessuna indicazione per questo prodotto. Se il comune la richiede, controlla le scritte sulla confezione.'));
+      parti.forEach(function (x) {
+        var r = el('div', 'sc-r'), d = DEST.filter(function (q) { return q[0].test(x); })[0];
+        r.appendChild(el('b', '', x)); r.appendChild(el('span', '', d ? '→ ' + d[1] : '→ Indifferenziato, se non riciclabile')); if (d && d[2]) r.appendChild(el('small', '', d[2])); rs.appendChild(r);
+      });
+      rs.appendChild(el('p', 'sc-leg', 'Indicazioni generali: le regole possono cambiare da comune a comune.')); box.appendChild(rs);
       /* modifica: classificazione e scorta, raccolte in una sezione */
       if (!st.ro) {
         var ed = el('details', 'sc-acc modifica'); ed.appendChild(el('summary', '', '✎ Modifica classificazione e scorta'));
