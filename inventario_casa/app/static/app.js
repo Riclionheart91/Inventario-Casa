@@ -130,6 +130,11 @@
     var v = document.querySelector('.view:not([hidden]) .stk');
     document.documentElement.style.setProperty('--stk', (v ? v.offsetHeight : 0) + 'px');
   }
+  if (window.ResizeObserver) {   // la barra cambia altezza (suggerimento chiuso, righe di filtri che compaiono): le categorie fisse la seguono
+    var roStk = new ResizeObserver(function () { setStk(); });
+    document.querySelectorAll('.stk').forEach(function (x) { roStk.observe(x); });
+  }
+  window.addEventListener('resize', function () { setStk(); });
 
   /* ---------- impostazioni (solo da qui, non nel menu) ---------- */
   var impTimer = null;
