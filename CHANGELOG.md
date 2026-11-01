@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.13.2 — 2026-11-01
+Ogni proposta (correzioni dei prodotti, nuovi tipi, categorie e voci della revisione) mostra ora anche i prodotti che l'hanno generata, così puoi giudicare se il suggerimento è giusto.
+
 ## 0.13.1 — 2026-11-01
 Riordino del foglio in versione profonda: elimina i fogli e le colonne calcolati da AppSheet, sposta nel foglio «archivio» le righe chiuse (bozze inserite, proposte già applicate), aggiunge a categorie e tipi quelli usati dai prodotti ma mancanti negli elenchi, e mette in ordine schede e colonne con intestazioni fisse, filtri, formato data e menu a tendina. Serve una copia di sicurezza su Drive (già fatta).
 

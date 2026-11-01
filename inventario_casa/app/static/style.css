@@ -209,3 +209,7 @@ details.g.sub{border-bottom:0;margin-left:10px}details.g.sub summary{position:st
 details.g>summary .cs{font-size:.88em;font-weight:500;color:var(--mut);text-transform:none;letter-spacing:0;margin-left:2px}
 
 .card.scad{cursor:pointer}.card.scad.scaduto{border-color:#a8453f}.card.scad.urgente{border-color:#a68a1f}
+
+.prodgen{margin:8px 0 0;padding:8px 10px;border-radius:10px;background:rgba(127,127,127,.12);font-size:.85rem}
+.prodgen .k{font-size:.7rem;letter-spacing:.05em;opacity:.7;margin-bottom:2px}
+.prodgen .pg{padding:1px 0}

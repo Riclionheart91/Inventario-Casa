@@ -29,9 +29,9 @@
       { nome: 'Birra', categoria: 'Cantina', sotto: 'Bevande', luogo: 'Cantina', qta: 8, minima: 0 }
     ],
     appr: [
-      { id: 'P_1', genere: 'P', gruppo: 'Prodotti da correggere', titolo: 'Si & No Mais', prima: 'Si & No Mais · Dispensa › Snack e Dolci', dopo: 'Gallette di mais · Dispensa › Snack e Dolci · tipo Galletta', sicurezza: 100, motivo: 'Snack a base di mais soffiato, classificabile come galletta.', campi: { nome: 'Gallette di mais', categoria: 'Dispensa', sottocategoria: 'Snack e Dolci', tipo: 'Galletta' } },
-      { id: 'P_2', genere: 'P', gruppo: 'Prodotti da correggere', titolo: 'Latte UHT', prima: 'Latte UHT · Dispensa › Bevande', dopo: 'Latte UHT · Frigorifero › Latticini', sicurezza: 82, motivo: 'Attenzione: il latte UHT chiuso resta in dispensa.', campi: { nome: 'Latte UHT', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte' } },
-      { id: 'T_Uova', genere: 'T', gruppo: 'Nuovi tipi', titolo: 'Nuovo tipo: Uova', prima: '', dopo: 'Tipo Uova', sicurezza: null, motivo: "L'AI vuole creare questo tipo di prodotto.", campi: { tipo: 'Uova', scorta_min: 0 } }
+      { id: 'P_1', genere: 'P', gruppo: 'Prodotti da correggere', titolo: 'Si & No Mais', prima: 'Si & No Mais · Dispensa › Snack e Dolci', dopo: 'Gallette di mais · Dispensa › Snack e Dolci · tipo Galletta', sicurezza: 100, motivo: 'Snack a base di mais soffiato, classificabile come galletta.', prodotti: ['Si & No Mais · Si & No · 100 g'], campi: { nome: 'Gallette di mais', categoria: 'Dispensa', sottocategoria: 'Snack e Dolci', tipo: 'Galletta' } },
+      { id: 'P_2', genere: 'P', gruppo: 'Prodotti da correggere', titolo: 'Latte UHT', prima: 'Latte UHT · Dispensa › Bevande', dopo: 'Latte UHT · Frigorifero › Latticini', sicurezza: 82, motivo: 'Attenzione: il latte UHT chiuso resta in dispensa.', prodotti: ['Latte UHT · Parmalat · 1 L'], campi: { nome: 'Latte UHT', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte' } },
+      { id: 'T_Uova', genere: 'T', gruppo: 'Nuovi tipi', titolo: 'Nuovo tipo: Uova', prima: '', dopo: 'Tipo Uova', sicurezza: null, motivo: "L'AI vuole creare questo tipo di prodotto.", prodotti: ['Uova fresche · Aia · 6 pz', 'Uova bio · Fattoria · 4 pz'], campi: { tipo: 'Uova', scorta_min: 0 } }
     ],
     spesa: { finiti: 1, in_esaurimento: 1, voci: [
       { tipo: 'Burro', categoria: 'Frigorifero', sottocategoria: 'Latticini', giacenza: 0, minima: 2, stato: 'FINITO', dettaglio: 'Casa 0 (1 codice)', barcode: 8002795002995, prodotto: 'Burro', immagine: '' },
@@ -1357,6 +1357,7 @@
       if (a.prima) c.appendChild(pd('prima', 'ATTUALE', a.prima));
       c.appendChild(pd('dopo', 'NUOVO', a.dopo));
       if (a.motivo) c.appendChild(el('div', 'why', a.motivo));
+      if (a.prodotti && a.prodotti.length) { var pb = el('div', 'prodgen'); pb.appendChild(el('div', 'k', 'PRODOTTI COINVOLTI')); a.prodotti.forEach(function (t) { pb.appendChild(el('div', 'pg', t)); }); c.appendChild(pb); }
       var K = a.campi || {}, ed = null, nome, f, scorta;
       var form = el('div', 'edit'); form.hidden = true;
       if (a.genere === 'P') { nome = campoTesto(form, 'Nome', K.nome); f = campiCatSot(form, K.categoria, K.sottocategoria, K.tipo); }

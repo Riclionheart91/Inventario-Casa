@@ -531,3 +531,13 @@ class TScadenze(unittest.TestCase):
         self.assertEqual(v, {"Casa": 1, "Cantina": 1})
         with self.assertRaises(ApiError):
             inv.movimento(8003333333333, "Carico", "Casa", 1, categoria="Dispensa", scadenza="domani")
+
+
+class TProdottiProposte(unittest.TestCase):
+    def test_elenco_prodotti(self):
+        from app.service import elenco_prodotti
+        ps = [{"Prodotto": "Pasta %d" % i, "Marca": "X", "Confezione": "500 g"} for i in range(10)]
+        out = elenco_prodotti(ps)
+        self.assertEqual(len(out), 9)
+        self.assertEqual(out[0], "Pasta 0 · X · 500 g")
+        self.assertEqual(out[-1], "… e altri 2")

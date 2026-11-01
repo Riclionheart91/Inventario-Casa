@@ -38,6 +38,18 @@ def bco(k):
     return int(k) if len(k) <= 15 else k
 
 
+def desc_prodotto(p: dict) -> str:
+    """«Nome · Marca · Confezione» di un prodotto (riga del foglio) per mostrarlo accanto a una proposta."""
+    return " · ".join(x for x in (str(p.get("Prodotto", "") or "").strip() or "(senza nome)", str(p.get("Marca", "") or "").strip(),
+                                  str(p.get("Confezione", "") or "").strip()) if x)
+
+
+def elenco_prodotti(ps: list, massimo: int = 8) -> List[str]:
+    """Prime `massimo` descrizioni e, se ce ne sono altri, una riga «… e altri N»."""
+    d = [desc_prodotto(p) for p in ps]
+    return d[:massimo] + (["… e altri %d" % (len(d) - massimo)] if len(d) > massimo else [])
+
+
 def parse_data(x) -> Optional[date]:
     """Data da numero seriale di Google Sheets, testo ISO (aaaa-mm-gg) o italiano (gg/mm/aaaa); None se non riconosciuta."""
     from datetime import timedelta
@@ -753,6 +765,7 @@ class Inventory:
                         "prima": j([cur or "(nome vuoto)", cat_old, ("tipo " + pr["tipo"]) if pr.get("tipo") else ""]),
                         "dopo": j([sug or cur or "(nome vuoto)", cat_new or cat_old, ("tipo " + (t_new or pr.get("tipo", ""))) if (t_new or pr.get("tipo")) else ""]),
                         "sicurezza": pct, "motivo": a.get("Motivo", ""),
+                        "prodotti": elenco_prodotti([p for p in self._dicts(SH_PROD) if nbc(p.get("Barcode")) == nbc(a.get("Barcode"))]),
                         "campi": {"nome": sug or cur, "categoria": str(a.get("Categoria_Suggerita", "") or pr.get("categoria", "")),
                                   "sottocategoria": str(a.get("Sottocategoria_Suggerita", "") or pr.get("sottocategoria", "")),
                                   "tipo": t_new or pr.get("tipo", "")}})
@@ -762,13 +775,27 @@ class Inventory:
                 out.append({"id": "T_%s" % a.get("Tipo"), "gruppo": "Nuovi tipi", "genere": "T", "titolo": "Nuovo tipo: %s" % a.get("Tipo"),
                             "prima": "", "dopo": "Tipo %s" % a.get("Tipo"), "sicurezza": None,
                             "motivo": a.get("Note", "") or "L'AI vuole creare questo tipo di prodotto. Imposta la scorta minima e approva.",
+                            "prodotti": elenco_prodotti([p for p in self._dicts(SH_PROD) if str(p.get("Tipo", "")).strip().casefold() == str(a.get("Tipo", "")).strip().casefold()]
+                                                        + [{"Prodotto": b.get("Prodotto"), "Marca": b.get("Marca"), "Confezione": b.get("Confezione")} for b in self._opz("bozze")
+                                                           if str(b.get("Tipo", "")).strip().casefold() == str(a.get("Tipo", "")).strip().casefold() and str(b.get("Stato", "")).upper() not in ("INSERITA", "SCARTATA")]),
                             "campi": {"tipo": str(a.get("Tipo", "")), "scorta_min": _num(sm)}})
         for i, a in enumerate(self._dicts(SH_AIC, True)):
             if str(a.get("Stato", "")) == ST_PENDING[SH_AIC]:
                 out.append({"id": "C_%d" % (i + 2), "gruppo": "Categorie proposte", "genere": "C",
                             "titolo": "Categoria: %s → %s" % (a.get("Azione", ""), a.get("Nuovo_Nome") or a.get("Sottocategoria", "")),
                             "prima": str(a.get("Sottocategoria", "")), "dopo": str(a.get("Nuovo_Nome", "")),
-                            "sicurezza": None, "motivo": a.get("Motivo", ""), "campi": {}})
+                            "sicurezza": None, "motivo": a.get("Motivo", ""), "campi": {},
+                            "prodotti": self._prodotti_categoria(a)})
+        return out
+
+    def _prodotti_categoria(self, a: dict) -> List[str]:
+        """Prodotti toccati da una proposta di categoria: quelli della categoria o sottocategoria indicata, e gli esempi che l'AI ha citato."""
+        cat, sub = str(a.get("Categoria", "") or "").strip().casefold(), str(a.get("Sottocategoria", "") or "").strip().casefold()
+        ps = [p for p in self._dicts(SH_PROD) if (not cat or str(p.get("Categoria", "")).strip().casefold() == cat) and (not sub or str(p.get("Sottocategoria", "")).strip().casefold() == sub)] if (cat or sub) else []
+        out = elenco_prodotti(ps)
+        ex = str(a.get("Prodotti_Esempio", "") or "").strip()
+        if ex and not ps:
+            out.append(ex)
         return out
 
     def decidi(self, id_: str, azione: str, campi: Optional[dict] = None) -> dict:
