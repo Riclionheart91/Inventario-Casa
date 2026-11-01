@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.2 — 2026-11-01
+Scheda prodotto rifatta: in alto immagine grande con nome, marca e codice; sotto categoria, sottocategoria e tipo come etichette; poi la giacenza con il numero grande e lo stato (In casa / Sotto scorta / Esaurito) a colori, con le posizioni; Nutri-Score, NOVA ed Eco come tre riquadri colorati; i valori nutrizionali in quattro riquadri; adatto a e allergeni come etichette. Ingredienti, produttore e smaltimento stanno in sezioni da aprire; le modifiche (sottocategoria, tipo, scorta) sono raccolte in «Modifica classificazione e scorta».
+
 ## 0.12.1 — 2026-11-01
 Scheda prodotto: la matita (✎) accanto al nome permette di correggere a mano nome, marca e confezione (il nome si aggiorna anche sulle righe di movimento). «Cambia tipo» è ora un menu filtrato sulla categoria e sottocategoria del prodotto: mostra i tipi dei prodotti della stessa sottocategoria (o categoria), con «Tutti i tipi…» per vedere l'elenco completo. Lo stesso filtro vale per i suggerimenti del tipo nelle bozze.
 

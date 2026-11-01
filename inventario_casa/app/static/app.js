@@ -48,7 +48,7 @@
     var m;
     if (path === 'api/stock') return MOCKDB.stock;
     if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta, posti: [{ luogo: e.luogo, qta: e.qta }].concat(e.nome.length % 2 ? [{ luogo: 'Cantina', qta: 1 }] : []) }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
-    if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero.', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }, { luogo: 'Cantina', categoria: 'Bevande', qta: 2, minima: 0 }] };
+    if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero (origine: Italia), sale.  —  ⚠️ Allergeni: latte, soia  —  🏷️ en:green-dot', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }, { luogo: 'Cantina', categoria: 'Bevande', qta: 2, minima: 0 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
     if (/^api\/prodotto\/.+\/tipo$/.test(path)) return { ok: true, tipo: (body && body.tipo) || '', nuovo: false };
@@ -516,26 +516,79 @@
     st.schedaBc = barcode; var box = $('sc-body'); box.textContent = 'Carico…'; $('scheda').hidden = false; $('sc-close').focus();
     api('GET', 'api/scheda/' + barcode).then(function (p) {
       box.textContent = '';
-      var head = el('div', 'sc-head'), im = el('div', 'sc-img'), t = el('div', '');
-      if (p.immagine) thumb(im, p.immagine);
+      var tot = p.totale || 0, min = p.scorta_minima || 0;
+      var stato = tot <= 0 ? ['zero', 'Esaurito'] : (min > 0 && tot <= min ? ['low', 'Sotto scorta'] : ['ok', 'In casa']);
+      /* testata: immagine grande, nome, marca, codice */
+      var head = el('div', 'sc-hero'), im = el('div', 'sc-img'), t = el('div', 'sc-tit');
+      if (p.immagine) thumb(im, p.immagine); else im.appendChild(el('span', 'sc-noimg', '📦'));
       var h2 = el('h2', '', p.nome || 'Prodotto'); h2.id = 'sc-nome';
       if (!st.ro) { var pen = el('button', 'sq pen', '✎'); pen.type = 'button'; pen.setAttribute('aria-label', 'Modifica nome, marca e confezione'); pen.addEventListener('click', function () { editDati(box, p, head); }); h2.appendChild(document.createTextNode(' ')); h2.appendChild(pen); }
       t.appendChild(h2);
-      var m = [p.marca, p.confezione].filter(Boolean).join(' · '); if (m) t.appendChild(el('div', 'm', m));
-      t.appendChild(el('div', 'm', 'Codice ' + p.barcode));
+      var m = [p.marca, p.confezione].filter(Boolean).join(' · '); if (m) t.appendChild(el('div', 'sc-marca', m));
+      t.appendChild(el('div', 'sc-cod', 'Codice ' + p.barcode));
       head.appendChild(im); head.appendChild(t); box.appendChild(head);
-      var pills = el('div', 'pills'); [p.tipo, p.categoria, p.sottocategoria].filter(Boolean).forEach(function (x) { pills.appendChild(el('span', '', x)); }); box.appendChild(pills);
-      var g = el('div', 'sc-sec'); g.appendChild(el('h3', '', 'Giacenza'));
-      (p.giacenze || []).forEach(function (x) { var r = el('div', 'sc-giac'); r.appendChild(el('span', '', [x.luogo, x.categoria].filter(Boolean).join(' · '))); r.appendChild(el('b', '', String(x.qta))); g.appendChild(r); });
-      if (!(p.giacenze || []).length) g.appendChild(el('p', '', 'Nessuna giacenza.'));
-      else { var tt = el('div', 'sc-giac tot'); tt.appendChild(el('span', '', 'Totale')); tt.appendChild(el('b', '', String(p.totale))); g.appendChild(tt); }
-      if (p.scorta_minima > 0) g.appendChild(el('div', p.totale <= p.scorta_minima ? 'sc-low' : 'note', 'Scorta minima del tipo: ' + p.scorta_minima + (p.totale <= p.scorta_minima ? ' — sotto scorta' : '')));
-      box.appendChild(g);
-      if (!st.ro) { editSotto(box, p); editTipo(box, p); if (p.tipo) editScorta(box, p); }
-      [['Punteggi', p.punteggi && p.punteggi.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
-       ['Nutrizione (100 g)', p.nutrizione && p.nutrizione.split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n')],
-       ['Adatto a', p.free_from], ['Dettagli', p.dettagli], ['Composizione', p.composizione], ['Smaltimento e riciclo', p.smaltimento],
-       ['Aggiornato il', p.aggiornato]].forEach(function (a) { var s = secTxt(a[0], a[1]); if (s) box.appendChild(s); });
+      /* percorso: categoria › sottocategoria, tipo */
+      var pills = el('div', 'pills');
+      if (p.categoria) pills.appendChild(el('span', 'cat', p.categoria));
+      if (p.sottocategoria) pills.appendChild(el('span', 'cat', p.sottocategoria));
+      if (p.tipo) pills.appendChild(el('span', 'tipo', 'Tipo · ' + p.tipo));
+      box.appendChild(pills);
+      /* giacenza: numero grande + stato + dove */
+      var gi = el('div', 'sc-stock ' + stato[0]), gn = el('div', 'sc-num'); gn.appendChild(el('b', '', String(tot))); gn.appendChild(el('small', '', 'pz in casa'));
+      var gs = el('div', 'sc-stat'); gs.appendChild(el('span', 'sc-badge', stato[1]));
+      gs.appendChild(el('span', 'sc-min', min > 0 ? 'Scorta minima del tipo: ' + min : 'Nessuna scorta minima (compare in lista quando è finito)'));
+      gi.appendChild(gn); gi.appendChild(gs); box.appendChild(gi);
+      if ((p.giacenze || []).length) {
+        var dove = el('div', 'sc-dove');
+        (p.giacenze || []).forEach(function (x) { var c = el('div', 'sc-luogo'); c.appendChild(el('span', '', (x.luogo === 'Cantina' ? '🏚️ ' : '🏠 ') + x.luogo + (x.categoria ? ' · ' + x.categoria : ''))); c.appendChild(el('b', '', String(x.qta))); dove.appendChild(c); });
+        box.appendChild(dove);
+      }
+      /* punteggi: tre badge colorati */
+      if (p.punteggi) {
+        var pb = el('div', 'sc-score');
+        p.punteggi.split('|').map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (x) {
+          var mm = /^(Nutri|NOVA|Eco)\s*(\S+)?\s*(.*)$/i.exec(x), nome = mm ? mm[1] : x, val = mm ? (mm[3] || mm[2] || '') : '';
+          var cl = /🟢|🟩/.test(x) ? 'g' : /🟡|🟨/.test(x) ? 'y' : /🟠|🟧/.test(x) ? 'o' : /🔴|🟥/.test(x) ? 'r' : /🔵|UNKNOWN/i.test(x) ? 'u' : '';
+          if (/NOVA/i.test(nome) && /^[1-4]$/.test(val)) cl = ['g', 'y', 'o', 'r'][+val - 1];
+          if (/Eco/i.test(nome) && /^[A-E]$/i.test(val)) cl = {A: 'g', B: 'g', C: 'y', D: 'o', E: 'r'}[val.toUpperCase()];
+          if (/Nutri/i.test(nome) && /^[A-E]$/i.test(val)) cl = {A: 'g', B: 'g', C: 'y', D: 'o', E: 'r'}[val.toUpperCase()];
+          var c = el('div', 'sc-sc ' + cl); c.appendChild(el('small', '', nome)); c.appendChild(el('b', '', val && val.length < 9 ? val : '?')); pb.appendChild(c);
+        });
+        box.appendChild(pb);
+      }
+      /* nutrizione: riquadri con emoji e valore */
+      if (p.nutrizione) {
+        var ns = el('div', 'sc-sec'); ns.appendChild(el('h3', '', 'Valori per 100 g'));
+        var ng = el('div', 'sc-nutri');
+        p.nutrizione.split('|').map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (x) {
+          var mm = /^(\S+)\s+([\d.,]+)\s*(kcal|g|mg)?\s*(.*)$/.exec(x), c = el('div', 'sc-n');
+          if (mm) { c.appendChild(el('span', 'e', mm[1])); c.appendChild(el('b', '', mm[2] + (mm[3] ? ' ' + mm[3] : ''))); c.appendChild(el('small', '', mm[4] || '')); }
+          else c.appendChild(el('small', '', x));
+          ng.appendChild(c);
+        });
+        ns.appendChild(ng); box.appendChild(ns);
+      }
+      /* adatto a / allergeni: chip */
+      var chips = [];
+      if (p.free_from) p.free_from.split(/[|,]/).forEach(function (x) { x = x.trim(); if (x) chips.push([x, 'ok']); });
+      var comp = p.composizione || '', allerg = '';
+      var ma = /⚠️?\s*Allergeni:\s*([^—]+)/i.exec(comp); if (ma) { allerg = ma[1]; allerg.split(/[,;]/).forEach(function (x) { x = x.trim(); if (x) chips.push(['⚠️ ' + x, 'warn']); }); }
+      if (chips.length) { var cs = el('div', 'sc-sec'); cs.appendChild(el('h3', '', 'Adatto a e allergeni')); var cw = el('div', 'sc-chips'); chips.forEach(function (c) { cw.appendChild(el('span', c[1], c[0])); }); cs.appendChild(cw); box.appendChild(cs); }
+      /* testi lunghi: sezioni da aprire */
+      function acc(titolo, testo, aperta) {
+        if (!testo) return;
+        var d = el('details', 'sc-acc'); d.open = !!aperta; d.appendChild(el('summary', '', titolo));
+        var pp = el('p', '', testo); d.appendChild(pp); box.appendChild(d);
+      }
+      acc('🧪 Ingredienti', comp.replace(/\s*—\s*⚠️?\s*Allergeni:[^—]*/i, '').replace(/^🧪\s*Ingredienti:\s*/i, '').trim(), false);
+      acc('🌍 Produttore e dettagli', (p.dettagli || '').split('|').map(function (x) { return x.trim(); }).filter(Boolean).join('\n'), false);
+      acc('♻️ Smaltimento e riciclo', p.smaltimento, false);
+      /* modifica: classificazione e scorta, raccolte in una sezione */
+      if (!st.ro) {
+        var ed = el('details', 'sc-acc modifica'); ed.appendChild(el('summary', '', '✎ Modifica classificazione e scorta'));
+        editSotto(ed, p); editTipo(ed, p); if (p.tipo) editScorta(ed, p); box.appendChild(ed);
+      }
+      if (p.aggiornato) box.appendChild(el('div', 'sc-agg', 'Dati aggiornati il ' + p.aggiornato));
     }).catch(function (e) { box.textContent = 'Scheda non disponibile: ' + e.message; });
   }
   function editDati(box, p, head) {   // matita: nome, marca e confezione a mano
