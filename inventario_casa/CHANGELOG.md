@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.12.12 — 2026-11-01
+Stock: scorrendo dentro una sottocategoria, il titolo fisso della categoria diventa «Categoria • Sottocategoria» (la sottocategoria in carattere più piccolo) e torna normale uscendone.
+
 ## 0.12.11 — 2026-11-01
 Campi di ricerca (Stock e Prodotti): quando scrivi compare una ✕ per cancellare il testo con un tocco.
 

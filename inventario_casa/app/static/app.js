@@ -752,7 +752,7 @@
     }).forEach(function (r) { var g = r.categoria || 'Altro'; if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(r); });
     if (!order.length) { box.appendChild(el('p', 'empty', 'Nessun prodotto trovato.')); return; }
     order.forEach(function (g) {
-      var d = el('details', 'g'); d.open = true; d.appendChild(el('summary', '', g + ' (' + groups[g].length + ')'));
+      var d = el('details', 'g'); d.open = true; var sg = el('summary', ''); var ct = el('span', 'ct', g + ' (' + groups[g].length + ')'); ct.appendChild(el('span', 'cs', '')); sg.appendChild(ct); d.appendChild(sg);
       var sub = {}, sord = [];   // dentro la categoria, le sottocategorie aggregano come le categorie
       groups[g].forEach(function (r) { var s = r.sotto || 'Altro'; if (!sub[s]) { sub[s] = []; sord.push(s); } sub[s].push(r); });
       sord.sort(function (x, y) { if (x === 'Altro') return 1; if (y === 'Altro') return -1; return x.localeCompare(y, 'it'); });
@@ -776,7 +776,21 @@
       });
       box.appendChild(d);
     });
+    titoliFissi();
   }
+  /* il titolo fisso della categoria diventa «Categoria • Sottocategoria» mentre si scorre dentro una sottocategoria */
+  function titoliFissi() {
+    document.querySelectorAll('#stock > details.g').forEach(function (d) {
+      var sg = d.querySelector(':scope > summary'), cs = sg && sg.querySelector('.cs'); if (!cs) return;
+      var linea = sg.getBoundingClientRect().bottom, nome = '';
+      d.querySelectorAll(':scope > details.sub').forEach(function (ds) {
+        var s = ds.querySelector('summary').getBoundingClientRect(), r = ds.getBoundingClientRect();
+        if (d.open && s.bottom <= linea + 1 && r.bottom > linea + 1) nome = ds.querySelector('.gn').textContent;
+      });
+      var t = nome ? ' • ' + nome : ''; if (cs.textContent !== t) cs.textContent = t;
+    });
+  }
+  (function () { var occ = false; window.addEventListener('scroll', function () { if (occ) return; occ = true; requestAnimationFrame(function () { occ = false; if (!$('v-stock').hidden) titoliFissi(); }); }, true); })();
 
 
   /* ---------- elenco prodotti ---------- */
