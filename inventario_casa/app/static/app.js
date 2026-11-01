@@ -809,8 +809,8 @@
     }).catch(function (e) { toast('Elenco non caricato: ' + e.message, true); });
   }
   var FILTRI_PROD = [['tutti', 'Tutti'], ['casa', 'In casa'], ['esauriti', 'Esauriti'], ['sotto', 'Sotto scorta']];
-  var prodFiltro = (function () { try { var f = localStorage.getItem('prodFiltro'); return FILTRI_PROD.some(function (x) { return x[0] === f; }) ? f : 'tutti'; } catch (e) { return 'tutti'; } })();
-  var prodCat = (function () { try { return localStorage.getItem('prodCat') || ''; } catch (e) { return ''; } })();
+  var prodFiltro = 'tutti';
+  var prodCat = '';
   function buildCatProd() {   // riga di categorie per isolare un solo reparto
     var box = $('prod-cat'); if (!box) return; box.textContent = '';
     var conta = {}; (st.prod || []).forEach(function (r) { var c = (r.categoria || '').trim() || 'Senza categoria'; conta[c] = (conta[c] || 0) + 1; });
@@ -818,22 +818,21 @@
     if (prodCat && !conta[prodCat]) prodCat = '';
     [''].concat(nomi).forEach(function (c) {
       var b = el('button', 'chip', c ? c + ' ' + conta[c] : 'Tutte'); b.type = 'button'; b.setAttribute('aria-pressed', String(prodCat === c));
-      b.addEventListener('click', function () { prodCat = c; prodSotto = ''; prodTipo = ''; try { localStorage.setItem('prodCat', c); } catch (e) { /* ok */ } buildCatProd(); renderProd(); });
+      b.addEventListener('click', function () { prodCat = c; prodSotto = ''; prodTipo = ''; buildCatProd(); renderProd(); });
       box.appendChild(b);
     });
   }
-  var prodLuogo = (function () { try { var l = localStorage.getItem('prodLuogo'); return l === 'Casa' || l === 'Cantina' ? l : ''; } catch (e) { return ''; } })();
+  var prodLuogo = '';
   function buildLuogoProd() {   // dove si trova: Casa o Cantina (si combina con gli altri filtri)
     var box = $('prod-luogo'); if (!box) return; box.textContent = '';
     [['', 'Ovunque'], ['Casa', '🏠 Casa'], ['Cantina', '🏚️ Cantina']].forEach(function (o) {
       var b = el('button', 'chip', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(prodLuogo === o[0]));
-      b.addEventListener('click', function () { prodLuogo = o[0]; try { localStorage.setItem('prodLuogo', o[0]); } catch (e) { /* ok */ } buildLuogoProd(); renderProd(); }); box.appendChild(b);
+      b.addEventListener('click', function () { prodLuogo = o[0]; buildLuogoProd(); renderProd(); }); box.appendChild(b);
     });
   }
   var prodSotto = '', prodTipo = '';
   function vediProdotti(cat, sotto, tipo) {   // dalla scheda all'elenco prodotti filtrato
     prodCat = cat || ''; prodSotto = sotto || ''; prodTipo = tipo || ''; prodFiltro = 'tutti'; prodLuogo = '';
-    try { localStorage.setItem('prodCat', prodCat); localStorage.setItem('prodFiltro', 'tutti'); } catch (e) { /* ok */ }
     $('qp2').value = ''; closeScheda(); show('prod'); buildFiltriProd(); renderProd();
   }
   function buildTipoProd() {
@@ -856,7 +855,7 @@
     var box = $('prod-flt'); box.textContent = '';
     FILTRI_PROD.forEach(function (o) {
       var b = el('button', 'chip', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(prodFiltro === o[0]));
-      b.addEventListener('click', function () { prodFiltro = o[0]; try { localStorage.setItem('prodFiltro', o[0]); } catch (e) { /* ok */ } buildFiltriProd(); renderProd(); }); box.appendChild(b);
+      b.addEventListener('click', function () { prodFiltro = o[0]; buildFiltriProd(); renderProd(); }); box.appendChild(b);
     });
   }
   function totTipo(r) { return r.tot_tipo == null ? (r.qta || 0) : r.tot_tipo; }
