@@ -535,11 +535,20 @@
        ['Aggiornato il', p.aggiornato]].forEach(function (a) { var s = secTxt(a[0], a[1]); if (s) box.appendChild(s); });
     }).catch(function (e) { box.textContent = 'Scheda non disponibile: ' + e.message; });
   }
+  function stepper(inp) {   // - e + accanto a un campo numerico: niente tastiera
+    var w = el('div', 'stp'), m = el('button', 'sq', '−'), pl = el('button', 'sq', '+');
+    m.type = pl.type = 'button'; m.setAttribute('aria-label', 'Diminuisci'); pl.setAttribute('aria-label', 'Aumenta');
+    inp.readOnly = true; inp.inputMode = 'none';
+    var val = function () { var n = Number(inp.value); return isFinite(n) ? n : 0; };
+    m.addEventListener('click', function () { inp.value = String(Math.max(0, val() - 1)); });
+    pl.addEventListener('click', function () { inp.value = String(Math.min(999, val() + 1)); });
+    w.appendChild(m); w.appendChild(inp); w.appendChild(pl); return w;
+  }
   function editScorta(box, p) {   // la scorta minima e del TIPO: vale per tutti i prodotti di quel tipo
     var s = el('div', 'sc-sec'); s.appendChild(el('h3', '', 'Scorta minima del tipo «' + p.tipo + '»'));
     var row = el('div', 'sc-edit'), inp = el('input', ''), ok = el('button', 'btn primary', 'Salva'); ok.type = 'button';
     inp.type = 'number'; inp.min = '0'; inp.max = '999'; inp.step = '1'; inp.inputMode = 'numeric'; inp.value = String(p.scorta_minima || 0); inp.setAttribute('aria-label', 'Scorta minima');
-    row.appendChild(inp); row.appendChild(ok); s.appendChild(row);
+    row.appendChild(stepper(inp)); row.appendChild(ok); s.appendChild(row);
     s.appendChild(el('p', 'note', 'Quando la giacenza totale del tipo scende a questo numero, finisce nella lista della spesa. Con 0 non serve tenerne in casa, ma quando è finito compare comunque in lista.'));
     box.appendChild(s);
     ok.addEventListener('click', function () {
@@ -1111,7 +1120,7 @@
       var K = a.campi || {}, ed = null, nome, f, scorta;
       var form = el('div', 'edit'); form.hidden = true;
       if (a.genere === 'P') { nome = campoTesto(form, 'Nome', K.nome); f = campiCatSot(form, K.categoria, K.sottocategoria, K.tipo); }
-      else if (a.genere === 'T') { nome = campoTesto(form, 'Nome del tipo', K.tipo); scorta = campoTesto(form, 'Scorta minima', K.scorta_min == null ? 0 : K.scorta_min); scorta.type = 'number'; scorta.min = '0'; }
+      else if (a.genere === 'T') { nome = campoTesto(form, 'Nome del tipo', K.tipo); scorta = campoTesto(form, 'Scorta minima', K.scorta_min == null ? 0 : K.scorta_min); scorta.type = 'number'; scorta.min = '0'; var wl = scorta.parentNode, dv = el('div', 'fld'); dv.appendChild(wl.firstChild); dv.appendChild(stepper(scorta)); wl.parentNode.replaceChild(dv, wl); }
       c.appendChild(form);
       var bt = el('div', 'btns'), ok = el('button', 'btn ok', 'Approva'), cor = el('button', 'btn', 'Correggi'), no = el('button', 'btn bad', 'Rifiuta');
       [ok, cor, no].forEach(function (x) { x.type = 'button'; bt.appendChild(x); });

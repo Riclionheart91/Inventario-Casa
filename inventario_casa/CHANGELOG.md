@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.11.5 — 2026-11-01
+Scorta minima: accanto al numero ci sono i pulsanti − e + (da 0 a 999), senza tastiera; vale nella scheda del prodotto e nella correzione di un tipo nuovo in «Da fare».
+
 ## 0.11.4 — 2026-11-01
 Scorta minima 0: vuol dire «non mi serve tenerne in casa», ma quando il tipo è finito compare comunque nella lista della spesa (prima con 0 non compariva mai). Con scorta 1 o più resta come prima: compare quando la giacenza scende a quel numero. La revisione non segnala più i tipi con scorta 0.
 
