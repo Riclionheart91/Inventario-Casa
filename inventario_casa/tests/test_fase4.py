@@ -381,3 +381,17 @@ class TControlloCategorie(unittest.TestCase):
         h = st.sheets["prodotti"][0]
         riga = righe(st, "prodotti", "Barcode", 8002795002995)[0]
         self.assertEqual((riga[h.index("Categoria")], riga[h.index("Sottocategoria")]), ("Frigorifero", "Latticini"))
+
+
+class TIgnoraResta(unittest.TestCase):
+    def test_voce_ignorata_non_torna(self):
+        import tempfile, os
+        from app.revisione import Revisione
+        st, inv = make()
+        ctrl = lambda prodotti, cats: [{"bc": "8002795002995", "categoria": "Frigorifero", "sottocategoria": "Latticini", "motivo": "latte"}]
+        r = Revisione(inv, None, None, ctrl, percorso=os.path.join(tempfile.mkdtemp(), "r.json"))
+        r.esegui()
+        v = [x for x in r.voci_aperte() if x["titolo"].startswith("Categoria da controllare")][0]
+        r.decidi(v["id"], "RIFIUTA")
+        r.esegui()
+        self.assertFalse([x for x in r.voci_aperte() if x["titolo"].startswith("Categoria da controllare")])

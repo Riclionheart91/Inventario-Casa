@@ -178,7 +178,7 @@ class Revisione:
                     res = []
                 for x in res:
                     a = att.get(x["bc"], {})
-                    voci.append(self._voce("categoria", x["bc"], "Categoria da controllare: %s" % nomi.get(x["bc"], x["bc"]),
+                    voci.append(self._voce("categoria", "%s>%s>%s" % (x["bc"], x["categoria"], x["sottocategoria"]), "Categoria da controllare: %s" % nomi.get(x["bc"], x["bc"]),
                                            prima="%s › %s" % (a.get("categoria", ""), a.get("sotto", "")),
                                            dopo="%s › %s" % (x["categoria"], x["sottocategoria"]), motivo=x.get("motivo") or "proposto dall'AI",
                                            azione={"t": "categoria", "bc": x["bc"], "categoria": x["categoria"], "sotto": x["sottocategoria"]},
@@ -226,7 +226,11 @@ class Revisione:
             voci = self.analizza()
             azioni = sum(1 for v in voci if v.get("azione"))
             riep = "%d voci: %d con correzione proposta, %d solo da leggere" % (len(voci), azioni, len(voci) - azioni)
-            self._salva({"ultima": self.oggi().strftime("%Y-%m-%d"), "voci": voci, "riepilogo": riep})
+            ign = set(self._leggi().get("ignorate", []))
+            voci = [v for v in voci if v["id"] not in ign]   # cio che hai gia ignorato non si ripropone
+            azioni = sum(1 for v in voci if v.get("azione"))
+            riep = "%d voci: %d con correzione proposta, %d solo da leggere" % (len(voci), azioni, len(voci) - azioni)
+            self._salva({"ultima": self.oggi().strftime("%Y-%m-%d"), "voci": voci, "riepilogo": riep, "ignorate": sorted(ign)})
             return {"ok": True, "voci": len(voci), "riepilogo": riep}
         finally:
             self._lock.release()
@@ -256,5 +260,7 @@ class Revisione:
             v["stato"] = "FATTA"
         else:
             v["stato"] = "IGNORATA"
+            if (v.get("azione") or {}).get("t") in ("categoria", "tipo", "unisci", "rifiuta_tipo"):   # le voci riassuntive tornano ogni volta
+                d["ignorate"] = sorted(set(d.get("ignorate", [])) | {v["id"]})
         self._salva(d)
         return {"ok": True, "stato": v["stato"]}

@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.11.3 — 2026-10-31
+Revisione, categoria: l'AI ora sa che la categoria dice dove tieni il prodotto, non che cos'è: il latte UHT chiuso, le conserve e simili restano in Dispensa anche se dopo l'apertura vanno in frigo. Quello che scegli «Ignora» non viene più riproposto nelle revisioni successive (vale per categoria, tipo, unioni e tipi senza prodotti).
+
 ## 0.11.2 — 2026-10-31
 Revisione, controllo della categoria: ora riguarda tutti i prodotti (a gruppi di 40), non solo i primi 200.
 
