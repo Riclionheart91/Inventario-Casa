@@ -759,6 +759,11 @@
       sord.forEach(function (sn) {
        var ds = el('details', 'g sub'); ds.open = true; var pz = 0; sub[sn].forEach(function (r) { pz += r.qta || 0; });
        var sm = el('summary', ''); sm.appendChild(el('span', 'gn', sn)); var sc = el('span', 'gc', ''); sc.appendChild(el('b', '', pz + ' pz')); sc.appendChild(document.createTextNode(' · ' + sub[sn].length)); sm.appendChild(sc); ds.appendChild(sm);
+       sub[sn].sort(function (a, b) {   // dentro la sottocategoria: per tipo (senza tipo in fondo), poi per nome
+        var ta = (a.tipo || '').trim(), tb = (b.tipo || '').trim();
+        if (!ta !== !tb) return ta ? -1 : 1;
+        return ta.localeCompare(tb, 'it') || String(a.nome).localeCompare(String(b.nome), 'it') || String(a.luogo).localeCompare(String(b.luogo), 'it');
+       });
        sub[sn].forEach(function (r) {
         var it = el('div', 'item'), n = el('div', 'n'), th = el('div', 'th');
         if (r.img) thumbLazy(th, r.img);
