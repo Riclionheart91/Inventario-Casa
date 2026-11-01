@@ -341,6 +341,19 @@ class ModTipo(BaseModel):
     tipo: str
 
 
+class ModDati(BaseModel):
+    nome: str
+    marca: str = ""
+    confezione: str = ""
+
+
+@app.patch("/api/prodotto/{barcode}/dati")
+def modifica_dati(barcode: str, m: ModDati, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().modifica_dati(barcode, m.nome, m.marca, m.confezione)
+
+
 @app.patch("/api/prodotto/{barcode}/tipo")
 def modifica_tipo(barcode: str, m: ModTipo, x_code: str = Header(None)):
     check(x_code)

@@ -450,3 +450,17 @@ class TEmojiCategorie(unittest.TestCase):
         riga = st.sheets["prodotti"][-1]
         self.assertEqual((riga[h.index("Categoria")], riga[h.index("Sottocategoria")]), ("🪴 Piante e Giardino", "🌱 Concimi e Terricci"))
         self.assertIn(["🪴 Piante e Giardino", "🌱 Concimi e Terricci"], [x[:2] for x in st.sheets["categorie"][1:]])
+
+
+class TModificaDati(unittest.TestCase):
+    def test_modifica_nome_marca_confezione(self):
+        st, inv = make()
+        r = inv.modifica_dati(8003333333333, "  Riso   Carnaroli ", "Gallo", "1 kg")
+        h = st.sheets["prodotti"][0]
+        riga = righe(st, "prodotti", "Barcode", 8003333333333)[0]
+        self.assertEqual((riga[h.index("Prodotto")], riga[h.index("Marca")]), ("Riso Carnaroli", "Gallo"))
+        self.assertEqual(r["movimenti_aggiornati"], 1)
+        hm = st.sheets["movimenti"][0]
+        self.assertEqual(righe(st, "movimenti", "ID_Movimento", "d")[0][hm.index("Prodotto")], "Riso Carnaroli")
+        with self.assertRaises(ApiError):
+            inv.modifica_dati(8003333333333, " ")

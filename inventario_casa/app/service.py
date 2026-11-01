@@ -189,6 +189,38 @@ class Inventory:
             out["movimento"] = True
         return out
 
+    def modifica_dati(self, barcode, nome: str, marca: str = "", confezione: str = "") -> dict:
+        """Corregge a mano nome, marca e confezione di un prodotto (anche sulle righe di movimento, che portano il nome)."""
+        k = nbc(barcode)
+        nome = re.sub(r"\s+", " ", str(nome or "")).strip()[:200]
+        marca = re.sub(r"\s+", " ", str(marca or "")).strip()[:100]
+        confezione = re.sub(r"\s+", " ", str(confezione or "")).strip()[:60]
+        if not k or not nome:
+            raise ApiError(400, "Il nome non può essere vuoto")
+        h, rows = self._rows(SH_PROD, True)
+        if "Barcode" not in h or "Prodotto" not in h:
+            raise ApiError(500, "Il foglio prodotti non ha le colonne attese")
+        ib = h.index("Barcode")
+        riga = next((i for i, r in enumerate(rows) if len(r) > ib and nbc(r[ib]) == k), None)
+        if riga is None:
+            raise ApiError(404, "Prodotto non trovato")
+        ups = [(riga + 2, "Prodotto", nome)]
+        for col, v in (("Marca", marca), ("Confezione", confezione)):
+            if col in h:
+                ups.append((riga + 2, col, v))
+        self.store.update_cells(SH_PROD, ups)
+        n = 0
+        hm, rm = self._rows(SH_MOV, True)
+        if "Barcode" in hm and "Prodotto" in hm:
+            jb, jp = hm.index("Barcode"), hm.index("Prodotto")
+            um = [(i + 2, "Prodotto", nome) for i, r in enumerate(rm) if len(r) > jb and nbc(r[jb]) == k and (len(r) <= jp or str(r[jp]).strip() != nome)]
+            if um:
+                self.store.update_cells(SH_MOV, um)
+            n = len(um)
+        self._log_ai(k, "Prodotto", str(dict(zip(h, list(rows[riga]) + [""] * len(h))).get("Prodotto", "") or ""), nome, fonte="MANUALE")
+        self._drop(SH_PROD, SH_MOV)
+        return {"ok": True, "movimenti_aggiornati": n}
+
     def imposta_tipo(self, barcode, tipo: str) -> dict:
         """Cambia il tipo di un prodotto (menu nella scheda). Un tipo che non esiste va in coda Approvazioni con scorta 0."""
         k = nbc(barcode)

@@ -52,6 +52,7 @@
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
     if (/^api\/prodotto\/.+\/tipo$/.test(path)) return { ok: true, tipo: (body && body.tipo) || '', nuovo: false };
+    if (/^api\/prodotto\/.+\/dati$/.test(path)) return { ok: true, movimenti_aggiornati: 0 };
     if (path === 'api/tipi') return ['Crema spalmabile', 'Latte', 'Pasta'];
     if (method === 'POST' && path === 'api/prodotto') return { ok: true };
     if (path === 'api/config') return { url_sicuro: '', sola_lettura: false, ai: true, shortcut_spesa: 'Spesa AppSheet' };
@@ -517,7 +518,9 @@
       box.textContent = '';
       var head = el('div', 'sc-head'), im = el('div', 'sc-img'), t = el('div', '');
       if (p.immagine) thumb(im, p.immagine);
-      var h2 = el('h2', '', p.nome || 'Prodotto'); h2.id = 'sc-nome'; t.appendChild(h2);
+      var h2 = el('h2', '', p.nome || 'Prodotto'); h2.id = 'sc-nome';
+      if (!st.ro) { var pen = el('button', 'sq pen', '✎'); pen.type = 'button'; pen.setAttribute('aria-label', 'Modifica nome, marca e confezione'); pen.addEventListener('click', function () { editDati(box, p, head); }); h2.appendChild(document.createTextNode(' ')); h2.appendChild(pen); }
+      t.appendChild(h2);
       var m = [p.marca, p.confezione].filter(Boolean).join(' · '); if (m) t.appendChild(el('div', 'm', m));
       t.appendChild(el('div', 'm', 'Codice ' + p.barcode));
       head.appendChild(im); head.appendChild(t); box.appendChild(head);
@@ -534,6 +537,21 @@
        ['Adatto a', p.free_from], ['Dettagli', p.dettagli], ['Composizione', p.composizione], ['Smaltimento e riciclo', p.smaltimento],
        ['Aggiornato il', p.aggiornato]].forEach(function (a) { var s = secTxt(a[0], a[1]); if (s) box.appendChild(s); });
     }).catch(function (e) { box.textContent = 'Scheda non disponibile: ' + e.message; });
+  }
+  function editDati(box, p, head) {   // matita: nome, marca e confezione a mano
+    if ($('sc-dati')) { $('sc-dati').remove(); return; }
+    var f = el('div', 'sc-sec edit'); f.id = 'sc-dati'; f.appendChild(el('h3', '', 'Modifica il prodotto'));
+    var nome = campoTesto(f, 'Nome', p.nome), marca = campoTesto(f, 'Marca', p.marca), conf = campoTesto(f, 'Confezione', p.confezione);
+    var bt = el('div', 'btns'), ok = el('button', 'btn primary', 'Salva'), no = el('button', 'btn', 'Annulla'); ok.type = no.type = 'button'; bt.appendChild(ok); bt.appendChild(no); f.appendChild(bt);
+    head.parentNode.insertBefore(f, head.nextSibling);
+    no.addEventListener('click', function () { f.remove(); });
+    ok.addEventListener('click', function () {
+      if (!nome.value.trim()) { toast('Il nome non può essere vuoto.', true); return; }
+      ok.disabled = true;
+      api('PATCH', 'api/prodotto/' + p.barcode + '/dati', { nome: nome.value.trim(), marca: marca.value.trim(), confezione: conf.value.trim() }).then(function () {
+        toast('Prodotto aggiornato.'); azzeraCache(); openScheda(p.barcode);
+      }).catch(function (e) { toast('Non salvato: ' + e.message, true); ok.disabled = false; });
+    });
   }
   function stepper(inp) {   // - e + accanto a un campo numerico: niente tastiera
     var w = el('div', 'stp'), m = el('button', 'sq', '−'), pl = el('button', 'sq', '+');
@@ -578,15 +596,27 @@
     var row = el('div', 'sc-edit'), sel = el('select', ''), ok = el('button', 'btn primary', 'Salva'); ok.type = 'button'; sel.setAttribute('aria-label', 'Tipo');
     var nu = el('input'); nu.type = 'text'; nu.placeholder = 'Nome del nuovo tipo'; nu.hidden = true; nu.setAttribute('aria-label', 'Nome del nuovo tipo');
     row.appendChild(sel); row.appendChild(ok); s.appendChild(row); s.appendChild(nu); box.appendChild(s);
-    (st.tipi ? Promise.resolve() : api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; }).catch(function () { st.tipi = []; })).then(function () {
-      var tutti = (st.tipi || []).slice(); if (p.tipo && tutti.map(function (x) { return x.toLowerCase(); }).indexOf(p.tipo.toLowerCase()) < 0) tutti.push(p.tipo);
-      tutti.sort(function (a, b) { return a.localeCompare(b, 'it'); });
+    var tutti = false;
+    function riempi() {   // menu filtrato: i tipi dei prodotti della stessa sottocategoria, poi della stessa categoria; «Tutti i tipi» li mostra tutti
+      sel.textContent = '';
+      var lista = (st.tipi || []).slice(), pr = st.prod || [];
+      var vicini = {}, stessaCat = {};
+      pr.forEach(function (r) { var t = (r.tipo || '').trim(); if (!t) return; if (r.categoria === p.categoria) { stessaCat[t.toLowerCase()] = 1; if (r.sotto === p.sottocategoria) vicini[t.toLowerCase()] = 1; } });
+      var filtro = Object.keys(vicini).length ? vicini : stessaCat, usaFiltro = !tutti && Object.keys(filtro).length > 0;
+      var mostra = lista.filter(function (x) { return !usaFiltro || filtro[x.toLowerCase()] || x.toLowerCase() === (p.tipo || '').toLowerCase(); });
+      if (p.tipo && mostra.map(function (x) { return x.toLowerCase(); }).indexOf(p.tipo.toLowerCase()) < 0) mostra.push(p.tipo);
+      mostra.sort(function (a, b) { return a.localeCompare(b, 'it'); });
       var v = el('option', '', '— nessun tipo —'); v.value = ''; sel.appendChild(v);
-      tutti.forEach(function (x) { var o = el('option', '', x); o.value = x; sel.appendChild(o); });
+      mostra.forEach(function (x) { var o = el('option', '', x); o.value = x; sel.appendChild(o); });
+      if (usaFiltro) { var tt = el('option', '', 'Tutti i tipi…'); tt.value = '__tutti'; sel.appendChild(tt); }
       var n = el('option', '', '➕ Nuovo tipo…'); n.value = '__nuovo'; sel.appendChild(n);
-      var cur = tutti.filter(function (x) { return x.toLowerCase() === (p.tipo || '').toLowerCase(); })[0]; sel.value = cur || '';
-    });
-    sel.addEventListener('change', function () { nu.hidden = sel.value !== '__nuovo'; if (!nu.hidden) nu.focus(); });
+      var cur = mostra.filter(function (x) { return x.toLowerCase() === (p.tipo || '').toLowerCase(); })[0]; sel.value = cur || '';
+      h3.textContent = usaFiltro ? 'Cambia tipo (' + (p.sottocategoria || p.categoria) + ')' : 'Cambia tipo';
+    }
+    var h3 = s.querySelector('h3');
+    Promise.all([st.tipi ? 0 : api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; }).catch(function () { st.tipi = []; }),
+                 st.prod ? 0 : api('GET', 'api/prodotti').then(function (r) { st.prod = r || []; }).catch(function () { st.prod = []; })]).then(riempi);
+    sel.addEventListener('change', function () { if (sel.value === '__tutti') { tutti = true; riempi(); return; } nu.hidden = sel.value !== '__nuovo'; if (!nu.hidden) nu.focus(); });
     ok.addEventListener('click', function () {
       var t = sel.value === '__nuovo' ? nu.value.trim() : sel.value;
       if (!t) { toast(sel.value === '__nuovo' ? 'Scrivi il nome del nuovo tipo.' : 'Scegli un tipo.', true); return; }
@@ -782,7 +812,15 @@
     box.appendChild(wc); box.appendChild(ws);
     var tipo = campoTesto(box, 'Tipo', tipo0); tipo.setAttribute('list', 'tipi-dl');
     var dl = $('tipi-dl') || el('datalist'); dl.id = 'tipi-dl'; dl.textContent = '';
-    (st.tipi || []).forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); box.appendChild(dl);
+    function filtraTipi() {   // suggerimenti del tipo: quelli dei prodotti della stessa sottocategoria/categoria (se ce ne sono), altrimenti tutti
+      dl.textContent = '';
+      var v = {}, c = {};
+      (st.prod || []).forEach(function (r) { var t = (r.tipo || '').trim().toLowerCase(); if (t && r.categoria === cat.value) { c[t] = 1; if (r.sotto === sot.value) v[t] = 1; } });
+      var f = Object.keys(v).length ? v : Object.keys(c).length ? c : null;
+      (st.tipi || []).filter(function (x) { return !f || f[x.toLowerCase()]; }).forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); });
+    }
+    box.appendChild(dl); filtraTipi();
+    cat.addEventListener('change', filtraTipi); sot.addEventListener('change', filtraTipi);
     return { cat: cat, sot: sot, tipo: tipo, fill: fill };
   }
   function azzeraCache() { st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } }
