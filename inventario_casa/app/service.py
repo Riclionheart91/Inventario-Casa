@@ -4,7 +4,7 @@ import threading
 import time
 import unicodedata
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from .emoji import con_emoji, senza_emoji
 from typing import Dict, List, Optional
 
@@ -36,6 +36,25 @@ def bco(k):
     """Barcode per l'uscita e per il foglio: numero fino a 15 cifre, testo oltre (precisione di Fogli e JSON)."""
     k = nbc(k)
     return int(k) if len(k) <= 15 else k
+
+
+def parse_data(x) -> Optional[date]:
+    """Data da numero seriale di Google Sheets, testo ISO (aaaa-mm-gg) o italiano (gg/mm/aaaa); None se non riconosciuta."""
+    from datetime import timedelta
+    if x is None or str(x).strip() == "":
+        return None
+    if isinstance(x, (int, float)) and not isinstance(x, bool):
+        return (datetime(1899, 12, 30) + timedelta(days=int(x))).date() if 20000 < x < 80000 else None
+    t = str(x).strip()
+    for pat, ordine in ((r"^(\d{4})-(\d{1,2})-(\d{1,2})", (0, 1, 2)), (r"^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})", (2, 1, 0))):
+        m = re.match(pat, t)
+        if m:
+            try:
+                g = m.groups()
+                return date(int(g[ordine[0]]), int(g[ordine[1]]), int(g[ordine[2]]))
+            except ValueError:
+                return None
+    return None
 
 
 def data_it(x) -> str:
@@ -428,8 +447,9 @@ class Inventory:
         return tot
 
     def movimento(self, barcode, tipo: str, location: str, quantita, prodotto: str = "", foto: str = "",
-                  destinazione: str = "", categoria: str = "", categoria_new: str = "", noto: Optional[dict] = None) -> dict:
-        """Carico/Scarico = una riga. Move (cambio posizione) e Cng (cambio categoria) = coppia di righe nette:
+                  destinazione: str = "", categoria: str = "", categoria_new: str = "", noto: Optional[dict] = None,
+                  scadenza: str = "") -> dict:
+        """Carico/Scarico = una riga (il Carico puo avere la data di scadenza). Move (cambio posizione) e Cng (cambio categoria) = coppia di righe nette:
         Scarico alla situazione vecchia + Carico alla nuova, come fanno i bot di AppSheet (la riga Move/Cng non resta nel foglio)."""
         k = self.risolvi(nbc(barcode))
         if not k:
@@ -453,22 +473,25 @@ class Inventory:
                 "Sottocategoria": p["sottocategoria"] if p else "", "Foto": foto,
                 "Data": datetime.now().strftime("%d/%m/%Y"), "Chi": "App"}   # come nel foglio: gg/mm/aaaa
         righe = []
+        sc = parse_data(scadenza) if str(scadenza or "").strip() else None
+        if str(scadenza or "").strip() and sc is None:
+            raise ApiError(400, "Data di scadenza non valida")
         if tipo in ("Carico", "Scarico"):
-            righe.append(dict(base, Tipo=tipo, Location=location, Categoria=cat0))
+            righe.append(dict(base, Tipo=tipo, Location=location, Categoria=cat0, **({"Scadenza": sc.isoformat()} if sc and tipo == "Carico" else {})))
         elif tipo == "Move":
             if destinazione not in LUOGHI or destinazione == location:
                 raise ApiError(400, "Destinazione non valida")
             if self._giacenza(k, location, cat0) < q:
                 raise ApiError(409, "Giacenza insufficiente nella posizione di partenza")
             righe.append(dict(base, Tipo="Scarico", Location=location, Categoria=cat0, Destinazione=destinazione))
-            righe.append(dict(base, Tipo="Carico", Location=destinazione, Categoria=cat0, Destinazione=location))
+            righe += self._carichi_con_scadenza(k, location, q, dict(base, Tipo="Carico", Location=destinazione, Categoria=cat0, Destinazione=location))
         else:  # Cng
             if not categoria_new or categoria_new == cat0:
                 raise ApiError(400, "Categoria nuova non valida")
             if self._giacenza(k, location, cat0) < q:
                 raise ApiError(409, "Giacenza insufficiente nella categoria di partenza")
             righe.append(dict(base, Tipo="Scarico", Location=location, Categoria=cat0, Categoria_NEW=categoria_new))
-            righe.append(dict(base, Tipo="Carico", Location=location, Categoria=categoria_new))
+            righe += self._carichi_con_scadenza(k, location, q, dict(base, Tipo="Carico", Location=location, Categoria=categoria_new))
         n = 0
         for r in righe:
             r["ID_Movimento"] = uuid.uuid4().hex[:8]   # AppSheet lo genera da solo solo per le righe inserite da lui
@@ -477,6 +500,61 @@ class Inventory:
         if p is None:
             self._bozza_da_foto(k, tipo, location, qv)
         return {"ok": True, "riga": n, "righe": len(righe), "noto": p is not None}
+
+    # --- scadenze ---------------------------------------------------------
+    def _lotti(self) -> Dict[tuple, list]:
+        """Lotti rimasti per (codice, posizione): [[data|None, quantita], ...]. I carichi con scadenza si consumano a partire dalla piu vicina
+        (si mangia prima quel che scade prima), poi quelli senza data."""
+        if "lotti" not in self._memo:
+            car: Dict[tuple, list] = {}
+            sca: Dict[tuple, float] = {}
+            for m in self._dicts(SH_MOV):
+                k, loc, t = nbc(m.get("Barcode")), str(m.get("Location", "")).strip(), str(m.get("Tipo", "")).strip()
+                q = _num(m.get("Quantità", m.get("Quantita", 0)))
+                if not k or not loc or q <= 0:
+                    continue
+                if t == "Carico":
+                    car.setdefault((k, loc), []).append([parse_data(m.get("Scadenza")), q])
+                elif t == "Scarico":
+                    sca[(k, loc)] = sca.get((k, loc), 0) + q
+            out = {}
+            for key, lots in car.items():
+                lots.sort(key=lambda x: (x[0] is None, x[0] or date.max))
+                da_togliere = sca.get(key, 0)
+                for lot in lots:
+                    t = min(lot[1], da_togliere); lot[1] -= t; da_togliere -= t
+                out[key] = [x for x in lots if x[1] > 0]
+            self._memo["lotti"] = out
+        return self._memo["lotti"]
+
+    def _carichi_con_scadenza(self, k: str, location: str, q: float, base: dict) -> list:
+        """Spostando o cambiando categoria, le unita portano con se la scadenza: si prendono prima i lotti piu vicini alla scadenza."""
+        righe, resto = [], q
+        for d, n in self._lotti().get((k, location), []):
+            if resto <= 0:
+                break
+            t = min(n, resto); resto -= t
+            qv = int(t) if float(t).is_integer() else t
+            righe.append(dict(base, Quantità=qv, **({"Scadenza": d.isoformat()} if d else {})))
+        if resto > 0:
+            qv = int(resto) if float(resto).is_integer() else resto
+            righe.append(dict(base, Quantità=qv))
+        return righe
+
+    def scadenze(self, giorni: int = 7, oggi: Optional[date] = None) -> List[dict]:
+        """Prodotti in casa che scadono entro `giorni` giorni (o gia scaduti), dalla piu urgente."""
+        oggi = oggi or date.today()
+        out = []
+        for (k, loc), lots in self._lotti().items():
+            for d, n in lots:
+                if d is None or (d - oggi).days > giorni:
+                    continue
+                p = self.prodotto(k) or {}
+                g = (d - oggi).days
+                out.append({"barcode": bco(k), "nome": p.get("prodotto") or str(k), "marca": p.get("marca", ""), "luogo": loc,
+                            "qta": int(n) if float(n).is_integer() else n, "scadenza": d.strftime("%d/%m/%Y"), "giorni": g,
+                            "stato": "SCADUTO" if g < 0 else "OGGI" if g == 0 else "IN_SCADENZA"})
+        return sorted(out, key=lambda e: (e["giorni"], e["nome"].casefold()))
 
     # --- fogli facoltativi ----------------------------------------------
     def _opz(self, sheet: str, fresh: bool = False):

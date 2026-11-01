@@ -1,11 +1,12 @@
 name: "Inventario Casa"
-version: "0.12.14"
+version: "0.13.0"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
 arch: [amd64, aarch64]
 init: false
 ingress: true
+homeassistant_api: true
 ingress_port: 8099
 panel_icon: mdi:package-variant-closed
 panel_title: Inventario
@@ -29,6 +30,9 @@ options:
   arricchimento_max: 60
   traduzione_all_avvio: false
   arricchimento_all_avvio: false
+  scadenza_notifica: ""
+  scadenza_giorni: 7
+  scadenza_ora: "08:00"
   voce_token: ""
   gemini_api_key: ""
   gemini_modello: ""
@@ -60,6 +64,9 @@ schema:
   arricchimento_max: int?
   traduzione_all_avvio: bool?
   arricchimento_all_avvio: bool?
+  scadenza_notifica: str?
+  scadenza_giorni: int?
+  scadenza_ora: str?
   voce_token: password?
   gemini_api_key: password?
   gemini_modello: str?

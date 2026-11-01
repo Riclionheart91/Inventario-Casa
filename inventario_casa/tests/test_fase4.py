@@ -497,3 +497,37 @@ class TUnisciProdotti(unittest.TestCase):
         self.assertEqual(sum(e["qta"] for e in inv.stock() if str(e["barcode"]) == princ), 5)   # 3 + 2
         inv.movimento(alias, "Carico", "Casa", 1, categoria="Dispensa")
         self.assertEqual(sum(e["qta"] for e in inv.stock() if str(e["barcode"]) == princ), 6)
+
+
+class TScadenze(unittest.TestCase):
+    def _mk(self):
+        st, inv = make()
+        h = st.sheets["movimenti"][0]
+        if "Scadenza" not in h:
+            h.append("Scadenza")
+        return st, inv
+
+    def test_lotti_fefo_e_avviso(self):
+        from datetime import date
+        st, inv = self._mk()
+        inv.movimento(8003333333333, "Carico", "Casa", 2, categoria="Dispensa", scadenza="2026-11-05")
+        inv.movimento(8003333333333, "Carico", "Casa", 3, categoria="Dispensa", scadenza="03/12/2026")
+        oggi = date(2026, 11, 1)
+        v = inv.scadenze(7, oggi)
+        self.assertEqual([(x["scadenza"], x["qta"], x["stato"]) for x in v], [("05/11/2026", 2, "IN_SCADENZA")])
+        inv.movimento(8003333333333, "Scarico", "Casa", 1, categoria="Dispensa")   # si mangia prima quello che scade prima
+        self.assertEqual(inv.scadenze(7, oggi)[0]["qta"], 1)
+        inv.movimento(8003333333333, "Scarico", "Casa", 1, categoria="Dispensa")
+        self.assertEqual(inv.scadenze(7, oggi), [])
+        self.assertEqual(len(inv.scadenze(40, oggi)), 1)   # restano i 3 del 3/12
+        self.assertEqual(inv.scadenze(0, date(2026, 12, 4))[0]["stato"], "SCADUTO")
+
+    def test_la_scadenza_segue_lo_spostamento_e_data_non_valida(self):
+        from datetime import date
+        st, inv = self._mk()
+        inv.movimento(8003333333333, "Carico", "Casa", 2, categoria="Dispensa", scadenza="2026-11-05")
+        inv.movimento(8003333333333, "Move", "Casa", 1, categoria="Dispensa", destinazione="Cantina")
+        v = {x["luogo"]: x["qta"] for x in inv.scadenze(7, date(2026, 11, 1))}
+        self.assertEqual(v, {"Casa": 1, "Cantina": 1})
+        with self.assertRaises(ApiError):
+            inv.movimento(8003333333333, "Carico", "Casa", 1, categoria="Dispensa", scadenza="domani")

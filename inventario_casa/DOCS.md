@@ -41,6 +41,16 @@ Si usa solo tramite Home Assistant (ingress), dal pannello Inventario o dall'ind
 ## Arricchimento notturno e traduzione (dalla 0.8.0)
 Opzioni: `arricchimento_notturno` (acceso/spento, di default spento), `arricchimento_ora` (es. 03:00, ora italiana), `arricchimento_max` (prodotti per notte, 60). Funziona solo se `sola_lettura` e spento. Riempie solo i campi vuoti, non cambia nulla se non trova il codice (lo riprova dopo 30 giorni), traduce in italiano i testi lunghi con Gemini. Prima di accenderlo spegni `startNightlyFullEnrich` nello script Google. Il rapporto dell'ultimo giro e in `GET /api/arricchimento`.
 
+## Scadenze e avviso
+
+Nel carico c'e il campo **Scadenza** (facoltativo): la data finisce nella colonna `Scadenza` dei movimenti. I prodotti si consumano a partire da quelli che scadono prima; spostando un prodotto da Casa a Cantina (o cambiando categoria) la scadenza lo segue. In **Da fare** compare la sezione *Scadenze* con i prodotti scaduti o in scadenza.
+
+Per ricevere una notifica sul telefono imposta nelle opzioni: `scadenza_notifica` (il servizio notify di Home Assistant, per esempio `mobile_app_il_mio_telefono`: lo trovi in Strumenti per sviluppatori › Azioni, cercando «notify»), `scadenza_giorni` (anticipo, 7 di default) e `scadenza_ora` (08:00 di default, ora italiana). Arriva al massimo una notifica al giorno e solo se c'e qualcosa da dire. In Impostazioni › *Avviso scadenze* c'e il pulsante **Invia notifica di prova**. Serve riavviare l'app dopo aver cambiato le opzioni (l'accesso a Home Assistant e gia incluso).
+
+## Riordino del foglio
+
+Impostazioni › *Riordino del foglio* (da fare con `sola_lettura` spenta, dopo una copia di sicurezza): nasconde i fogli e le colonne usati solo da AppSheet (non cancella nulla), mette in ordine schede e colonne, fissa le intestazioni, aggiunge filtri, formato data per la scadenza e menu a tendina per tipo, posizione e stato. Si puo ripetere. I fogli nascosti si riaprono da Visualizza › Fogli nascosti.
+
 Opzione `traduzione_all_avvio`: accendila una volta (con `sola_lettura` spenta) e riavvia l'app per tradurre i testi gia presenti; poi rispegnila.
 
 ## Risposte a voce (dalla 0.9.0)

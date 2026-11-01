@@ -207,3 +207,5 @@ details.g.sub{border-bottom:0;margin-left:10px}details.g.sub summary{position:st
 .clr[hidden]{display:none}
 
 details.g>summary .cs{font-size:.88em;font-weight:500;color:var(--mut);text-transform:none;letter-spacing:0;margin-left:2px}
+
+.card.scad{cursor:pointer}.card.scad.scaduto{border-color:#a8453f}.card.scad.urgente{border-color:#a68a1f}

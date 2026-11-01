@@ -70,6 +70,10 @@
     if ((m = /^api\/approvazioni\/(.+)$/.exec(path))) { MOCKDB.appr = MOCKDB.appr.filter(function (x) { return x.id !== decodeURIComponent(m[1]); }); return { ok: true }; }
     if (path === 'api/spesa') return MOCKDB.spesa;
     if (path === 'api/bozze') return MOCKDB.bozze.slice();
+    if (path === 'api/avvisi') return { servizio: 'mobile_app_telefono', giorni: 7, ora: '08:00', ultimo: '2026-11-01' };
+    if (path === 'api/foglio/riordina') return { ok: true, riepilogo: ['schede in ordine'] };
+    if (path === 'api/avvisi/prova') return { inviata: true };
+    if (path === 'api/scadenze') return [{ barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', luogo: 'Casa', qta: 2, scadenza: '03/11/2026', giorni: 2, stato: 'IN_SCADENZA' }, { barcode: 1, nome: 'Yogurt greco', marca: '', luogo: 'Casa', qta: 1, scadenza: '30/10/2026', giorni: -2, stato: 'SCADUTO' }];
     if ((m = /^api\/bozze\/([^/]+)\/(salva|conferma|scarta)$/.exec(path))) { if (m[2] !== 'salva') MOCKDB.bozze = MOCKDB.bozze.filter(function (x) { return x.id !== m[1]; }); return { ok: true }; }
     throw new Error('Percorso sconosciuto: ' + path);
   }
@@ -99,7 +103,7 @@
 
   /* ---------- navigazione ---------- */
   /* Da inserire e Approvazioni compaiono nella barra solo quando c'e qualcosa da fare (o se ci si e gia dentro) */
-  var NASCONDIBILI = { bozze: ['api/bozze', 'api/approvazioni'] };
+  var NASCONDIBILI = { bozze: ['api/bozze', 'api/approvazioni', 'api/scadenze'] };
   function tabVisibile(id) { if (id === 'imp') return false; return !(id in NASCONDIBILI) || st.tab === id || (st.n && st.n[id] > 0); }
   function idVisibili() { return TABS.map(function (t) { return t[0]; }).filter(tabVisibile); }
   function applicaNav() {
@@ -149,6 +153,32 @@
 
   /* ---------- impostazioni (solo da qui, non nel menu) ---------- */
   var impTimer = null;
+  function loadFoglio(box) {   // riordino del foglio Google: due tocchi (il secondo conferma)
+    var c = el('div', 'card'); c.appendChild(el('h2', '', 'Riordino del foglio'));
+    c.appendChild(el('p', 'm', 'Nasconde i fogli e le colonne usati solo da AppSheet (non cancella nulla), mette in ordine schede e colonne, fissa le intestazioni e aggiunge filtri, formato data e menu a tendina. Si può ripetere. Prima fai una copia di sicurezza del foglio.'));
+    var b = el('button', 'btn', 'Riordina il foglio'); b.type = 'button'; b.disabled = st.ro; var pronto = false;
+    if (st.ro) c.appendChild(el('p', 'm', 'Sola lettura attiva: spegnila nelle opzioni per riordinare.'));
+    b.addEventListener('click', function () {
+      if (!pronto) { pronto = true; b.textContent = 'Conferma: riordina ora'; b.className = 'btn primary'; setTimeout(function () { pronto = false; b.textContent = 'Riordina il foglio'; b.className = 'btn'; }, 8000); return; }
+      b.disabled = true; b.textContent = 'Riordino in corso…';
+      api('POST', 'api/foglio/riordina').then(function (r) { toast('Foglio riordinato.'); c.appendChild(el('p', 'm', 'Fatto: ' + (r.riepilogo || []).join(' · '))); })
+        .catch(function (e) { toast('Non riuscito: ' + e.message, true); }).then(function () { b.disabled = false; b.textContent = 'Riordina il foglio'; b.className = 'btn'; pronto = false; });
+    });
+    c.appendChild(b); box.appendChild(c);
+  }
+  function loadAvvisi(box) {   // scadenze: stato dell'avviso e notifica di prova
+    api('GET', 'api/avvisi').then(function (s) {
+      var c = el('div', 'card'); c.appendChild(el('h2', '', 'Avviso scadenze'));
+      c.appendChild(el('p', 'm', 'Ogni giorno, all\'ora scelta, una notifica di Home Assistant elenca i prodotti scaduti o in scadenza entro ' + s.giorni + ' giorni. La data si inserisce nel carico.'));
+      [['Notifica', s.servizio ? 'notify.' + s.servizio.replace('notify.', '') : 'non impostata (opzione «scadenza_notifica»)'], ['Orario', s.ora], ['Ultimo invio', s.ultimo || 'mai']].forEach(function (x) { var p = el('p', 'm'); p.appendChild(el('b', '', x[0] + ': ')); p.appendChild(document.createTextNode(x[1])); c.appendChild(p); });
+      var b = el('button', 'btn', 'Invia notifica di prova'); b.type = 'button'; b.disabled = !s.servizio;
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        api('POST', 'api/avvisi/prova').then(function () { toast('Notifica inviata.'); }).catch(function (e) { toast('Non inviata: ' + e.message, true); }).then(function () { b.disabled = false; });
+      });
+      c.appendChild(b); box.appendChild(c);
+    }).catch(function () { /* niente scheda se non raggiungibile */ });
+  }
   function loadImp() {
     var box = $('imp'); clearTimeout(impTimer);
     api('GET', 'api/arricchimento').then(function (s) {
@@ -167,6 +197,8 @@
           .catch(function (e) { toast('Non avviato: ' + e.message, true); b.disabled = false; });
       });
       c.appendChild(b); box.appendChild(c);
+      loadAvvisi(box);
+      loadFoglio(box);
       loadRev(box);
       if (s.in_corso && st.tab === 'imp') impTimer = setTimeout(loadImp, 6000);
     }).catch(function (e) { box.textContent = 'Non riesco a leggere lo stato: ' + e.message; });
@@ -202,7 +234,7 @@
     if (tab === 'prod') loadProd();
     if (tab === 'imp') loadImp();
     if (tab === 'spesa') loadSpesa();
-    if (tab === 'bozze') { loadBozze(); loadAppr(); }
+    if (tab === 'bozze') { loadScad(); loadBozze(); loadAppr(); }
     if (tab === 'mov') $('bc').focus();
     setStk();
   }
@@ -319,7 +351,7 @@
   }
   function renderRiga() {
     var need = st.tipo !== 'Carico', box = $('riga'), g = st.giac[st.riga];
-    $('f-luogo').hidden = need; $('f-riga').hidden = !need || st.known !== true; $('f-catnew').hidden = !(need && st.known === true && st.tipo === 'Cambia categoria' && g);
+    $('f-scad').hidden = need; $('f-luogo').hidden = need; $('f-riga').hidden = !need || st.known !== true; $('f-catnew').hidden = !(need && st.known === true && st.tipo === 'Cambia categoria' && g);
     if (!need || st.known !== true) return;
     box.textContent = '';
     st.giac.forEach(function (x, i) {
@@ -340,7 +372,7 @@
   }
   function resetForm() {
     hideProp(); st.giac = []; st.riga = 0; renderRiga();
-    $('bc').value = ''; $('pr').value = ''; setKnown(null); setQta(1);
+    $('bc').value = ''; $('pr').value = ''; $('scad').value = ''; setKnown(null); setQta(1);
     note($('hint'), ''); note($('cat'), ''); $('bc').focus();
   }
   function resizeImage(file) {
@@ -370,6 +402,7 @@
     }).then(function (foto) {
       var tipoVal = TIPI.filter(function (t) { return t[0] === st.tipo; })[0][1];
       var body = { barcode: bc, tipo: tipoVal, location: st.luogo, quantita: st.qta, prodotto: $('pr').value.trim(), foto: foto || undefined };
+      if (st.tipo === 'Carico' && $('scad').value) body.scadenza = $('scad').value;
       if (st.tipo !== 'Carico') {
         var g = st.giac[st.riga];
         if (st.known !== true || !g) { toast('Serve un prodotto noto con giacenza.', true); throw new Error('stop'); }
@@ -1227,9 +1260,25 @@
       .catch(function (e) { toast('Bozze non caricate: ' + e.message, true); });
   }
   function aggiornaDaFare() {
-    var nb = st.nb || 0, na = st.na || 0, v = $('da-fare-vuoto');
-    if (v) v.hidden = !!(nb || na);
-    if (st.tab === 'bozze') $('sub').textContent = (nb || na) ? [nb ? nb + (nb === 1 ? ' da inserire' : ' da inserire') : '', na ? na + (na === 1 ? ' proposta AI' : ' proposte AI') : ''].filter(Boolean).join(' · ') : 'Niente da fare';
+    var nb = st.nb || 0, na = st.na || 0, ns = st.ns || 0, v = $('da-fare-vuoto');
+    if (v) v.hidden = !!(nb || na || ns);
+    if (st.tab === 'bozze') $('sub').textContent = (nb || na || ns) ? [ns ? ns + (ns === 1 ? ' in scadenza' : ' in scadenza') : '', nb ? nb + ' da inserire' : '', na ? na + (na === 1 ? ' proposta AI' : ' proposte AI') : ''].filter(Boolean).join(' · ') : 'Niente da fare';
+  }
+  function loadScad() {
+    api('GET', 'api/scadenze').then(function (l) { renderScad(l || []); }).catch(function () { renderScad([]); });
+  }
+  function renderScad(list) {   // prodotti scaduti o in scadenza: toccando si apre la scheda
+    var box = $('scad-list'); box.textContent = ''; st.ns = list.length; aggiornaDaFare();
+    if (!list.length) return;
+    box.appendChild(el('h3', 'sez', 'Scadenze (' + list.length + ')'));
+    list.forEach(function (s) {
+      var c = el('article', 'card scad ' + (s.giorni < 0 ? 'scaduto' : s.giorni <= 2 ? 'urgente' : '')); c.tabIndex = 0; c.setAttribute('role', 'button');
+      var quando = s.giorni < 0 ? 'scaduto da ' + (-s.giorni) + (s.giorni === -1 ? ' giorno' : ' giorni') : s.giorni === 0 ? 'scade oggi' : s.giorni === 1 ? 'scade domani' : 'scade tra ' + s.giorni + ' giorni';
+      c.appendChild(el('h2', '', (s.giorni < 0 ? '⛔ ' : s.giorni <= 2 ? '⚠️ ' : '⏳ ') + s.nome));
+      c.appendChild(el('div', 'why', quando + ' (' + s.scadenza + ') · ' + s.qta + ' pz · ' + s.luogo));
+      c.addEventListener('click', function () { openScheda(s.barcode); });
+      box.appendChild(c);
+    });
   }
   function renderBozze(list) {
     var box = $('bozze-list'); box.textContent = '';

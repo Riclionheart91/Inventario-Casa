@@ -89,6 +89,55 @@ def arr():
     return _arr
 
 
+_avv = None
+
+
+def avv():
+    global _avv
+    if _avv is None:
+        from datetime import datetime
+        from .avvisi import Avvisi
+        try:
+            from zoneinfo import ZoneInfo
+            fuso = ZoneInfo("Europe/Rome")
+        except Exception:
+            fuso = None
+        _avv = Avvisi(inv(), oggi=lambda: datetime.now(fuso) if fuso else datetime.now())
+    return _avv
+
+
+@app.post("/api/foglio/riordina")
+def foglio_riordina(x_code: str = Header(None)):
+    """Riordina il foglio Google per l'app (nasconde fogli e colonne di AppSheet, ordina, filtri, formati). Non cancella nulla."""
+    check(x_code)
+    writable()
+    from . import foglio
+    try:
+        r = foglio.applica(inv().store)
+    except Exception as e:
+        raise HTTPException(502, "Riordino non riuscito: %s" % e)
+    inv()._cache.clear(); inv()._memo.clear()   # le colonne hanno cambiato posto: si rilegge tutto
+    return r
+
+
+@app.get("/api/avvisi")
+def avvisi_stato(x_code: str = Header(None)):
+    check(x_code)
+    return dict(avv().stato(), servizio=_env("SCADENZA_NOTIFICA"), giorni=_giorni_scadenza(), ora=_env("SCADENZA_ORA") or "08:00")
+
+
+@app.post("/api/avvisi/prova")
+def avvisi_prova(x_code: str = Header(None)):
+    """Invia subito una notifica di prova (anche se non c'e nulla in scadenza)."""
+    check(x_code)
+    if not _env("SCADENZA_NOTIFICA"):
+        raise HTTPException(400, "Scegli il servizio notify nelle opzioni dell'app (scadenza_notifica).")
+    try:
+        return avv().esegui(_env("SCADENZA_NOTIFICA"), _giorni_scadenza(), url=_env("SECURE_URL") or "", forza=True)
+    except Exception as e:
+        raise HTTPException(502, "Notifica non inviata: %s" % e)
+
+
 def _notturno():
     """Attivita programmata: ogni notte (all'ora scelta nelle opzioni) cerca i dati mancanti e traduce in italiano. Solo se acceso e non in sola lettura."""
     from datetime import datetime
@@ -107,6 +156,11 @@ def _notturno():
                     arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60))
         except Exception:
             logging.getLogger("inventario").exception("arricchimento notturno")
+        try:   # avviso giornaliero delle scadenze: una notifica di Home Assistant dopo l'ora scelta (non scrive sul foglio)
+            if _env("SCADENZA_NOTIFICA"):
+                avv().esegui(_env("SCADENZA_NOTIFICA"), _giorni_scadenza(), _env("SCADENZA_ORA") or "08:00", _env("SECURE_URL") or "")
+        except Exception:
+            logging.getLogger("inventario").exception("avviso scadenze")
         try:   # revisione a tappeto ogni sei mesi: non scrive sul foglio, quindi parte anche in sola lettura
             if rev().dovuta() and time.time() - _ult_rev[0] > 3600:   # al piu un tentativo all'ora
                 _ult_rev[0] = time.time()
@@ -137,6 +191,13 @@ CHIAVI_PROVIDER = ("BARCODELOOKUP_KEY", "UPCDATABASE_KEY", "GOUPC_TOKEN", "SPOON
 def _env(k):
     v = os.environ.get(k, "").strip()
     return "" if v.lower() == "null" else v
+
+
+def _giorni_scadenza() -> int:
+    try:
+        return max(0, min(90, int(_env("SCADENZA_GIORNI") or 7)))
+    except ValueError:
+        return 7
 
 
 def chiavi():
@@ -184,6 +245,7 @@ class Mov(BaseModel):
     destinazione: str = ""
     categoria: str = ""
     categoria_new: str = ""
+    scadenza: str = ""
 
 
 class ModProd(BaseModel):
@@ -392,7 +454,13 @@ def movimento(m: Mov, x_code: str = Header(None)):
     check(x_code)
     writable()
     return inv().movimento(m.barcode, m.tipo, m.location, m.quantita, m.prodotto, m.foto,
-                          m.destinazione, m.categoria, m.categoria_new)
+                          m.destinazione, m.categoria, m.categoria_new, scadenza=m.scadenza)
+
+
+@app.get("/api/scadenze")
+def scadenze(x_code: str = Header(None)):
+    check(x_code)
+    return inv().scadenze(_giorni_scadenza())
 
 
 @app.get("/api/approvazioni")
