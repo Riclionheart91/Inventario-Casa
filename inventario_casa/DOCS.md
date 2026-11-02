@@ -58,6 +58,9 @@ Per ricevere una notifica sul telefono imposta nelle opzioni: `scadenza_notifica
 ## Modelli per compito (dalla 0.16.0)
 `gemini_modello` è il modello leggero (classificare, tradurre); `gemini_modello_riserva` subentra se non risponde. `gemini_modello_potente`, facoltativo, è per i compiti che richiedono più giudizio: ricerca sul web, foto, punteggi e riciclo, controllo delle categorie. Se è vuoto, tutti i compiti usano il modello normale. Un modello più capace di solito risponde più lentamente: usalo se preferisci la precisione alla rapidità.
 
+## Ricerca sul web (dalla 0.18.0)
+Per i codici che nessun archivio conosce e per punteggi e riciclo, l'app cerca sul web per conto suo e passa i risultati a Gemini da leggere (Gemini non deve avere lo strumento di ricerca Google). Senza chiavi usa DuckDuckGo, che funziona ma può essere limitato; per più stabilità imposta una chiave facoltativa: `brave_search_key`, `serper_key` o `tavily_key` (la prima disponibile vince; i piani gratuiti e i limiti vanno verificati sui rispettivi siti). In Impostazioni › «Uso dell'AI» il pulsante «Prova la ricerca web» mostra quale fonte usa e se risponde.
+
 ## AI: uso, memoria e regole (dalla 0.15.0)
 Dalla 0.17.0: «Suggerisci dai miei dati» propone regole ricavate dal catalogo e dalle tue correzioni (soglie: almeno 3 prodotti e 80% nello stesso posto, oppure 2 correzioni uguali), e «Controlla i modelli disponibili» verifica quali modelli Gemini risponde il tuo account.
 In Impostazioni: **Regole della casa** (frasi che l'AI rispetta nelle classificazioni, salvate nel foglio «regole»; servono `sola_lettura` spenta per aggiungerle o toglierle) e **Uso dell'AI** (richieste, errori, tempi e come hai trattato le proposte). Le risposte ripetute restano in memoria 30 giorni per non richiamare Gemini inutilmente; il pulsante «Svuota la memoria» le toglie. I conteggi sono in `/data` e non contengono chiavi né testi dei prodotti.

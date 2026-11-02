@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.18.0 — 2026-11-02
+**Ricerca sul web senza passare dall'AI**: per i codici sconosciuti e per punteggi e riciclo, l'app cerca da sola sul web (DuckDuckGo, senza chiave; oppure Brave, Serper o Tavily se metti la chiave nelle opzioni), apre le prime pagine e passa a Gemini i risultati come testo da leggere. Gemini non usa più il suo strumento di ricerca Google, che il tuo account rifiuta; se la ricerca dell'app non trova nulla, prova comunque quello strumento. In «Uso dell'AI» c'è il pulsante «Prova la ricerca web». Google non offre più la sua ricerca ai nuovi clienti, quindi non è usabile direttamente.
+
 ## 0.17.1 — 2026-11-02
 - **Ricerca Google rifiutata da Gemini**: se il tuo account non accetta lo strumento di ricerca (errore 4xx), l'app sospende per un po' le funzioni che la usano (punteggi e riciclo, ricerca sul web) invece di riprovare a ogni prodotto: 15 minuti se è un limite di quota, 6 ore negli altri casi. «Controlla i modelli» la riabilita se torna a rispondere, e dice chiaramente se nessun modello la accetta, con il motivo.
 - «Uso dell'AI» mostra l'ultimo errore di ogni compito e non conta più come errore la risposta «niente da spostare» (controllo categorie).

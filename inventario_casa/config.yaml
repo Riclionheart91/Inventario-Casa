@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.17.1"
+version: "0.18.0"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
@@ -40,6 +40,9 @@ options:
   gemini_modello: ""
   gemini_modello_riserva: ""
   gemini_modello_potente: ""
+  brave_search_key: ""
+  serper_key: ""
+  tavily_key: ""
   barcodelookup_key: ""
   upcdatabase_key: ""
   goupc_token: ""
@@ -77,6 +80,9 @@ schema:
   gemini_modello: str?
   gemini_modello_riserva: str?
   gemini_modello_potente: str?
+  brave_search_key: password?
+  serper_key: password?
+  tavily_key: password?
   barcodelookup_key: password?
   upcdatabase_key: password?
   goupc_token: password?

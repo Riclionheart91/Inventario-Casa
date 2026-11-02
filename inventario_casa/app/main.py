@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
-from . import ai, aiuso, lookup, pagina, regole_auto
+from . import ai, aiuso, lookup, pagina, regole_auto, ricerca
 from .accesso import Accesso, _Mw
 from .store import make_store
 
@@ -36,12 +36,20 @@ def _tieni_fresco():
 _arr = None
 
 
+def _chiavi_ricerca():
+    return {k: _env(k) for k in ("BRAVE_SEARCH_KEY", "SERPER_KEY", "TAVILY_KEY") if _env(k)}
+
+
 def _web(bc):
-    """Ricerca web con Gemini (+Google): nome, marca, confezione e un'immagine presa da una pagina che riporta davvero il codice."""
+    """Ricerca web: prima l'app cerca sul web (senza AI) e passa i risultati a Gemini da leggere; se non trova niente prova lo strumento di ricerca di Gemini.
+    Nome, marca, confezione e un'immagine presa da una pagina che riporta davvero il codice."""
     if not _env("GEMINI_API_KEY"):
         return None
-    r = ai.cerca_web(bc, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
-    for u in (r or {}).get("urls", []):
+    testo, urls = ricerca.contesto([str(bc), "%s codice a barre prodotto" % bc], bc, _chiavi_ricerca())
+    r = ai.cerca_web(bc, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"), contesto=testo) if testo else None
+    if not r:
+        r = ai.cerca_web(bc, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+    for u in list((r or {}).get("urls", [])) + (urls if r else []):
         img = pagina.immagine_da_pagina(u, bc)
         if img:
             return {"nome": r["nome"], "marca": r["marca"], "confezione": r["confezione"], "immagine": img}
@@ -83,7 +91,9 @@ def arr():
         def extra(bc, nome, marca, conf):   # punteggi e riciclo che nessun archivio ha: li cerca l'AI con Google
             if not chiave():
                 return None
-            return ai.integra_scheda(bc, nome, marca, conf, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+            testo, _ = ricerca.contesto(["%s %s %s nutri-score nova eco-score" % (nome, marca, conf), str(bc)], bc, _chiavi_ricerca())
+            r = ai.integra_scheda(bc, nome, marca, conf, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"), contesto=testo) if testo else None
+            return r or ai.integra_scheda(bc, nome, marca, conf, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
         _arr = Arricchitore(inv(), lambda bc: lookup.cerca(bc, chiavi=chiavi()),
                             lambda testi: ai.traduci(testi, chiave(), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")), web=web, extra=extra)
     return _arr
@@ -475,6 +485,17 @@ def ai_uso(x_code: str = Header(None)):
 async def ai_modelli(x_code: str = Header(None)):
     check(x_code)
     return await run_in_threadpool(ai.verifica_modelli, _env("GEMINI_API_KEY"))
+
+
+@app.post("/api/ricerca/prova")
+async def ricerca_prova(x_code: str = Header(None)):
+    """Prova la ricerca web dell'app (senza AI) con una domanda di esempio: dice quale fonte usa e cosa trova."""
+    check(x_code)
+    def f():
+        ch = _chiavi_ricerca()
+        r = ricerca.cerca("Barilla spaghetti n.5 500 g", ch)
+        return {"fonte": ricerca.fonte(ch), "risultati": len(r), "primo": (r[0]["titolo"] + " — " + r[0]["url"]) if r else "", "errore": "" if r else (ricerca.ULTIMO_ERRORE[0] or "nessun risultato")}
+    return await run_in_threadpool(f)
 
 
 @app.post("/api/ai/memoria/svuota")

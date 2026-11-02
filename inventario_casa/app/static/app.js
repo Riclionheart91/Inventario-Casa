@@ -78,6 +78,7 @@
     if (path === 'api/regole/elimina') { MOCKDB.regole = MOCKDB.regole.filter(function (r) { return r !== body.testo; }); return MOCKDB.regole.slice(); }
     if (path === 'api/regole/suggerisci') return [{ chiave: 'tipo|pasta', testo: 'La pasta va sempre in Dispensa, tra Pasta e Riso.', n: 10, tot: 10, prodotti: ['Fusilli · Garofalo', 'Penne · Garofalo'] }, { chiave: 'corr|a>b', testo: 'Le bibite non vanno in Frigorifero ma in Bevande e Cantina.', n: 2, tot: 2, prodotti: ['Birra', 'Coca Cola'] }];
     if (path === 'api/ai/modelli') return { modelli: [{ nome: 'gemini-3.5-flash-lite', ok: true, ms: 900, ricerca: true }, { nome: 'gemini-3.6-flash', ok: false, ms: 0, errore: 'HTTPError 429 quota' }], consigliati: { leggero: 'gemini-3.5-flash-lite', potente: '' } };
+    if (path === 'api/ricerca/prova') return { fonte: 'DuckDuckGo', risultati: 6, primo: 'Spaghetti n.5 Barilla — https://www.esempio.it/p', errore: '' };
     if (path === 'api/regole/scarta') return { ok: true };
     if (path === 'api/ai/memoria/svuota') return { svuotate: 48 };
     if (path === 'api/scadenze') return [{ barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', luogo: 'Casa', qta: 2, scadenza: '03/11/2026', giorni: 2, stato: 'IN_SCADENZA' }, { barcode: 1, nome: 'Yogurt greco', marca: '', luogo: 'Casa', qta: 1, scadenza: '30/10/2026', giorni: -2, stato: 'SCADUTO' }];
@@ -211,7 +212,15 @@
           var k = r.consigliati || {}; var p = el('p', 'm'); p.appendChild(el('b', '', 'Consigliati: ')); p.appendChild(document.createTextNode('leggero ' + (k.leggero || '—') + ' · potente ' + (k.potente || '—'))); esito.appendChild(p);
         }).catch(function (e) { esito.textContent = 'Non riuscito: ' + e.message; }).then(function () { vm.disabled = false; vm.textContent = 'Controlla i modelli disponibili'; });
       });
-      c.appendChild(vm); c.appendChild(esito); box.appendChild(c);
+      var rp = el('button', 'btn', 'Prova la ricerca web'); rp.type = 'button'; rp.style.marginTop = '8px';
+      rp.addEventListener('click', function () {
+        rp.disabled = true; rp.textContent = 'Cerco…'; esito.textContent = '';
+        api('POST', 'api/ricerca/prova').then(function (r) {
+          var p = el('p', 'm'); p.appendChild(el('b', '', 'Ricerca web (' + r.fonte + '): '));
+          p.appendChild(document.createTextNode(r.risultati ? r.risultati + ' risultati · ' + r.primo : 'nessun risultato · ' + r.errore)); esito.appendChild(p);
+        }).catch(function (e) { esito.textContent = 'Non riuscito: ' + e.message; }).then(function () { rp.disabled = false; rp.textContent = 'Prova la ricerca web'; });
+      });
+      c.appendChild(vm); c.appendChild(rp); c.appendChild(esito); box.appendChild(c);
     }).catch(function () { /* niente scheda se non raggiungibile */ });
   }
   function loadRegole(box) {   // regole della casa per l'AI
