@@ -49,3 +49,30 @@ class A(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TRouterModelli(unittest.TestCase):
+    def tearDown(self):
+        os.environ.pop("GEMINI_MODELLO_POTENTE", None)
+
+    def test_senza_modello_potente_nulla_cambia(self):
+        self.assertEqual(ai._modelli("potente"), [ai.MODELLO, ai.MODELLO_RISERVA])
+        self.assertEqual(ai._modelli("leggero", "x", "y"), ["x", "y"])
+
+    def test_potente_per_primo_poi_normale_e_riserva(self):
+        os.environ["GEMINI_MODELLO_POTENTE"] = "forte"
+        self.assertEqual(ai._modelli("potente", "x", "y"), ["forte", "x", "y"])
+        self.assertEqual(ai._modelli("leggero", "x", "y"), ["x", "y"])
+        self.assertEqual(ai._modelli("potente", "forte", "y"), ["forte", "y"])
+
+    def test_ricerca_web_usa_il_potente_e_la_classificazione_il_leggero(self):
+        os.environ["GEMINI_MODELLO_POTENTE"] = "forte"
+        visti = []
+
+        def post(url, chiave, corpo, timeout):
+            visti.append(url.split("/models/")[1].split(":")[0]); return risposta({"nome": "Pasta", "marca": "X", "confezione": "500 g", "url": ""})
+        ai.cerca_web("8001234567890", "K", "norm", "ris", post=post)
+        self.assertEqual(visti[0], "forte")
+        visti.clear()
+        ai.suggerisci("Pasta", "X", "", CATS, TIPI, "K", "norm", "ris", post=lambda u, c, b, t: (visti.append(u.split("/models/")[1].split(":")[0]), None)[1])
+        self.assertEqual(visti, ["norm", "ris"])

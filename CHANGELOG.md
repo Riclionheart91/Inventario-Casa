@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.16.0 — 2026-11-02
+**Scelta del modello per compito**: nuova opzione `gemini_modello_potente`. Se la compili, la ricerca sul web, la lettura delle foto, i punteggi/riciclo e il controllo delle categorie usano per primo quel modello (poi il normale e la riserva se non risponde); classificazione, traduzione e tipi restano sul modello leggero. Vuota, non cambia niente rispetto a prima.
+
 ## 0.15.0 — 2026-11-02
 Tre novità sull'uso dell'AI, tutte in Impostazioni:
 - **Uso dell'AI**: per ogni compito (classificazione, traduzione, ricerca web, foto, controlli…) quante richieste, quante dalla memoria, quanti errori e quanto tempo; e come tratti le proposte (approvate, corrette, rifiutate), così vedi se i suggerimenti sono affidabili.

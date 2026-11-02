@@ -2,6 +2,7 @@
 La chiave arriva dalle opzioni dell'app (variabile d'ambiente): non viene mai registrata ne inviata al frontend.
 Il testo del prodotto e trattato come dato, mai come istruzione."""
 import json
+import os
 import re
 import unicodedata
 import urllib.request
@@ -22,6 +23,14 @@ def _n(s) -> str:
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = re.sub(r"[\U0001F000-\U0001FFFF←-⯿☀-➿‍️]", "", s)   # senza emoji
     return " ".join(re.sub(r"[^a-z0-9 ]", " ", s).split())
+
+
+def _modelli(livello: str, modello: str = "", riserva: str = "") -> List[str]:
+    """Modelli da provare, in ordine. «leggero» (classificare, tradurre) usa il modello normale; «potente» (ricerca sul web, foto, controlli
+    che richiedono giudizio) usa per primo `GEMINI_MODELLO_POTENTE` se impostato, poi il normale e la riserva se il primo non risponde."""
+    base = [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]
+    forte = os.environ.get("GEMINI_MODELLO_POTENTE", "").strip()
+    return ([forte] + [m for m in base if m != forte]) if livello == "potente" and forte else base
 
 
 def _regole_txt() -> str:
@@ -134,7 +143,7 @@ def suggerisci(nome: str, marca: str, confezione: str, categorie: List[dict], ti
         nome = marca or "prodotto senza nome"
     corpo = {"contents": [{"parts": [{"text": _prompt(nome, marca, confezione, categorie, tipi)}]}],
              "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
-    for m in [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]:
+    for m in _modelli("leggero", modello, riserva):
         d = _estrai(post(URL % m, chiave, corpo, TIMEOUT))
         if d:
             v = valida(d, categorie, tipi)
@@ -162,7 +171,7 @@ def traduci(testi: List[str], chiave: str, modello: str = "", riserva: str = "",
               + json.dumps([{"id": i, "t": t} for i, t in enumerate(testi)], ensure_ascii=False))
     corpo = {"contents": [{"parts": [{"text": prompt}]}],
              "generationConfig": {"maxOutputTokens": 8192, "temperature": 0, "responseMimeType": "application/json"}}
-    for m in [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]:
+    for m in _modelli("leggero", modello, riserva):
         d = _estrai(post(URL % m, chiave, corpo, 60.0))
         r = (d or {}).get("r") if isinstance(d, dict) else None
         if not isinstance(r, list):
@@ -190,7 +199,7 @@ def cerca_web(barcode: str, chiave: str, modello: str = "", riserva: str = "", p
               "confezione come peso o volume (es. 500 g); url = pagina di un negozio o del produttore dedicata a QUESTO prodotto e che riporta questo codice. "
               "Se non sei sicuro lascia vuoti i campi: non inventare." % bc)
     corpo = {"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}], "generationConfig": {"temperature": 0}}
-    for m in [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]:
+    for m in _modelli("potente", modello, riserva):
         r = post(URL % m, chiave, corpo, 60.0)
         d = _estrai(r) or {}
         urls: List[str] = []
@@ -231,7 +240,7 @@ def foto_prodotto(img: bytes, mime: str, categorie: List[dict], tipi: List[str],
              "CATEGORIE:\n%s\n\nTIPI ESISTENTI: %s\n" % (cats, ", ".join(tipi) if tipi else "(nessuno)") + _regole_txt())
     corpo = {"contents": [{"parts": [{"text": testo}, {"inline_data": {"mime_type": mime, "data": base64.b64encode(img).decode()}}]}],
              "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
-    for m in [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]:
+    for m in _modelli("potente", modello, riserva):
         d = _estrai(post(URL % m, chiave, corpo, 60))
         if d:
             v = valida(d, categorie, tipi) or {"categoria": "", "sottocategoria": "", "tipo": "", "tipo_nuovo": False}
@@ -260,7 +269,7 @@ def controlla_categorie(prodotti: List[dict], categorie: List[dict], chiave: str
              "CATEGORIE:\n%s\n\nPRODOTTI (codice | nome | marca | categoria attuale):\n%s\n" % (cats, righe)) + _regole_txt()
     corpo = {"contents": [{"parts": [{"text": testo}]}], "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
     validi = {nbc_(p["bc"]): p for p in prodotti}
-    for m in [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]:
+    for m in _modelli("potente", modello, riserva):
         d = _estrai(post(URL % m, chiave, corpo, 60))
         if d is None:
             if not ULTIMO_ERRORE[0]:
@@ -299,7 +308,7 @@ def tipi_generici(prodotti: List[dict], tipi: List[str], chiave: str, modello: s
              "TIPI ESISTENTI: %s\n\nPRODOTTI (codice | nome | tipo attuale | categoria):\n%s\n" % (", ".join(tipi), righe) + _regole_txt())
     corpo = {"contents": [{"parts": [{"text": testo}]}], "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"}}
     validi = {nbc_(p["bc"]): p for p in prodotti}
-    for m in [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]:
+    for m in _modelli("leggero", modello, riserva):
         d = _estrai(post(URL % m, chiave, corpo, 60))
         if d is None:
             if not ULTIMO_ERRORE[0]:
@@ -340,7 +349,7 @@ def integra_scheda(barcode: str, nome: str, marca: str, confezione: str, chiave:
               "(se la confezione non e nota lascia la lista vuota). Non inventare: nel dubbio lascia vuoto."
               % (bc, str(nome)[:80], str(marca)[:40], str(confezione)[:30]))
     corpo = {"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}], "generationConfig": {"temperature": 0}}
-    for m in [x for x in (modello or MODELLO, riserva or MODELLO_RISERVA) if x]:
+    for m in _modelli("potente", modello, riserva):
         d = _estrai(post(URL % m, chiave, corpo, 60.0))
         if not d:
             continue

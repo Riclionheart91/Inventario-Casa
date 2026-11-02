@@ -55,6 +55,9 @@ Nel carico c'e il campo **Scadenza** (facoltativo): la data finisce nella colonn
 
 Per ricevere una notifica sul telefono imposta nelle opzioni: `scadenza_notifica` (il servizio notify di Home Assistant, per esempio `mobile_app_il_mio_telefono`: lo trovi in Strumenti per sviluppatori › Azioni, cercando «notify»), `scadenza_giorni` (anticipo, 7 di default) e `scadenza_ora` (08:00 di default, ora italiana). Arriva al massimo una notifica al giorno e solo se c'e qualcosa da dire. In Impostazioni › *Avviso scadenze* c'e il pulsante **Invia notifica di prova**. Serve riavviare l'app dopo aver cambiato le opzioni (l'accesso a Home Assistant e gia incluso).
 
+## Modelli per compito (dalla 0.16.0)
+`gemini_modello` è il modello leggero (classificare, tradurre); `gemini_modello_riserva` subentra se non risponde. `gemini_modello_potente`, facoltativo, è per i compiti che richiedono più giudizio: ricerca sul web, foto, punteggi e riciclo, controllo delle categorie. Se è vuoto, tutti i compiti usano il modello normale. Un modello più capace di solito risponde più lentamente: usalo se preferisci la precisione alla rapidità.
+
 ## AI: uso, memoria e regole (dalla 0.15.0)
 In Impostazioni: **Regole della casa** (frasi che l'AI rispetta nelle classificazioni, salvate nel foglio «regole»; servono `sola_lettura` spenta per aggiungerle o toglierle) e **Uso dell'AI** (richieste, errori, tempi e come hai trattato le proposte). Le risposte ripetute restano in memoria 30 giorni per non richiamare Gemini inutilmente; il pulsante «Svuota la memoria» le toglie. I conteggi sono in `/data` e non contengono chiavi né testi dei prodotti.
 
