@@ -153,5 +153,49 @@ class TVerificaModelli(unittest.TestCase):
         self.assertTrue(per["gemini-a-flash-lite"]["ok"] and per["gemini-a-flash-lite"]["ricerca"])
         self.assertFalse(per["gemini-c-pro"]["ok"]); self.assertIn("429", per["gemini-c-pro"]["errore"])
         self.assertEqual(r["consigliati"]["leggero"], "gemini-a-flash-lite")
-        self.assertEqual(r["consigliati"]["potente"], "")   # l'unico non lite ha la ricerca spenta
+        self.assertEqual(r["consigliati"]["potente"], "gemini-b-flash")   # il non-lite che risponde, anche se senza ricerca
+        self.assertTrue(r["ricerca_google"])   # il modello lite la accetta
         self.assertIn("chiave", ai.verifica_modelli("")["errore"])
+
+
+class TFrenoRicerca(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp(); os.environ["DATA_DIR"] = self.d; aiuso.ATTIVO = True; ai.RICERCA_FERMA[0] = 0.0
+
+    def tearDown(self):
+        aiuso.ATTIVO = False; os.environ.pop("DATA_DIR", None); ai.RICERCA_FERMA[0] = 0.0
+
+    def test_lista_vuota_non_e_un_errore(self):
+        @aiuso.registra("prova", False)
+        def f():
+            return []
+        f()
+        self.assertEqual(aiuso.riepilogo()["compiti"][0]["errori"], 0)
+
+    def test_dopo_un_rifiuto_la_ricerca_si_ferma(self):
+        n = [0]
+
+        def finta(*a, **k):
+            n[0] += 1; ai.ULTIMO_ERRORE[0] = "HTTPError 400 grounding"; return None
+        g = ai._con_freno(finta)
+        g(); g(); g()
+        self.assertEqual(n[0], 1)   # le altre due non partono
+        self.assertIn("sospesa", ai.ULTIMO_ERRORE[0])
+        ai.RICERCA_FERMA[0] = 0.0
+        g()
+        self.assertEqual(n[0], 2)
+
+    def test_errore_di_rete_non_ferma(self):
+        n = [0]
+
+        def finta(*a, **k):
+            n[0] += 1; ai.ULTIMO_ERRORE[0] = "URLError timeout"; return None
+        g = ai._con_freno(finta); g(); g()
+        self.assertEqual(n[0], 2)
+
+    def test_ultimo_errore_registrato(self):
+        @aiuso.registra("ricerca web", False)
+        def f():
+            ai.ULTIMO_ERRORE[0] = "HTTPError 400 test"; return None
+        f()
+        self.assertIn("HTTPError 400", aiuso.riepilogo()["ultimo_errore"]["ricerca web"]["testo"])

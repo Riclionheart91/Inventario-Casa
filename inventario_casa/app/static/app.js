@@ -195,6 +195,7 @@
       u.compiti.forEach(function (t) { riga(t.compito, t.richieste + ' richieste · ' + t.dalla_memoria + ' dalla memoria · ' + t.errori + ' errori' + (t.ms_medi ? ' · ' + (t.ms_medi / 1000).toFixed(1) + ' s' : '')); });
       var nome = { P: 'Prodotti', T: 'Tipi', C: 'Categorie', R: 'Revisione' };
       Object.keys(u.esiti || {}).forEach(function (g) { var e = u.esiti[g], tot = e.approvate + e.corrette + e.rifiutate; if (tot) riga('Proposte · ' + (nome[g] || g), e.approvate + ' approvate · ' + e.corrette + ' corrette · ' + e.rifiutate + ' rifiutate (' + Math.round(100 * e.approvate / tot) + '% giuste al primo colpo)'); });
+      Object.keys(u.ultimo_errore || {}).forEach(function (cp) { var e = u.ultimo_errore[cp]; riga('Ultimo errore · ' + cp, e.quando + ' · ' + e.testo); });
       riga('Risposte in memoria', String(u.memoria));
       var b = el('button', 'btn', 'Svuota la memoria'); b.type = 'button'; b.disabled = !u.memoria;
       b.addEventListener('click', function () { b.disabled = true; api('POST', 'api/ai/memoria/svuota').then(function () { toast('Memoria svuotata.'); loadImp(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); b.disabled = false; }); });
@@ -206,6 +207,7 @@
         api('POST', 'api/ai/modelli').then(function (r) {
           if (r.errore) { esito.textContent = 'Non riesco a leggere i modelli: ' + r.errore; return; }
           (r.modelli || []).forEach(function (m) { var p = el('p', 'm'); p.appendChild(el('b', '', m.nome + ': ')); p.appendChild(document.createTextNode(m.ok ? 'risponde (' + (m.ms / 1000).toFixed(1) + ' s) · ricerca Google ' + (m.ricerca ? 'sì' : 'no') : 'non disponibile · ' + m.errore)); esito.appendChild(p); });
+          if (!r.ricerca_google) { var q = el('p', 'm'); q.appendChild(el('b', '', 'Ricerca Google: ')); q.appendChild(document.createTextNode('nessun modello la accetta' + (r.errore_ricerca ? ' · ' + r.errore_ricerca : '') + '. Finché è così, punteggi, riciclo e ricerca sul web non possono funzionare.')); esito.appendChild(q); }
           var k = r.consigliati || {}; var p = el('p', 'm'); p.appendChild(el('b', '', 'Consigliati: ')); p.appendChild(document.createTextNode('leggero ' + (k.leggero || '—') + ' · potente ' + (k.potente || '—'))); esito.appendChild(p);
         }).catch(function (e) { esito.textContent = 'Non riuscito: ' + e.message; }).then(function () { vm.disabled = false; vm.textContent = 'Controlla i modelli disponibili'; });
       });

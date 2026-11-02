@@ -33,6 +33,28 @@ def _modelli(livello: str, modello: str = "", riserva: str = "") -> List[str]:
     return ([forte] + [m for m in base if m != forte]) if livello == "potente" and forte else base
 
 
+RICERCA_FERMA = [0.0]   # fino a quando (ora Unix) la ricerca Google e sospesa perche Gemini la rifiuta
+
+
+def _con_freno(f):
+    """Se Gemini rifiuta la ricerca Google (errore 4xx: non inclusa nel piano, quota esaurita), per un po non si insiste: ogni tentativo
+    inutile consuma quota e tempo. 429 = 15 minuti, altri rifiuti = 6 ore. Una prova riuscita in «Controlla i modelli» riabilita subito."""
+    import functools
+    import time
+
+    @functools.wraps(f)
+    def w(*a, **k):
+        if "post" not in k and time.time() < RICERCA_FERMA[0]:
+            ULTIMO_ERRORE[0] = "ricerca Google sospesa: Gemini la rifiuta (vedi «Controlla i modelli»)"
+            return None
+        r = f(*a, **k)
+        m = re.match(r"HTTPError (\d{3})", ULTIMO_ERRORE[0] or "")
+        if r is None and m and m.group(1).startswith("4") and "post" not in k:
+            RICERCA_FERMA[0] = time.time() + (900 if m.group(1) == "429" else 6 * 3600)
+        return r
+    return w
+
+
 def _regole_txt() -> str:
     """Regole scritte dall'utente, da rispettare nelle classificazioni (vuoto se non ce ne sono)."""
     try:
@@ -402,6 +424,8 @@ for _nome, _compito, _mem in (("suggerisci", "classificazione", True), ("traduci
                               ("foto_prodotto", "foto", False), ("controlla_categorie", "controllo categorie", False),
                               ("tipi_generici", "tipi generici", False), ("integra_scheda", "punteggi e riciclo", True), ("riscrivi_regole", "riscrittura regole", True)):
     globals()[_nome] = aiuso.registra(_compito, _mem, extra=_regole_txt)(globals()[_nome])
+cerca_web = _con_freno(cerca_web)          # le due funzioni che usano la ricerca Google (fuori dal conteggio quando sospese)
+integra_scheda = _con_freno(integra_scheda)
 
 
 # --- quali modelli risponde davvero il tuo account (anche gratuito) ---
@@ -444,10 +468,13 @@ def verifica_modelli(chiave: str, get: Callable = _get_json, post: Callable = po
     def prova(n):
         a = _provato(n, chiave, False, post)
         b = _provato(n, chiave, True, post) if a["ok"] else {"ok": False, "ms": 0, "errore": ""}
-        return {"nome": n, "ok": a["ok"], "ms": a["ms"], "errore": a["errore"], "ricerca": b["ok"], "ms_ricerca": b["ms"]}
+        return {"nome": n, "ok": a["ok"], "ms": a["ms"], "errore": a["errore"], "ricerca": b["ok"], "ms_ricerca": b["ms"], "errore_ricerca": b["errore"]}
     with ThreadPoolExecutor(max_workers=4) as ex:
         res = list(ex.map(prova, ordine))
     buoni = [r for r in res if r["ok"]]
     leggeri = sorted([r for r in buoni if "lite" in r["nome"]] or buoni, key=lambda r: r["ms"])
-    forti = sorted([r for r in buoni if r["ricerca"] and "lite" not in r["nome"]], key=lambda r: r["nome"], reverse=True)
-    return {"modelli": res, "disponibili": len(nomi), "consigliati": {"leggero": leggeri[0]["nome"] if leggeri else "", "potente": forti[0]["nome"] if forti else ""}}
+    forti = sorted([r for r in buoni if "lite" not in r["nome"]], key=lambda r: (r["ricerca"], r["nome"]), reverse=True)
+    if any(r["ricerca"] for r in res):
+        RICERCA_FERMA[0] = 0.0   # la ricerca risponde di nuovo: si riprende
+    return {"modelli": res, "disponibili": len(nomi), "consigliati": {"leggero": leggeri[0]["nome"] if leggeri else "", "potente": forti[0]["nome"] if forti else ""},
+            "ricerca_google": any(r["ricerca"] for r in res), "errore_ricerca": next((r["errore_ricerca"] for r in res if r["ok"] and not r["ricerca"] and r["errore_ricerca"]), "")}

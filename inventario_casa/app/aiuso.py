@@ -48,7 +48,7 @@ def _oggi() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
-def registra_chiamata(compito: str, ok: bool, ms: float, da_memoria: bool = False) -> None:
+def registra_chiamata(compito: str, ok: bool, ms: float, da_memoria: bool = False, errore: str = "") -> None:
     if not ATTIVO:
         return
     with _lock:
@@ -61,6 +61,8 @@ def registra_chiamata(compito: str, ok: bool, ms: float, da_memoria: bool = Fals
             g["ms"] += int(ms)
             if not ok:
                 g["errori"] += 1
+                if errore:
+                    d.setdefault("ultimo_errore", {})[compito] = {"quando": datetime.now().strftime("%d/%m %H:%M"), "testo": errore[:160]}
         for k in sorted(d["giorni"])[:-GIORNI_STORICO]:
             del d["giorni"][k]
         _scrivi("ai_uso.json", d)
@@ -92,7 +94,7 @@ def riepilogo(giorni: int = 7) -> dict:
         compiti.append({"compito": c, "richieste": t["richieste"], "dalla_memoria": t["memoria"], "errori": t["errori"], "ms_medi": int(t["ms"] / veri) if veri else 0})
     oggi = d.get("giorni", {}).get(_oggi(), {})
     return {"giorni": giorni, "compiti": compiti, "oggi": sum(v["richieste"] - v["memoria"] for v in oggi.values()),
-            "esiti": d.get("esiti", {}), "memoria": len(_leggi("ai_memoria.json"))}
+            "esiti": d.get("esiti", {}), "memoria": len(_leggi("ai_memoria.json")), "ultimo_errore": d.get("ultimo_errore", {})}
 
 
 def _chiave(compito: str, args: dict, extra: str) -> str:
@@ -100,11 +102,20 @@ def _chiave(compito: str, args: dict, extra: str) -> str:
 
 
 def _valido(r) -> bool:
-    if r is None or r == {} or r == []:
+    if r is None or r == {}:
         return False
-    if isinstance(r, list):
+    if isinstance(r, list):   # una lista vuota e una risposta valida (es. «nessun prodotto da spostare»)
         return all(x is not None for x in r)
     return True
+
+
+def extra_errore() -> str:
+    """Motivo dell'ultimo fallimento di Gemini (senza chiave), se il modulo ai lo sa."""
+    try:
+        from . import ai
+        return str(ai.ULTIMO_ERRORE[0] or "")
+    except Exception:
+        return ""
 
 
 def registra(compito: str, memoria: bool = False, extra: Optional[Callable[[], str]] = None):
@@ -129,7 +140,7 @@ def registra(compito: str, memoria: bool = False, extra: Optional[Callable[[], s
             t0 = time.time()
             r = f(*a, **k)
             ok = _valido(r)
-            registra_chiamata(compito, ok, (time.time() - t0) * 1000)
+            registra_chiamata(compito, ok, (time.time() - t0) * 1000, errore=(extra_errore() if not ok else ""))
             if memoria and ok:
                 with _lock:
                     m = _leggi("ai_memoria.json")

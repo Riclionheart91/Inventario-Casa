@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.17.1 — 2026-11-02
+- **Ricerca Google rifiutata da Gemini**: se il tuo account non accetta lo strumento di ricerca (errore 4xx), l'app sospende per un po' le funzioni che la usano (punteggi e riciclo, ricerca sul web) invece di riprovare a ogni prodotto: 15 minuti se è un limite di quota, 6 ore negli altri casi. «Controlla i modelli» la riabilita se torna a rispondere, e dice chiaramente se nessun modello la accetta, con il motivo.
+- «Uso dell'AI» mostra l'ultimo errore di ogni compito e non conta più come errore la risposta «niente da spostare» (controllo categorie).
+- «Controlla i modelli» consiglia il modello potente anche se non ha la ricerca.
+
 ## 0.17.0 — 2026-11-02
 - **Regole desunte dai tuoi dati**: in «Regole della casa» il pulsante «Suggerisci dai miei dati» cerca le tue abitudini (dove tieni i prodotti di uno stesso tipo, almeno 3 e quasi tutti nello stesso posto) e le correzioni che hai fatto più volte alle proposte dell'AI. Gemini riscrive le frasi in modo chiaro, controllando che nomi di tipi e categorie restino identici. Ogni suggerimento si approva (✓) o si scarta (✕) e non torna più; non viene scritto niente senza il tuo ok.
 - **Controllo dei modelli Gemini**: in «Uso dell'AI» il pulsante «Controlla i modelli disponibili» prova i modelli del tuo account (anche gratuito), dice quali rispondono, quanto ci mettono e se hanno la ricerca Google, e consiglia uno leggero e uno potente.
