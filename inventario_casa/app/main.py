@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
-from . import ai, lookup, pagina
+from . import ai, aiuso, lookup, pagina
 from .accesso import Accesso, _Mw
 from .store import make_store
 
@@ -208,6 +208,8 @@ def inv() -> Inventory:
     global _inv
     if _inv is None:
         _inv = Inventory(make_store(), ttl=90)   # le richieste rispondono dalla memoria; il ciclo sotto la tiene fresca
+        aiuso.ATTIVO = True                       # conteggio e memoria delle risposte AI solo nell'app (non nei test)
+        ai.regole_provider = _inv.regole          # le regole della casa entrano nelle richieste all'AI
     return _inv
 
 
@@ -461,6 +463,43 @@ def movimento(m: Mov, x_code: str = Header(None)):
 def scadenze(x_code: str = Header(None)):
     check(x_code)
     return inv().scadenze(_giorni_scadenza())
+
+
+@app.get("/api/ai/uso")
+def ai_uso(x_code: str = Header(None)):
+    check(x_code)
+    return aiuso.riepilogo(7)
+
+
+@app.post("/api/ai/memoria/svuota")
+def ai_memoria_svuota(x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return {"svuotate": aiuso.svuota_memoria()}
+
+
+class Regola(BaseModel):
+    testo: str
+
+
+@app.get("/api/regole")
+def regole_elenco(x_code: str = Header(None)):
+    check(x_code)
+    return inv().regole()
+
+
+@app.post("/api/regole")
+def regole_aggiungi(r: Regola, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().aggiungi_regola(r.testo)
+
+
+@app.post("/api/regole/elimina")
+def regole_elimina(r: Regola, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return inv().elimina_regola(r.testo)
 
 
 @app.get("/api/approvazioni")

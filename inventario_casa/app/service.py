@@ -820,6 +820,49 @@ class Inventory:
         return out
 
     def decidi(self, id_: str, azione: str, campi: Optional[dict] = None) -> dict:
+        """Decide una proposta (vedi _decidi) e annota l'esito per il conteggio dell'AI."""
+        self._corretta = False
+        r = self._decidi(id_, azione, campi)
+        try:
+            from . import aiuso
+            aiuso.esito(str(id_)[:1], str(azione).upper().replace("SCARTA", "RIFIUTA").replace("CORREGGI", "APPROVA"), self._corretta)
+        except Exception:
+            pass
+        return r
+
+    # --- regole della casa: frasi scritte dall'utente, passate all'AI nelle classificazioni ---
+    def regole(self) -> List[str]:
+        if "regole" not in self._memo:
+            try:
+                self._memo["regole"] = [str(r.get("Regola", "") or "").strip() for r in self._dicts("regole") if str(r.get("Regola", "") or "").strip()]
+            except Exception:
+                self._memo["regole"] = []   # il foglio non c'e ancora: nessuna regola
+        return self._memo["regole"]
+
+    def aggiungi_regola(self, testo: str) -> List[str]:
+        t = re.sub(r"\s+", " ", str(testo or "")).strip()[:200]
+        if len(t) < 5:
+            raise ApiError(400, "Scrivi la regola per intero (almeno 5 caratteri)")
+        if t.casefold() in {r.casefold() for r in self.regole()}:
+            raise ApiError(409, "Regola già presente")
+        if len(self.regole()) >= 30:
+            raise ApiError(400, "Troppe regole (massimo 30): toglierne qualcuna")
+        self.store.crea_foglio("regole", ["Regola", "Creata"])
+        self.store.append_row("regole", {"Regola": t, "Creata": datetime.now().strftime("%d/%m/%Y")})
+        self._drop("regole")
+        return self.regole()
+
+    def elimina_regola(self, testo: str) -> List[str]:
+        h, rows = self._rows("regole", True)
+        i = h.index("Regola") if "Regola" in h else 0
+        riga = next((n for n, r in enumerate(rows) if len(r) > i and str(r[i]).strip().casefold() == str(testo or "").strip().casefold()), None)
+        if riga is None:
+            raise ApiError(404, "Regola non trovata")
+        self.store.elimina_riga("regole", riga + 2)
+        self._drop("regole")
+        return self.regole()
+
+    def _decidi(self, id_: str, azione: str, campi: Optional[dict] = None) -> dict:
         """APPROVA (con eventuali correzioni in `campi`) oppure RIFIUTA. Gli stati sono quelli del motore:
         ai_prodotti DA_APPROVARE -> APPLICATO (la modifica al prodotto la fa subito l'app, come aiApplyApproved) o RIFIUTATO;
         ai_tipi -> APPROVATO (+ Scorta_min) o RIFIUTATO; ai_categorie PROPOSTA -> APPLICATA (la applica subito l'app) o RIFIUTATO."""
@@ -924,6 +967,8 @@ class Inventory:
         if tipo and tipo.lower() not in {t.lower() for t in self.tipi()}:   # tipo nuovo: in coda, con scorta 0
             self.store.append_row(SH_AIT, {"Tipo": tipo, "Scorta_min": 0, "Stato": ST_PENDING[SH_AIT], "Note": "creato dall'app"})
             self._drop(SH_AIT)
+        self._corretta = any(str(x or "").strip() != str(d.get(c, "") or "").strip() for x, c in
+                             ((nome, "Nome_Suggerito"), (cat, "Categoria_Suggerita"), (sotto, "Sottocategoria_Suggerita"), (tipo, "Tipo")) if str(d.get(c, "") or "").strip())
         self._scrivi(sheet, riga, {"Nome_Suggerito": nome, "Categoria_Suggerita": cat, "Sottocategoria_Suggerita": sotto, "Tipo": tipo,
                                    "Stato": "APPLICATO", "Aggiornato": oggi}, h)
         self._drop(sheet, SH_PROD)

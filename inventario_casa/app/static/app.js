@@ -17,7 +17,7 @@
   var st = { tipo: 'Carico', luogo: 'Casa', qta: 1, known: null, giac: [], riga: 0, cats: null, ro: true, fotoBlob: null, stock: [], filtro: 'Tutti', tab: 'mov' };
 
   /* ---------- API (con mock) ---------- */
-  var MOCKDB = {
+  var MOCKDB = { regole: ['Le uova vanno in Frigorifero'],
     prod: { '8002795002995': { prodotto: 'Latte UHT intero', categoria: 'Dispensa', sottocategoria: 'Bevande' }, '8000500310427': { prodotto: 'Nutella 450 g', categoria: 'Dispensa', sottocategoria: 'Snack e Dolci' } },
     stock: [
       { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', conf: '1 l', img: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='white'/%3E%3Crect x='60' y='30' width='80' height='140' rx='12' fill='%23c0392b'/%3E%3Crect x='72' y='70' width='56' height='50' fill='white'/%3E%3C/svg%3E", categoria: 'Frigorifero', sotto: 'Latticini', tipo: 'Latte', luogo: 'Casa', qta: 3, minima: 1 },
@@ -73,6 +73,10 @@
     if (path === 'api/avvisi') return { servizio: 'mobile_app_telefono', giorni: 7, ora: '08:00', ultimo: '2026-11-01' };
     if (path === 'api/foglio/riordina') return { ok: true, riepilogo: ['schede in ordine'] };
     if (path === 'api/avvisi/prova') return { inviata: true };
+    if (path === 'api/ai/uso') return { giorni: 7, oggi: 12, memoria: 48, compiti: [{ compito: 'classificazione', richieste: 40, dalla_memoria: 14, errori: 1, ms_medi: 1400 }, { compito: 'ricerca web', richieste: 9, dalla_memoria: 2, errori: 2, ms_medi: 6200 }], esiti: { P: { approvate: 12, corrette: 3, rifiutate: 2 }, T: { approvate: 4, corrette: 0, rifiutate: 1 } } };
+    if (path === 'api/regole') { if (body && body.testo) { MOCKDB.regole.push(body.testo); } return MOCKDB.regole.slice(); }
+    if (path === 'api/regole/elimina') { MOCKDB.regole = MOCKDB.regole.filter(function (r) { return r !== body.testo; }); return MOCKDB.regole.slice(); }
+    if (path === 'api/ai/memoria/svuota') return { svuotate: 48 };
     if (path === 'api/scadenze') return [{ barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', luogo: 'Casa', qta: 2, scadenza: '03/11/2026', giorni: 2, stato: 'IN_SCADENZA' }, { barcode: 1, nome: 'Yogurt greco', marca: '', luogo: 'Casa', qta: 1, scadenza: '30/10/2026', giorni: -2, stato: 'SCADUTO' }];
     if ((m = /^api\/bozze\/([^/]+)\/(salva|conferma|scarta)$/.exec(path))) { if (m[2] !== 'salva') MOCKDB.bozze = MOCKDB.bozze.filter(function (x) { return x.id !== m[1]; }); return { ok: true }; }
     throw new Error('Percorso sconosciuto: ' + path);
@@ -179,6 +183,47 @@
       c.appendChild(b); box.appendChild(c);
     }).catch(function () { /* niente scheda se non raggiungibile */ });
   }
+  function loadAiUso(box) {   // quante chiamate fa l'AI, quanto va bene, come tratti le proposte
+    api('GET', 'api/ai/uso').then(function (u) {
+      var c = el('div', 'card'); c.appendChild(el('h2', '', 'Uso dell\'AI (ultimi ' + u.giorni + ' giorni)'));
+      var riga = function (k, v) { var p = el('p', 'm'); p.appendChild(el('b', '', k + ': ')); p.appendChild(document.createTextNode(v)); c.appendChild(p); };
+      riga('Chiamate a Gemini oggi', String(u.oggi));
+      if (!u.compiti.length) riga('Compiti', 'nessuna chiamata ancora');
+      u.compiti.forEach(function (t) { riga(t.compito, t.richieste + ' richieste · ' + t.dalla_memoria + ' dalla memoria · ' + t.errori + ' errori' + (t.ms_medi ? ' · ' + (t.ms_medi / 1000).toFixed(1) + ' s' : '')); });
+      var nome = { P: 'Prodotti', T: 'Tipi', C: 'Categorie', R: 'Revisione' };
+      Object.keys(u.esiti || {}).forEach(function (g) { var e = u.esiti[g], tot = e.approvate + e.corrette + e.rifiutate; if (tot) riga('Proposte · ' + (nome[g] || g), e.approvate + ' approvate · ' + e.corrette + ' corrette · ' + e.rifiutate + ' rifiutate (' + Math.round(100 * e.approvate / tot) + '% giuste al primo colpo)'); });
+      riga('Risposte in memoria', String(u.memoria));
+      var b = el('button', 'btn', 'Svuota la memoria'); b.type = 'button'; b.disabled = !u.memoria;
+      b.addEventListener('click', function () { b.disabled = true; api('POST', 'api/ai/memoria/svuota').then(function () { toast('Memoria svuotata.'); loadImp(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); b.disabled = false; }); });
+      c.appendChild(b); box.appendChild(c);
+    }).catch(function () { /* niente scheda se non raggiungibile */ });
+  }
+  function loadRegole(box) {   // regole della casa per l'AI
+    api('GET', 'api/regole').then(function (list) {
+      var c = el('div', 'card'); c.appendChild(el('h2', '', 'Regole della casa'));
+      c.appendChild(el('p', 'm', 'Frasi tue che l\'AI rispetta quando propone categoria e tipo, per esempio «le uova vanno in Frigorifero» o «i detersivi stanno in Cantina».'));
+      var ul = el('div', 'regole');
+      function disegna(l) {
+        ul.textContent = '';
+        if (!l.length) ul.appendChild(el('p', 'm', 'Nessuna regola ancora.'));
+        l.forEach(function (t) {
+          var r = el('div', 'regola'); r.appendChild(el('span', '', t));
+          var x = el('button', 'btn', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Togli la regola');
+          x.addEventListener('click', function () { x.disabled = true; api('POST', 'api/regole/elimina', { testo: t }).then(disegna).catch(function (e) { toast('Non riuscito: ' + e.message, true); x.disabled = false; }); });
+          r.appendChild(x); ul.appendChild(r);
+        });
+      }
+      disegna(list || []); c.appendChild(ul);
+      var inp = el('input'); inp.type = 'text'; inp.maxLength = 200; inp.placeholder = 'Scrivi una regola…';
+      var add = el('button', 'btn primary', 'Aggiungi'); add.type = 'button';
+      add.addEventListener('click', function () {
+        var t = inp.value.trim(); if (!t) return;
+        add.disabled = true;
+        api('POST', 'api/regole', { testo: t }).then(function (l) { inp.value = ''; disegna(l); toast('Regola aggiunta.'); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); }).then(function () { add.disabled = false; });
+      });
+      c.appendChild(inp); c.appendChild(add); box.appendChild(c);
+    }).catch(function () { /* niente scheda se non raggiungibile */ });
+  }
   function loadImp() {
     var box = $('imp'); clearTimeout(impTimer);
     api('GET', 'api/arricchimento').then(function (s) {
@@ -198,6 +243,8 @@
       });
       c.appendChild(b); box.appendChild(c);
       loadAvvisi(box);
+      loadRegole(box);
+      loadAiUso(box);
       loadFoglio(box);
       loadRev(box);
       if (s.in_corso && st.tab === 'imp') impTimer = setTimeout(loadImp, 6000);

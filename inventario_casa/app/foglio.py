@@ -3,7 +3,7 @@ colonne e schede in ordine logico, intestazioni fisse, filtri, formati e menu a 
 from typing import Dict, List
 
 # fogli usati dall'app, nell'ordine in cui compaiono (e colore della scheda)
-ORDINE = [("movimenti", "#2f6fb5"), ("prodotti", "#2f6fb5"), ("categorie", "#2f8a55"), ("ai_tipi", "#2f8a55"), ("alias", "#2f8a55"),
+ORDINE = [("movimenti", "#2f6fb5"), ("prodotti", "#2f6fb5"), ("categorie", "#2f8a55"), ("ai_tipi", "#2f8a55"), ("alias", "#2f8a55"), ("regole", "#2f8a55"),
           ("location", "#2f8a55"), ("bozze", "#a68a1f"), ("ai_prodotti", "#a68a1f"), ("ai_categorie", "#a68a1f"), ("log_ai", "#6b7683"),
           ("modifiche_migrazione", "#6b7683")]
 # fogli che servivano solo ad AppSheet: nascosti, in fondo

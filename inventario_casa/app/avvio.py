@@ -21,6 +21,7 @@ INTESTAZIONI: Dict[str, List[str]] = {
     "ai_prodotti": ["Barcode", "Prodotto_Attuale", "Nome_Suggerito", "Categoria_Suggerita", "Sottocategoria_Suggerita", "Tipo", "Confidenza", "Motivo", "Stato", "Aggiornato"],
     "ai_categorie": ["Azione", "Categoria", "Sottocategoria", "Nuovo_Nome", "Motivo", "Prodotti_Esempio", "Stato", "Aggiornato"],
     "log_ai": ["Quando", "Barcode", "Campo", "Prima", "Dopo", "Fonte", "Confidenza"],
+    "regole": ["Regola", "Creata"],
     "modifiche_migrazione": ["Quando", "Modifica", "Dettaglio"],
 }
 VALORI_INIZIALI = {"location": [["Casa"], ["Cantina"]]}

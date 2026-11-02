@@ -3,6 +3,12 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.15.0 — 2026-11-02
+Tre novità sull'uso dell'AI, tutte in Impostazioni:
+- **Uso dell'AI**: per ogni compito (classificazione, traduzione, ricerca web, foto, controlli…) quante richieste, quante dalla memoria, quanti errori e quanto tempo; e come tratti le proposte (approvate, corrette, rifiutate), così vedi se i suggerimenti sono affidabili.
+- **Memoria delle risposte**: la stessa richiesta (stesso prodotto, stesse regole) non richiama Gemini per 30 giorni. C'è il pulsante «Svuota la memoria».
+- **Regole della casa**: frasi tue (per esempio «le uova vanno in Frigorifero») salvate nel foglio «regole» e passate all'AI in classificazioni, foto e controlli. Hanno la precedenza sulle sue deduzioni.
+
 ## 0.14.2 — 2026-11-01
 Approvare o rifiutare una proposta è molto più rapido: l'app legge il foglio una volta sola invece di rileggerlo a ogni passaggio, e la pagina toglie subito la carta senza ricaricare l'intero elenco.
 
