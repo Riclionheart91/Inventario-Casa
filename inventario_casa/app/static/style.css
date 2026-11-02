@@ -216,3 +216,6 @@ details.g>summary .cs{font-size:.88em;font-weight:500;color:var(--mut);text-tran
 
 .regola{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(127,127,127,.2)}
 .regola .btn{padding:2px 10px;min-width:0}
+
+.sug1{align-items:flex-start}
+.regola-bt{display:flex;gap:6px;flex-shrink:0}

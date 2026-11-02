@@ -76,6 +76,9 @@
     if (path === 'api/ai/uso') return { giorni: 7, oggi: 12, memoria: 48, compiti: [{ compito: 'classificazione', richieste: 40, dalla_memoria: 14, errori: 1, ms_medi: 1400 }, { compito: 'ricerca web', richieste: 9, dalla_memoria: 2, errori: 2, ms_medi: 6200 }], esiti: { P: { approvate: 12, corrette: 3, rifiutate: 2 }, T: { approvate: 4, corrette: 0, rifiutate: 1 } } };
     if (path === 'api/regole') { if (body && body.testo) { MOCKDB.regole.push(body.testo); } return MOCKDB.regole.slice(); }
     if (path === 'api/regole/elimina') { MOCKDB.regole = MOCKDB.regole.filter(function (r) { return r !== body.testo; }); return MOCKDB.regole.slice(); }
+    if (path === 'api/regole/suggerisci') return [{ chiave: 'tipo|pasta', testo: 'La pasta va sempre in Dispensa, tra Pasta e Riso.', n: 10, tot: 10, prodotti: ['Fusilli · Garofalo', 'Penne · Garofalo'] }, { chiave: 'corr|a>b', testo: 'Le bibite non vanno in Frigorifero ma in Bevande e Cantina.', n: 2, tot: 2, prodotti: ['Birra', 'Coca Cola'] }];
+    if (path === 'api/ai/modelli') return { modelli: [{ nome: 'gemini-3.5-flash-lite', ok: true, ms: 900, ricerca: true }, { nome: 'gemini-3.6-flash', ok: false, ms: 0, errore: 'HTTPError 429 quota' }], consigliati: { leggero: 'gemini-3.5-flash-lite', potente: '' } };
+    if (path === 'api/regole/scarta') return { ok: true };
     if (path === 'api/ai/memoria/svuota') return { svuotate: 48 };
     if (path === 'api/scadenze') return [{ barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', luogo: 'Casa', qta: 2, scadenza: '03/11/2026', giorni: 2, stato: 'IN_SCADENZA' }, { barcode: 1, nome: 'Yogurt greco', marca: '', luogo: 'Casa', qta: 1, scadenza: '30/10/2026', giorni: -2, stato: 'SCADUTO' }];
     if ((m = /^api\/bozze\/([^/]+)\/(salva|conferma|scarta)$/.exec(path))) { if (m[2] !== 'salva') MOCKDB.bozze = MOCKDB.bozze.filter(function (x) { return x.id !== m[1]; }); return { ok: true }; }
@@ -195,7 +198,18 @@
       riga('Risposte in memoria', String(u.memoria));
       var b = el('button', 'btn', 'Svuota la memoria'); b.type = 'button'; b.disabled = !u.memoria;
       b.addEventListener('click', function () { b.disabled = true; api('POST', 'api/ai/memoria/svuota').then(function () { toast('Memoria svuotata.'); loadImp(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); b.disabled = false; }); });
-      c.appendChild(b); box.appendChild(c);
+      c.appendChild(b);
+      var vm = el('button', 'btn', 'Controlla i modelli disponibili'); vm.type = 'button'; vm.style.marginLeft = '8px';
+      var esito = el('div', 'm');
+      vm.addEventListener('click', function () {
+        vm.disabled = true; vm.textContent = 'Provo i modelli…'; esito.textContent = '';
+        api('POST', 'api/ai/modelli').then(function (r) {
+          if (r.errore) { esito.textContent = 'Non riesco a leggere i modelli: ' + r.errore; return; }
+          (r.modelli || []).forEach(function (m) { var p = el('p', 'm'); p.appendChild(el('b', '', m.nome + ': ')); p.appendChild(document.createTextNode(m.ok ? 'risponde (' + (m.ms / 1000).toFixed(1) + ' s) · ricerca Google ' + (m.ricerca ? 'sì' : 'no') : 'non disponibile · ' + m.errore)); esito.appendChild(p); });
+          var k = r.consigliati || {}; var p = el('p', 'm'); p.appendChild(el('b', '', 'Consigliati: ')); p.appendChild(document.createTextNode('leggero ' + (k.leggero || '—') + ' · potente ' + (k.potente || '—'))); esito.appendChild(p);
+        }).catch(function (e) { esito.textContent = 'Non riuscito: ' + e.message; }).then(function () { vm.disabled = false; vm.textContent = 'Controlla i modelli disponibili'; });
+      });
+      c.appendChild(vm); c.appendChild(esito); box.appendChild(c);
     }).catch(function () { /* niente scheda se non raggiungibile */ });
   }
   function loadRegole(box) {   // regole della casa per l'AI
@@ -221,7 +235,25 @@
         add.disabled = true;
         api('POST', 'api/regole', { testo: t }).then(function (l) { inp.value = ''; disegna(l); toast('Regola aggiunta.'); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); }).then(function () { add.disabled = false; });
       });
-      c.appendChild(inp); c.appendChild(add); box.appendChild(c);
+      c.appendChild(inp); c.appendChild(add);
+      var sug = el('button', 'btn', 'Suggerisci dai miei dati'); sug.type = 'button'; sug.style.marginTop = '8px';
+      var lista = el('div', 'sugg');
+      sug.addEventListener('click', function () {
+        sug.disabled = true; sug.textContent = 'Analizzo i tuoi prodotti…'; lista.textContent = '';
+        api('POST', 'api/regole/suggerisci').then(function (cs) {
+          if (!cs.length) lista.appendChild(el('p', 'm', 'Niente di nuovo: non vedo abitudini abbastanza chiare (servono almeno 3 prodotti dello stesso tipo, quasi tutti nello stesso posto, oppure due tue correzioni uguali).'));
+          cs.forEach(function (x) {
+            var r = el('div', 'regola sug1'); var t = el('div', ''); t.appendChild(el('div', '', x.testo));
+            t.appendChild(el('div', 'm', x.n + ' su ' + x.tot + ' prodotti · es. ' + x.prodotti.slice(0, 3).join(' · ')));
+            r.appendChild(t);
+            var ok = el('button', 'btn primary', '✓'), no = el('button', 'btn', '✕'); ok.type = no.type = 'button'; ok.setAttribute('aria-label', 'Aggiungi la regola'); no.setAttribute('aria-label', 'Scarta il suggerimento');
+            ok.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', 'api/regole', { testo: x.testo, chiave: x.chiave }).then(function (l) { disegna(l); r.remove(); toast('Regola aggiunta.'); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); ok.disabled = no.disabled = false; }); });
+            no.addEventListener('click', function () { ok.disabled = no.disabled = true; api('POST', 'api/regole/scarta', { testo: x.testo, chiave: x.chiave }).then(function () { r.remove(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); ok.disabled = no.disabled = false; }); });
+            var bt = el('div', 'regola-bt'); bt.appendChild(ok); bt.appendChild(no); r.appendChild(bt); lista.appendChild(r);
+          });
+        }).catch(function (e) { toast('Non riuscito: ' + e.message, true); }).then(function () { sug.disabled = false; sug.textContent = 'Suggerisci dai miei dati'; });
+      });
+      c.appendChild(sug); c.appendChild(lista); box.appendChild(c);
     }).catch(function () { /* niente scheda se non raggiungibile */ });
   }
   function loadImp() {

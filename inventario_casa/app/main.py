@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
-from . import ai, aiuso, lookup, pagina
+from . import ai, aiuso, lookup, pagina, regole_auto
 from .accesso import Accesso, _Mw
 from .store import make_store
 
@@ -471,6 +471,12 @@ def ai_uso(x_code: str = Header(None)):
     return aiuso.riepilogo(7)
 
 
+@app.post("/api/ai/modelli")
+async def ai_modelli(x_code: str = Header(None)):
+    check(x_code)
+    return await run_in_threadpool(ai.verifica_modelli, _env("GEMINI_API_KEY"))
+
+
 @app.post("/api/ai/memoria/svuota")
 def ai_memoria_svuota(x_code: str = Header(None)):
     check(x_code)
@@ -480,6 +486,7 @@ def ai_memoria_svuota(x_code: str = Header(None)):
 
 class Regola(BaseModel):
     testo: str
+    chiave: str = ""
 
 
 @app.get("/api/regole")
@@ -492,7 +499,31 @@ def regole_elenco(x_code: str = Header(None)):
 def regole_aggiungi(r: Regola, x_code: str = Header(None)):
     check(x_code)
     writable()
-    return inv().aggiungi_regola(r.testo)
+    out = inv().aggiungi_regola(r.testo)
+    regole_auto.segna(r.chiave)
+    return out
+
+
+@app.post("/api/regole/suggerisci")
+def regole_suggerisci(x_code: str = Header(None)):
+    """Regole desunte dai dati (catalogo e correzioni passate), riscritte da Gemini in modo chiaro. Non scrive niente."""
+    check(x_code)
+    c = inv().candidate_regole()
+    if c and _env("GEMINI_API_KEY"):
+        frasi = ai.riscrivi_regole([x["bozza"] for x in c], _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+        for x, f in zip(c, frasi):
+            x["testo"] = regole_auto.chiara(f, x)
+    for x in c:
+        x.setdefault("testo", x["bozza"])
+        x.pop("obbligatori", None)
+    return c
+
+
+@app.post("/api/regole/scarta")
+def regole_scarta(r: Regola, x_code: str = Header(None)):
+    check(x_code)
+    regole_auto.segna(r.chiave)
+    return {"ok": True}
 
 
 @app.post("/api/regole/elimina")

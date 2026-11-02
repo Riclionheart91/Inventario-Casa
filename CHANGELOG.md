@@ -3,6 +3,10 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.17.0 — 2026-11-02
+- **Regole desunte dai tuoi dati**: in «Regole della casa» il pulsante «Suggerisci dai miei dati» cerca le tue abitudini (dove tieni i prodotti di uno stesso tipo, almeno 3 e quasi tutti nello stesso posto) e le correzioni che hai fatto più volte alle proposte dell'AI. Gemini riscrive le frasi in modo chiaro, controllando che nomi di tipi e categorie restino identici. Ogni suggerimento si approva (✓) o si scarta (✕) e non torna più; non viene scritto niente senza il tuo ok.
+- **Controllo dei modelli Gemini**: in «Uso dell'AI» il pulsante «Controlla i modelli disponibili» prova i modelli del tuo account (anche gratuito), dice quali rispondono, quanto ci mettono e se hanno la ricerca Google, e consiglia uno leggero e uno potente.
+
 ## 0.16.0 — 2026-11-02
 **Scelta del modello per compito**: nuova opzione `gemini_modello_potente`. Se la compili, la ricerca sul web, la lettura delle foto, i punteggi/riciclo e il controllo delle categorie usano per primo quel modello (poi il normale e la riserva se non risponde); classificazione, traduzione e tipi restano sul modello leggero. Vuota, non cambia niente rispetto a prima.
 

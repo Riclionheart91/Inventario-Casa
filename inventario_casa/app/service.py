@@ -839,6 +839,11 @@ class Inventory:
                 self._memo["regole"] = []   # il foglio non c'e ancora: nessuna regola
         return self._memo["regole"]
 
+    def candidate_regole(self) -> List[dict]:
+        """Regole che i dati suggeriscono (vedi regole_auto): non scrive nulla."""
+        from . import regole_auto
+        return regole_auto.candidate(self._dicts(SH_PROD), self._opz("log_ai"), self.regole())
+
     def aggiungi_regola(self, testo: str) -> List[str]:
         t = re.sub(r"\s+", " ", str(testo or "")).strip()[:200]
         if len(t) < 5:

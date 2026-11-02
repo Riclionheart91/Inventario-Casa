@@ -86,3 +86,72 @@ class TRegole(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TRegoleAuto(unittest.TestCase):
+    def setUp(self):
+        from app import regole_auto
+        self.ra = regole_auto
+        os.environ["DATA_DIR"] = tempfile.mkdtemp()
+
+    def tearDown(self):
+        os.environ.pop("DATA_DIR", None)
+
+    def prod(self, n, tipo, cat, sub, bc=None):
+        return {"Barcode": bc or "80%05d" % n, "Prodotto": "P%d" % n, "Marca": "M", "Tipo": tipo, "Categoria": cat, "Sottocategoria": sub}
+
+    def test_abitudine_solo_se_forte(self):
+        ps = [self.prod(i, "Pasta", "Dispensa", "Pasta") for i in range(4)] + [self.prod(10 + i, "Latte", "Dispensa" if i < 2 else "Frigo", "X") for i in range(4)] \
+            + [self.prod(20, "Sale", "Dispensa", "S"), self.prod(21, "Sale", "Dispensa", "S")]
+        c = self.ra.candidate(ps, [], [], set())
+        self.assertEqual([x["chiave"] for x in c], ["tipo|pasta"])   # Latte e 50% e Sale ha solo 2 prodotti
+        self.assertIn("Pasta", c[0]["bozza"]); self.assertEqual((c[0]["n"], c[0]["tot"]), (4, 4))
+
+    def test_correzioni_ripetute_e_gestite(self):
+        ps = [self.prod(1, "Birra", "Bevande", "Birre", "111111"), self.prod(2, "Vino", "Bevande", "Vino", "222222")]
+        log = [{"Campo": "Categoria", "Fonte": "APPROVATO", "Prima": "❄️ Frigorifero", "Dopo": "🍷 Bevande", "Barcode": "111111"},
+               {"Campo": "Categoria", "Fonte": "APPROVATO", "Prima": "Frigorifero", "Dopo": "Bevande", "Barcode": "222222"},
+               {"Campo": "Categoria", "Fonte": "REVISIONE", "Prima": "A", "Dopo": "B", "Barcode": "111111"}]
+        c = self.ra.candidate(ps, log, [], None)
+        self.assertEqual(len(c), 1); self.assertTrue(c[0]["chiave"].startswith("corr|"))
+        self.ra.segna(c[0]["chiave"])
+        self.assertEqual(self.ra.candidate(ps, log, [], None), [])   # scartata o approvata: non torna
+
+    def test_regola_gia_scritta_non_si_ripropone(self):
+        ps = [self.prod(i, "Pasta", "Dispensa", "Pasta") for i in range(4)]
+        self.assertEqual(self.ra.candidate(ps, [], ["La pasta va in Dispensa"], set()), [])
+
+    def test_frase_riscritta_vale_solo_se_cita_i_nomi(self):
+        c = {"bozza": "B", "obbligatori": ["Pasta", "🧺 Dispensa"]}
+        self.assertEqual(self.ra.chiara("La Pasta sta sempre in Dispensa, in casa.", c), "La Pasta sta sempre in Dispensa, in casa.")
+        self.assertEqual(self.ra.chiara("La pasta sta in cucina.", c), "B")
+        self.assertEqual(self.ra.chiara(None, c), "B")
+
+    def test_riscrittura_ai(self):
+        r = ai.riscrivi_regole(["a", "b"], "K", post=lambda u, c, b, t: {"candidates": [{"content": {"parts": [{"text": '{"r":[{"id":1,"frase":"Beta"},{"id":0,"frase":"Alfa"}]}'}]}}]})
+        self.assertEqual(r, ["Alfa", "Beta"])
+        self.assertEqual(ai.riscrivi_regole(["a"], "", post=None), [None])
+
+
+class TVerificaModelli(unittest.TestCase):
+    def test_elenca_prova_e_consiglia(self):
+        elenco = {"models": [{"name": "models/gemini-a-flash-lite", "supportedGenerationMethods": ["generateContent"]},
+                             {"name": "models/gemini-b-flash", "supportedGenerationMethods": ["generateContent"]},
+                             {"name": "models/gemini-c-pro", "supportedGenerationMethods": ["generateContent"]},
+                             {"name": "models/gemini-embedding-001", "supportedGenerationMethods": ["embedContent"]},
+                             {"name": "models/gemini-d-tts", "supportedGenerationMethods": ["generateContent"]}]}
+
+        def post(url, k, corpo, t):
+            if "gemini-c-pro" in url:
+                ai.ULTIMO_ERRORE[0] = "HTTPError 429 limit: 0"; return None
+            if "gemini-b-flash" in url and "tools" in corpo:
+                return None
+            return {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+        r = ai.verifica_modelli("K", get=lambda u, k: elenco, post=post)
+        per = {m["nome"]: m for m in r["modelli"]}
+        self.assertEqual(set(per), {"gemini-a-flash-lite", "gemini-b-flash", "gemini-c-pro"})   # niente embedding ne tts
+        self.assertTrue(per["gemini-a-flash-lite"]["ok"] and per["gemini-a-flash-lite"]["ricerca"])
+        self.assertFalse(per["gemini-c-pro"]["ok"]); self.assertIn("429", per["gemini-c-pro"]["errore"])
+        self.assertEqual(r["consigliati"]["leggero"], "gemini-a-flash-lite")
+        self.assertEqual(r["consigliati"]["potente"], "")   # l'unico non lite ha la ricerca spenta
+        self.assertIn("chiave", ai.verifica_modelli("")["errore"])
