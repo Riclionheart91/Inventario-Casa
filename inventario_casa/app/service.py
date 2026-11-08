@@ -510,7 +510,7 @@ class Inventory:
             n = self.store.append_row(SH_MOV, r)
         self._drop(SH_MOV)
         if p is None:
-            self._bozza_da_foto(k, tipo, location, qv)
+            self._bozza_da_foto(k, tipo, location, qv, attesa=(foto == "AI"))
         return {"ok": True, "riga": n, "righe": len(righe), "noto": p is not None}
 
     # --- scadenze ---------------------------------------------------------
@@ -1253,20 +1253,55 @@ class Inventory:
         if analisi:
             self.__dict__.setdefault("_analisi", {})[nbc(barcode)] = analisi
 
-    def _bozza_da_foto(self, k: str, tipo: str, location: str, q) -> None:
-        """Bozza gia compilata dall'AI per un codice nuovo (se esiste l'analisi della foto)."""
-        a = self.__dict__.get("_analisi", {}).pop(k, None)
-        if not a:
-            return
-        try:
-            if any(nbc(b.get("Barcode")) == k and str(b.get("Stato", "") or "").strip().upper() in self.BOZZE_APERTE
-                   for b in self._opz("bozze", True)):
+    @staticmethod
+    def _campi_analisi(a: dict) -> dict:
+        nota = ("Categoria proposta dall'AI, da approvare: %s > %s" % (a["proposta"]["categoria"], a["proposta"]["sottocategoria"])) if a.get("proposta") else ""
+        return {"Prodotto": a.get("nome", ""), "Marca": a.get("marca", ""), "Confezione": a.get("confezione", ""), "Categoria": a.get("categoria", ""),
+                "Sottocategoria": a.get("sottocategoria", ""), "Tipo": a.get("tipo", ""), "Immagine": a.get("immagine", ""), "Nota": nota,
+                "Stato": "PRONTA", "Fonte": "AI (foto)"}
+
+    def _bozza_da_foto(self, k: str, tipo: str, location: str, q, attesa: bool = False) -> None:
+        """Bozza per un codice nuovo. Se l'analisi della foto c'e gia nasce compilata; se e ancora in corso (attesa) nasce IN_ELABORAZIONE
+        e la completa applica_analisi appena l'AI finisce: il salvataggio del movimento non aspetta mai l'AI."""
+        with self._lock:
+            a = self.__dict__.get("_analisi", {}).pop(k, None)
+            if not a and not attesa:
                 return
-            self.store.append_row("bozze", {
-                "ID": "A" + uuid.uuid4().hex[:7], "Barcode": bco(k), "Foto": "AI", "Prodotto": a.get("nome", ""), "Marca": a.get("marca", ""),
-                "Confezione": a.get("confezione", ""), "Categoria": a.get("categoria", ""), "Sottocategoria": a.get("sottocategoria", ""),
-                "Tipo": a.get("tipo", ""), "Immagine": a.get("immagine", ""), "Nota": ("Categoria proposta dall'AI, da approvare: %s > %s" % (a["proposta"]["categoria"], a["proposta"]["sottocategoria"])) if a.get("proposta") else "", "Stato": "PRONTA", "Fonte": "AI (foto)", "Location": location, "Movimento": tipo,
-                "Quantità": q, "Aggiornato": datetime.now().strftime("%d/%m/%Y")})
-            self._drop("bozze")
-        except Exception:
-            pass   # la bozza la crea comunque lo script dal movimento in sospeso
+            try:
+                if any(nbc(b.get("Barcode")) == k and str(b.get("Stato", "") or "").strip().upper() in self.BOZZE_APERTE
+                       for b in self._opz("bozze", True)):
+                    return
+                if not a:
+                    campi = {"Stato": "IN_ELABORAZIONE", "Fonte": "AI (foto)", "Nota": "L'AI sta leggendo la foto e cercando sul web: i campi si compilano da soli."}
+                elif a.get("_fallita"):
+                    campi = {"Stato": "NUOVA", "Fonte": "AI (foto)", "Nota": "L'AI non ha risposto: compila a mano o premi «Cerca e suggerisci»."}
+                else:
+                    campi = self._campi_analisi(a)
+                self.store.append_row("bozze", dict({"ID": "A" + uuid.uuid4().hex[:7], "Barcode": bco(k), "Foto": "AI", "Location": location, "Movimento": tipo,
+                                                     "Quantità": q, "Aggiornato": datetime.now().strftime("%d/%m/%Y")}, **campi))
+                self._drop("bozze")
+            except Exception:
+                pass   # la bozza la crea comunque lo script dal movimento in sospeso
+
+    def applica_analisi(self, barcode, analisi: Optional[dict]) -> None:
+        """Risultato dell'AI arrivato dopo il salvataggio: se la bozza e in attesa la completa (solo i campi ancora vuoti), altrimenti lo tiene
+        da parte per quando il movimento verra salvato. analisi=None: l'AI non ha risposto."""
+        k = nbc(barcode)
+        a = analisi or {"_fallita": True}
+        with self._lock:
+            try:
+                h, rows = self._rows("bozze", True)
+                for i, r in enumerate(rows):
+                    d = dict(zip(h, list(r) + [""] * (len(h) - len(r))))
+                    if nbc(d.get("Barcode")) == k and str(d.get("Stato", "") or "").strip().upper() == "IN_ELABORAZIONE":
+                        if a.get("_fallita"):
+                            val = {"Stato": "NUOVA", "Nota": "L'AI non ha risposto: compila a mano o premi «Cerca e suggerisci»."}
+                        else:
+                            val = {c: v for c, v in self._campi_analisi(a).items() if c in ("Stato", "Nota", "Fonte") or not str(d.get(c, "") or "").strip()}
+                        val["Aggiornato"] = datetime.now().strftime("%d/%m/%Y")
+                        self._scrivi("bozze", i + 2, val, h)
+                        self._drop("bozze")
+                        return
+            except Exception:
+                pass
+            self.__dict__.setdefault("_analisi", {})[k] = a

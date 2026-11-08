@@ -241,6 +241,30 @@ class TFotoAI(unittest.TestCase):
         self.assertEqual((b[0]["nome"], b[0]["stato"], b[0]["location"]), ("Ghiaccio istantaneo", "PRONTA", "Cantina"))
         self.assertEqual(righe(st, "movimenti", "Barcode", 8009999999999)[0][5], "Ghiaccio istantaneo")
 
+    def test_movimento_non_aspetta_l_ai(self):
+        st, inv = make()
+        r = inv.movimento("8009999999998", "Carico", "Cantina", 2, foto="AI")   # analisi ancora in corso
+        self.assertFalse(r["noto"])
+        b = [x for x in inv.bozze() if x["barcode"] == "8009999999998"]
+        self.assertEqual((len(b), b[0]["stato"]), (1, "IN_ELABORAZIONE"))
+        inv.applica_analisi("8009999999998", {"nome": "Ghiaccio", "marca": "Gima", "categoria": "Dispensa", "sottocategoria": "Bevande", "tipo": "Ghiaccio"})
+        b = [x for x in inv.bozze() if x["barcode"] == "8009999999998"]
+        self.assertEqual((len(b), b[0]["stato"], b[0]["nome"], b[0]["quantita"]), (1, "PRONTA", "Ghiaccio", 2))
+
+    def test_analisi_fallita_dopo_il_salvataggio(self):
+        st, inv = make()
+        inv.movimento("8009999999997", "Carico", "Casa", 1, foto="AI")
+        inv.applica_analisi("8009999999997", None)
+        b = [x for x in inv.bozze() if x["barcode"] == "8009999999997"]
+        self.assertEqual(b[0]["stato"], "NUOVA")
+
+    def test_analisi_prima_del_movimento(self):
+        st, inv = make()
+        inv.applica_analisi("8009999999996", {"nome": "Sale", "categoria": "Dispensa", "sottocategoria": "Bevande"})
+        inv.movimento("8009999999996", "Carico", "Casa", 1, foto="AI")
+        b = [x for x in inv.bozze() if x["barcode"] == "8009999999996"]
+        self.assertEqual((b[0]["stato"], b[0]["nome"]), ("PRONTA", "Sale"))
+
     def test_ai_foto_prodotto(self):
         from app import ai
         risposta = {"candidates": [{"content": {"parts": [{"text": '{"nome":"Ghiaccio","marca":"Gima","confezione":"1 pz","categoria":"Dispensa","sottocategoria":"Bevande","tipo":"Ghiaccio"}'}]}}]}

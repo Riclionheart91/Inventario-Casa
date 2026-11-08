@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.18.1 — 2026-11-08
+**Codice nuovo senza attese**: quando inserisci un prodotto nuovo con la foto, il movimento si salva subito e puoi passare al prodotto successivo. La lettura della foto e la ricerca sul web partono dopo, in background: in «Da inserire» il prodotto compare con lo stato «in elaborazione» e si compila da solo appena l'AI finisce (la pagina si aggiorna da sola). Se l'AI non risponde, la scheda resta da compilare a mano, con un avviso.
+
 ## 0.18.0 — 2026-11-02
 **Ricerca sul web senza passare dall'AI**: per i codici sconosciuti e per punteggi e riciclo, l'app cerca da sola sul web (DuckDuckGo, senza chiave; oppure Brave, Serper o Tavily se metti la chiave nelle opzioni), apre le prime pagine e passa a Gemini i risultati come testo da leggere. Gemini non usa più il suo strumento di ricerca Google, che il tuo account rifiuta; se la ricerca dell'app non trova nulla, prova comunque quello strumento. In «Uso dell'AI» c'è il pulsante «Prova la ricerca web». Google non offre più la sua ricerca ai nuovi clienti, quindi non è usabile direttamente.
 

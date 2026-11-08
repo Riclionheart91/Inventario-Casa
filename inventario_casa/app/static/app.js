@@ -1373,6 +1373,10 @@
   function renderBozze(list) {
     var box = $('bozze-list'); box.textContent = '';
     st.nb = list.length; aggiornaDaFare();
+    clearTimeout(st.tAttesa);
+    if (list.some(function (b) { return b.stato === 'IN_ELABORAZIONE'; })) {   // l'AI sta ancora leggendo una foto: ricarico da solo finché non finisce
+      st.tAttesa = setTimeout(function () { if (st.tab === 'bozze' && !document.activeElement.matches('input,select,textarea')) loadBozze(); else renderBozze(list); }, 6000);
+    }
     if (list.length) box.appendChild(el('h3', 'sez', 'Da inserire (' + list.length + ')'));
     if (!list.length) return;
     list.forEach(function (b) {

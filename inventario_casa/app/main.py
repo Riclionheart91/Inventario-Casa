@@ -628,12 +628,18 @@ async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: s
     dati, mime = await file.read(), file.content_type or ""
     out = dict(inv().foto(barcode, dati, mime), id="AI")   # id: segnaposto per le versioni vecchie della pagina rimaste in cache
     if _env("GEMINI_API_KEY"):   # la foto va solo a Gemini, non si salva da nessuna parte
-        a = await run_in_threadpool(ai.foto_prodotto, dati, mime, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"),
-                                    _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+        # risponde subito: l'AI e la ricerca web girano in background e completano la bozza quando finiscono (il salvataggio non aspetta)
+        threading.Thread(target=_analizza_foto, args=(barcode, dati, mime), daemon=True).start()
+    return out
+
+
+def _analizza_foto(barcode: str, dati: bytes, mime: str) -> None:
+    try:
+        a = ai.foto_prodotto(dati, mime, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
         cod = lookup.codice_da_cercare(barcode)
         if cod:   # subito l'immagine dal web; il resto dell'arricchimento lo fa il passaggio notturno
             try:
-                w = await run_in_threadpool(_web, cod)
+                w = _web(cod)
             except Exception:
                 w = None
             if w and w.get("immagine"):
@@ -641,10 +647,13 @@ async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: s
         if a and a.get("proposta") and not READ_ONLY:
             p = a["proposta"]
             inv().proponi_categoria(p["categoria"], p["sottocategoria"], a.get("nome", ""), p.get("categoria_nuova", False))
-        if a:
-            inv().memorizza_analisi(barcode, a)
-            out["analisi"] = a
-    return out
+        inv().applica_analisi(barcode, a or None)
+    except Exception:
+        logging.getLogger("inventario").exception("analisi foto %s", barcode)
+        try:
+            inv().applica_analisi(barcode, None)
+        except Exception:
+            pass
 
 
 STATIC = Path(__file__).resolve().parent / "static"
