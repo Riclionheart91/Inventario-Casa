@@ -7,9 +7,9 @@
 <title>Inventario</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=0.22.0">
-<link rel="stylesheet" href="ios.css?v=0.22.0">
-<link rel="stylesheet" href="ios2.css?v=0.22.0">
+<link rel="stylesheet" href="style.css?v=0.22.1">
+<link rel="stylesheet" href="ios.css?v=0.22.1">
+<link rel="stylesheet" href="ios2.css?v=0.22.1">
 </head>
 <body>
 <div id="app">
@@ -25,7 +25,9 @@
 <button type="button" id="scan" class="sq" aria-label="Scansiona con la fotocamera"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><path d="M8 9v6M12 9v6M16 9v6"/></svg></button></div>
 <div id="scanbox" hidden><video id="vid" playsinline muted></video><button type="button" id="scanstop" class="btn ghost">Chiudi scanner</button></div>
 <input id="scanfile" type="file" accept="image/*" capture="environment" class="sr" tabindex="-1" aria-label="Foto del codice a barre">
-<div id="hint" class="note" role="status"></div></div>
+<div id="hint" class="note" role="status"></div>
+<div id="foto" class="fotopair" hidden><label class="btn fotobtn" for="file"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span id="t-fronte">Foto fronte</span></label><input id="file" type="file" accept="image/*" capture="environment" class="sr"><label class="btn fotobtn" for="fileretro"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span id="t-retro">Foto retro</span></label><input id="fileretro" type="file" accept="image/*" capture="environment" class="sr"><div class="fprev"><img id="prev" alt="Fronte" hidden><img id="prevr" alt="Retro" hidden></div></div>
+</div>
 <div id="prop" class="prop" hidden></div>
 <div class="field"><div class="lbl" id="l-tipo">Tipo</div><div class="seg" id="tipo" role="group" aria-labelledby="l-tipo"></div></div>
 <div class="field" id="f-riga" hidden><div class="lbl" id="l-riga">Da dove</div><div class="seg one" id="riga" role="group" aria-labelledby="l-riga"></div><div id="rnote" class="note" role="status"></div></div>
@@ -34,8 +36,6 @@
 <div class="field qty"><div class="lbl" id="l-q">Quantità</div><div class="row"><button type="button" class="sq" id="qm" aria-label="Diminuisci">−</button><output id="qv" aria-labelledby="l-q">1</output><button type="button" class="sq" id="qp" aria-label="Aumenta">+</button></div></div>
 <div class="field" id="f-scad"><label for="scad">Scadenza (facoltativa)</label><input id="scad" type="date"></div>
 <div class="field"><label for="pr">Prodotto</label><input id="pr" type="text" placeholder="Si compila da solo se il codice è noto"><div id="cat" class="note"></div></div>
-<div id="foto" class="field" hidden><div class="lbl" id="l-foto">Foto del prodotto nuovo</div>
-<label class="btn ghost" for="file">Scatta una foto</label><input id="file" type="file" accept="image/*" capture="environment" class="sr"><img id="prev" alt="Anteprima della foto" hidden></div>
 <div class="actions"><button type="button" id="cancel" class="btn ghost">Annulla</button><button type="submit" id="save" class="btn primary">Salva</button></div>
 </form>
 </section>
@@ -71,7 +71,7 @@
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="undo" role="status" hidden></div>
 </div>
-<script src="app.js?v=0.22.0"></script>
-<script src="ios.js?v=0.22.0"></script>
+<script src="app.js?v=0.22.1"></script>
+<script src="ios.js?v=0.22.1"></script>
 </body>
 </html>

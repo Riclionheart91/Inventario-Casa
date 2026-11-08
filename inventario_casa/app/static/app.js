@@ -358,11 +358,12 @@
   }
   function setQta(n) { st.qta = Math.max(1, n); $('qv').value = st.qta; $('qv').textContent = st.qta; }
   function setKnown(k) {
-    st.known = k; st.fotoDb = null;
+    st.known = k; st.fotoDb = null; st.fotoRetro = null;
     $('foto').hidden = k !== false;
     $('pr').readOnly = k === true;
-    if (k !== false) { st.fotoBlob = null; $('prev').hidden = true; $('file').value = ''; }
+    if (k !== false) { st.fotoBlob = null; $('prev').hidden = true; $('file').value = ''; $('prevr').hidden = true; $('fileretro').value = ''; aggiornaFotoBtn(); }
   }
+  function aggiornaFotoBtn() { $('t-fronte').textContent = st.fotoBlob ? 'Fronte ✓ cambia' : 'Foto fronte'; $('t-retro').textContent = st.fotoRetro ? 'Retro ✓ cambia' : 'Foto retro'; }
   var lookupSeq = 0;
   function lookup() {
     var bc = $('bc').value.trim();
@@ -378,13 +379,13 @@
         loadGiac(bc);
       } else {
         setKnown(false); note($('cat'), ''); st.giac = []; renderRiga(); hideProp();
-        note($('hint'), 'Codice nuovo: cerco nei database…', '');
+        note($('hint'), 'Codice nuovo: cerco…', '');
         cercaNuovo(bc, my);
       }
-    }).catch(function (e) { if (my === lookupSeq) { setKnown(null); note($('hint'), 'Ricerca non riuscita: ' + e.message, 'warn'); } });
+    }).catch(function (e) { if (my === lookupSeq) { setKnown(null); note($('hint'), 'Ricerca non riuscita.', 'warn'); } });
   }
   /* ---------- codice nuovo: proposta dai database ---------- */
-  var NOTA_NUOVO = 'Codice nuovo: scatta una foto, l\'AI la legge e il prodotto va in "Da inserire" già compilato. La foto resta nell\'app solo per poterla condividere su Open Food Facts.';
+  var NOTA_NUOVO = 'Scatta fronte e retro: l\'AI compila il prodotto.';
   function hideProp() { $('prop').hidden = true; $('prop').textContent = ''; st.prop = null; $('save').hidden = false; }
   function cercaNuovo(bc, my) {
     var cats = st.cats ? Promise.resolve() : api('GET', 'api/categorie').then(function (c) { st.cats = c || []; }).catch(function () { st.cats = []; });
@@ -392,12 +393,12 @@
     Promise.all([cats, tipi]).then(function () { return api('GET', 'api/cerca/' + bc); }).then(function (r) {
       if (my !== lookupSeq) return;
       if (r && r.found && !String(r.nome || '').trim()) {   // codice noto al database ma senza nome: foto del database all'AI, oppure foto scattata
-        if (r.immagine) { st.fotoDb = r.immagine; note($('hint'), 'Trovato su ' + r.fonte + ' ma senza nome: uso la sua foto per far leggere il prodotto all\'AI. Puoi salvare subito, oppure scatta una tua foto.', 'ok'); }
-        else note($('hint'), 'Trovato su ' + r.fonte + ' ma senza nome né foto. ' + NOTA_NUOVO, 'warn');
+        if (r.immagine) { st.fotoDb = r.immagine; note($('hint'), 'Trovato su ' + r.fonte + ' senza nome: uso la sua foto. Puoi salvare o scattare la tua.', 'ok'); }
+        else note($('hint'), 'Trovato su ' + r.fonte + ' senza nome. ' + NOTA_NUOVO, 'warn');
       }
       else if (r && r.found) { st.prop = r; showProp(bc, r); note($('hint'), 'Trovato su ' + r.fonte + ': controlla e conferma.', 'ok'); }
-      else note($('hint'), 'Non trovato nei database' + (r && r.errori && r.errori.length ? ' (alcuni non hanno risposto: ' + r.errori.join(', ') + ')' : '') + '. ' + NOTA_NUOVO, 'warn');
-    }).catch(function () { if (my === lookupSeq) note($('hint'), 'Ricerca nei database non riuscita. ' + NOTA_NUOVO, 'warn'); });
+      else note($('hint'), 'Codice nuovo, non trovato. ' + NOTA_NUOVO, 'warn');
+    }).catch(function () { if (my === lookupSeq) note($('hint'), 'Ricerca non riuscita. ' + NOTA_NUOVO, 'warn'); });
   }
   function showProp(bc, r) {
     var box = $('prop'); box.textContent = ''; box.hidden = false; $('foto').hidden = true; $('save').hidden = true;
@@ -507,9 +508,9 @@
     var btn = $('save'); btn.disabled = true;
     var go = st.known === null ? lookup() : Promise.resolve();
     go.then(function () {
-      if (st.known === false && !st.fotoBlob && !st.fotoDb) { toast('Per un codice nuovo serve la foto.', true); throw new Error('stop'); }
+      if (st.known === false && !st.fotoBlob && !st.fotoDb) { toast('Per un codice nuovo serve la foto del fronte.', true); throw new Error('stop'); }
       if (st.known === false && !st.fotoBlob && st.fotoDb) return api('POST', 'api/foto_url', { barcode: bc, url: st.fotoDb }).then(function () { return 'AI'; });
-      return st.known === false ? api('POST', 'api/foto', undefined, undefined, (function () { var fd = new FormData(); fd.append('barcode', bc); fd.append('file', st.fotoBlob, 'foto.jpg'); return fd; })()).then(function (r) { return String(r.url || 'AI'); }) : '';
+      return st.known === false ? api('POST', 'api/foto', undefined, undefined, (function () { var fd = new FormData(); fd.append('barcode', bc); fd.append('file', st.fotoBlob, 'foto.jpg'); if (st.fotoRetro) fd.append('retro', st.fotoRetro, 'retro.jpg'); return fd; })()).then(function (r) { return String(r.url || 'AI'); }) : '';
     }).then(function (foto) {
       var tipoVal = TIPI.filter(function (t) { return t[0] === st.tipo; })[0][1];
       var body = { barcode: bc, tipo: tipoVal, location: st.luogo, quantita: st.qta, prodotto: $('pr').value.trim(), foto: foto || undefined };
@@ -1544,21 +1545,9 @@
     st.nc = list.length; aggiornaDaFare();
     if (!list.length) return;
     var h = el('h3', 'sez', 'Open Food Facts · differenze (' + list.length + ')'); box.appendChild(h);
-    box.appendChild(el('p', 'm oc-intro', 'Per ogni voce: «Usa OFF» allinea il tuo foglio ai dati di Open Food Facts, «Lascia» non cambia niente, «Invia il mio» manda il tuo dato dove OFF è vuoto. Non scrivo niente finché non applichi; poi lavoro in background.'));
+    box.appendChild(el('p', 'm oc-intro', 'Controlla le schede e scegli per ogni voce: «Usa OFF» allinea il tuo foglio, «Lascia» non cambia niente, «Invia il mio» manda il tuo dato dove OFF è vuoto. In fondo premi una sola volta «Applica le scelte»: lavoro in background.'));
     var schede = [];
     function dopoApplica() { azzeraCache(); setTimeout(function () { aggiornaConteggi(); loadOffConf(); }, 8000); setTimeout(function () { aggiornaConteggi(); loadOffConf(); }, 30000); }
-    if (list.length > 1) {
-      var mb = el('div', 'btns oc-mass'), tuttiOff = el('button', 'btn', 'Usa OFF per tutte'), tuttiOk = el('button', 'btn primary', 'Applica a tutte (' + list.length + ')');
-      [tuttiOff, tuttiOk].forEach(function (b) { b.type = 'button'; mb.appendChild(b); }); box.appendChild(mb);
-      if (st.ro) tuttiOff.disabled = tuttiOk.disabled = true;
-      tuttiOff.addEventListener('click', function () { schede.forEach(function (x) { x.usaOff(); }); toast('Impostato «Usa OFF» dove possibile.'); });
-      tuttiOk.addEventListener('click', function () {
-        tuttiOk.disabled = true;
-        api('POST', 'api/off/confronti/applica_tutte', { voci: schede.map(function (x) { return { barcode: x.sc.barcode, scelte: x.scelte }; }) }).then(function () {
-          toast('Applico tutte in background.'); schede.forEach(function (x) { x.el.remove(); }); box.textContent = ''; st.nc = 0; aggiornaDaFare(); dopoApplica();
-        }).catch(function (e) { toast('Non avviato: ' + e.message, true); tuttiOk.disabled = false; });
-      });
-    }
     list.forEach(function (sc) {
       var c = el('article', 'card oc'), scelte = {}, ctrl = {};
       schede.push({ sc: sc, scelte: scelte, el: c, usaOff: function () { (sc.voci || []).forEach(function (v) { if ((v.azioni || []).indexOf('foglio') >= 0) { scelte[v.campo] = 'foglio'; ctrl[v.campo].forEach(function (x) { x.setAttribute('aria-pressed', String(x.dataset.az === 'foglio')); }); } }); } });
@@ -1586,22 +1575,26 @@
         riga.appendChild(seg); c.appendChild(riga);
       });
       var nt = el('div', 'note', ''); c.appendChild(nt); if (sc.errore) note(nt, 'Non riuscito l\'ultima volta: ' + sc.errore, 'warn');
-      var bt = el('div', 'btns'), ok = el('button', 'btn primary', 'Applica'), no = el('button', 'btn bad', 'Non proporre più');
-      [ok, no].forEach(function (b) { b.type = 'button'; bt.appendChild(b); }); c.appendChild(bt);
-      if (st.ro) { ok.disabled = no.disabled = true; c.appendChild(el('div', 'note warn', 'Sola lettura attiva: le scelte non si possono applicare.')); }
-      ok.addEventListener('click', function () {   // parte in background: la scheda sparisce subito e puoi andare avanti
-        ok.disabled = no.disabled = true;
-        api('POST', 'api/off/confronti/applica', { barcode: sc.barcode, scelte: scelte }).then(function () {
-          c.remove(); schede = schede.filter(function (x) { return x.el !== c; }); st.nc = Math.max(0, (st.nc || 1) - 1); aggiornaDaFare(); toast('Applico in background.'); dopoApplica();
-        }).catch(function (e) { note(nt, 'Non applicato: ' + e.message, 'warn'); ok.disabled = no.disabled = !!st.ro; });
-      });
+      var bt = el('div', 'btns'), no = el('button', 'btn bad', 'Non proporre più');
+      no.type = 'button'; bt.appendChild(no); c.appendChild(bt);
+      if (st.ro) { no.disabled = true; }
       var armato = 0;
       no.addEventListener('click', function () {   // due tocchi per confermare
         if (!armato) { armato = setTimeout(function () { armato = 0; no.textContent = 'Non proporre più'; }, 5000); no.textContent = 'Tocca ancora'; return; }
-        clearTimeout(armato); armato = 0; ok.disabled = no.disabled = true;
-        api('POST', 'api/off/confronti/ignora', { barcode: sc.barcode }).then(function () { toast('Fatto: non verrà più proposto.'); aggiornaConteggi(); loadOffConf(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); ok.disabled = no.disabled = !!st.ro; });
+        clearTimeout(armato); armato = 0; no.disabled = true;
+        api('POST', 'api/off/confronti/ignora', { barcode: sc.barcode }).then(function () { toast('Fatto: non verrà più proposto.'); aggiornaConteggi(); loadOffConf(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); no.disabled = !!st.ro; });
       });
       box.appendChild(c);
+    });
+    // un'unica applicazione per tutte le schede, con le scelte fatte su ciascuna
+    var barra = el('div', 'offbar oc-bar'), tutte = el('button', 'btn primary', 'Applica le scelte (' + list.length + ')');
+    tutte.type = 'button'; barra.appendChild(tutte); box.appendChild(barra);
+    if (st.ro) tutte.disabled = true;
+    tutte.addEventListener('click', function () {
+      tutte.disabled = true;
+      api('POST', 'api/off/confronti/applica_tutte', { voci: schede.map(function (x) { return { barcode: x.sc.barcode, scelte: x.scelte }; }) }).then(function () {
+        toast('Applico tutte le scelte in background.'); box.textContent = ''; st.nc = 0; aggiornaDaFare(); dopoApplica();
+      }).catch(function (e) { toast('Non avviato: ' + e.message, true); tutte.disabled = !!st.ro; });
     });
   }
   function loadScad() {
@@ -1838,7 +1831,11 @@
     $('bc').addEventListener('change', lookup);
     $('file').addEventListener('change', function () {
       var f = $('file').files[0]; if (!f) return;
-      resizeImage(f).then(function (b) { st.fotoBlob = b; var p = $('prev'); p.src = URL.createObjectURL(b); p.hidden = false; });
+      resizeImage(f).then(function (b) { st.fotoBlob = b; var p = $('prev'); p.src = URL.createObjectURL(b); p.hidden = false; aggiornaFotoBtn(); });
+    });
+    $('fileretro').addEventListener('change', function () {
+      var f = $('fileretro').files[0]; if (!f) return;
+      resizeImage(f).then(function (b) { st.fotoRetro = b; var p = $('prevr'); p.src = URL.createObjectURL(b); p.hidden = false; aggiornaFotoBtn(); });
     });
     $('q').addEventListener('input', renderStock);
     show('mov');

@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.22.1
+- Differenze con Open Food Facts: scegli su ogni scheda, poi un solo «Applica le scelte» in fondo per tutte (via i pulsanti «per tutte» e «Applica» di ogni scheda).
+- Codice nuovo non trovato da nessuna parte: i pulsanti «Foto fronte» e «Foto retro» compaiono subito sotto il codice a barre; il retro viene tenuto per completare i dati per Open Food Facts.
+- Messaggi di ricerca più corti.
+
 ## 0.22.0
 - «Applica» nelle differenze con Open Food Facts lavora in background: la scheda sparisce subito e puoi andare avanti; se qualcosa non riesce, la scheda ritorna con il motivo.
 - Pulsanti invertiti: «Usa OFF» (predefinito) e «Lascia»; «Invia il mio» solo dove OFF è vuoto.

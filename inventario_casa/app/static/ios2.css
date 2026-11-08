@@ -93,3 +93,10 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 .oc-mass{margin:0 0 10px}.oc-mass .btn{font-size:13px;min-height:40px}
 .sc-head h2{font-size:17px}.sc-head .m,.sc-sec p,.sc-giac{font-size:13px}
 #toast{font-size:13px}
+
+/* foto fronte e retro sotto il codice a barre */
+.fotopair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.fotopair[hidden]{display:none}
+.fotobtn{gap:8px;font-size:14px;min-height:42px;cursor:pointer}
+.fprev{grid-column:1/-1;display:flex;gap:8px}.fprev img{flex:1;min-width:0;max-height:120px;border-radius:10px;object-fit:cover}.fprev img[hidden]{display:none}
+.oc-bar{position:sticky}

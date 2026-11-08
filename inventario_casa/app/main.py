@@ -707,11 +707,13 @@ def bozza_scarta(id_: str, x_code: str = Header(None)):
 
 
 @app.post("/api/foto")
-async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: str = Header(None)):
+async def foto(barcode: str = Form(...), file: UploadFile = File(...), retro: UploadFile = File(None), x_code: str = Header(None)):
     check(x_code)
     writable()
     dati, mime = await file.read(), file.content_type or ""
     out = dict(inv().foto(barcode, dati, mime), id="AI")   # id: segnaposto per le versioni vecchie della pagina rimaste in cache
+    if retro is not None:   # retro della confezione: serve a leggere ingredienti e valori esatti quando il prodotto entra nell'elenco di Open Food Facts
+        off_().salva_foto(barcode, await retro.read(), retro.content_type or "", "retro")
     off_().salva_foto(barcode, dati, mime)   # la foto resta nell'app solo per poterla inviare a Open Food Facts (si cancella a invio o rifiuto)
     if _env("GEMINI_API_KEY"):   # la foto va solo a Gemini, non si salva da nessuna parte
         # risponde subito: l'AI e la ricerca web girano in background e completano la bozza quando finiscono (il salvataggio non aspetta)
