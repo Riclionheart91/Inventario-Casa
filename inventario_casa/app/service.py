@@ -1258,7 +1258,7 @@ class Inventory:
         nota = ("Categoria proposta dall'AI, da approvare: %s > %s" % (a["proposta"]["categoria"], a["proposta"]["sottocategoria"])) if a.get("proposta") else ""
         return {"Prodotto": a.get("nome", ""), "Marca": a.get("marca", ""), "Confezione": a.get("confezione", ""), "Categoria": a.get("categoria", ""),
                 "Sottocategoria": a.get("sottocategoria", ""), "Tipo": a.get("tipo", ""), "Immagine": a.get("immagine", ""), "Nota": nota,
-                "Stato": "PRONTA", "Fonte": "AI (foto)"}
+                "Stato": "PRONTA", "Fonte": a.get("fonte") or "AI (foto)"}
 
     def _bozza_da_foto(self, k: str, tipo: str, location: str, q, attesa: bool = False) -> None:
         """Bozza per un codice nuovo. Se l'analisi della foto c'e gia nasce compilata; se e ancora in corso (attesa) nasce IN_ELABORAZIONE

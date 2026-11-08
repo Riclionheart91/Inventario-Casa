@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.18.3 — 2026-11-08
+**Prima il codice a barre, poi la foto**: per un codice nuovo l'app cerca prima sul web il codice a barre (con la ricerca dell'app, senza passare dall'AI) e, se trova il prodotto, usa quei dati: nome, marca, confezione e immagine, con categoria e tipo suggeriti dall'AI. La foto viene letta dall'AI solo se il web non trova il nome, o per completare la categoria. In «Da inserire» la fonte indica se i dati vengono dal web o dalla foto.
+
 ## 0.18.2 — 2026-11-08
 **Codice trovato senza nome**: se i database riconoscono il codice ma non danno il nome, l'app usa la foto del database e la fa leggere all'AI (in background, come per le foto scattate): puoi salvare subito e il prodotto si compila da solo in «Da inserire». Se il database non ha nemmeno la foto, l'app ti chiede di scattarla. Puoi comunque scattare una foto tua al posto di quella del database.
 

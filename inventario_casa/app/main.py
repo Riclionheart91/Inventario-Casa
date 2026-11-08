@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
-from . import ai, aiuso, lookup, pagina, regole_auto, ricerca
+from . import ai, aiuso, analisi, lookup, pagina, regole_auto, ricerca
 from .accesso import Accesso, _Mw
 from .store import make_store
 
@@ -40,20 +40,29 @@ def _chiavi_ricerca():
     return {k: _env(k) for k in ("BRAVE_SEARCH_KEY", "SERPER_KEY", "TAVILY_KEY") if _env(k)}
 
 
-def _web(bc):
+def _web_dati(bc, solo_con_immagine=False):
     """Ricerca web: prima l'app cerca sul web (senza AI) e passa i risultati a Gemini da leggere; se non trova niente prova lo strumento di ricerca di Gemini.
-    Nome, marca, confezione e un'immagine presa da una pagina che riporta davvero il codice."""
+    Nome, marca, confezione e, se una pagina che riporta davvero il codice ce l'ha, l'immagine."""
     if not _env("GEMINI_API_KEY"):
         return None
     testo, urls = ricerca.contesto([str(bc), "%s codice a barre prodotto" % bc], bc, _chiavi_ricerca())
     r = ai.cerca_web(bc, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"), contesto=testo) if testo else None
     if not r:
         r = ai.cerca_web(bc, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
-    for u in list((r or {}).get("urls", [])) + (urls if r else []):
+    if not r:
+        return None
+    img = ""
+    for u in list(r.get("urls", [])) + urls:
         img = pagina.immagine_da_pagina(u, bc)
         if img:
-            return {"nome": r["nome"], "marca": r["marca"], "confezione": r["confezione"], "immagine": img}
-    return None
+            break
+    if not img and (solo_con_immagine or not r.get("nome")):
+        return None
+    return {"nome": r["nome"], "marca": r["marca"], "confezione": r["confezione"], "immagine": img}
+
+
+def _web(bc):
+    return _web_dati(bc, True)
 
 
 _rev = None
@@ -650,32 +659,28 @@ def foto_url(m: FotoUrl, x_code: str = Header(None)):
 
 
 def _analizza_foto_url(barcode: str, url: str) -> None:
-    try:
-        dati, mime = lookup.scarica_immagine(url)
-    except Exception:
-        dati, mime = None, ""
-    if not dati or not mime:
+    def foto():
         try:
-            inv().applica_analisi(barcode, {"immagine": url} if url else None)
+            dati, mime = lookup.scarica_immagine(url)
         except Exception:
-            pass
-        return
-    _analizza_foto(barcode, dati, mime, url)
+            return None
+        if not dati or not mime:
+            return None
+        return ai.foto_prodotto(dati, mime, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+    _analizza(barcode, foto, url)
 
 
-def _analizza_foto(barcode: str, dati: bytes, mime: str, immagine: str = "") -> None:
+def _analizza_foto(barcode: str, dati: bytes, mime: str) -> None:
+    _analizza(barcode, lambda: ai.foto_prodotto(dati, mime, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")))
+
+
+def _analizza(barcode: str, da_foto, immagine: str = "") -> None:
+    """In background: prima la ricerca per codice a barre sul web; la foto si legge solo se il web non da il nome (o per completare la categoria)."""
     try:
-        a = ai.foto_prodotto(dati, mime, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
         cod = lookup.codice_da_cercare(barcode)
-        if cod:   # subito l'immagine dal web; il resto dell'arricchimento lo fa il passaggio notturno
-            try:
-                w = _web(cod)
-            except Exception:
-                w = None
-            if w and w.get("immagine"):
-                a = dict(a or {}, immagine=w["immagine"])
-        if immagine and not (a or {}).get("immagine"):
-            a = dict(a or {}, immagine=immagine)
+        a = analisi.analizza(lambda: _web_dati(cod) if cod else None,
+                             lambda n, m, c: ai.suggerisci(n, m, c, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")),
+                             da_foto, immagine)
         if a and a.get("proposta") and not READ_ONLY:
             p = a["proposta"]
             inv().proponi_categoria(p["categoria"], p["sottocategoria"], a.get("nome", ""), p.get("categoria_nuova", False))
@@ -686,7 +691,3 @@ def _analizza_foto(barcode: str, dati: bytes, mime: str, immagine: str = "") -> 
             inv().applica_analisi(barcode, None)
         except Exception:
             pass
-
-
-STATIC = Path(__file__).resolve().parent / "static"
-app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")
