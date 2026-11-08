@@ -94,4 +94,6 @@ L'app controlla (una volta al giorno, con solo letture) quali prodotti del catal
 - «Non proporre più» toglie i prodotti scelti dall'elenco per sempre.
 - Servono le opzioni `off_utente` (il nome utente, non l'email) e `off_password`. Restano sul server e vanno solo ai siti Open*Facts. Verifica che il tuo account valga anche sui siti fratelli: se non entra, registrati anche lì.
 - La foto scattata per un codice nuovo resta nell'app solo finché il prodotto non è inviato o scartato.
+- **Completare i dati:** l'app parte dal codice a barre (archivi dei codici e ricerca sul web), l'AI legge i risultati e compila nome esatto, marca, confezione, ingredienti e valori nutrizionali, solo se compaiono davvero. Tocca il nome di un prodotto per vedere e correggere tutto ciò che verrà inviato; le tue correzioni non vengono mai sovrascritte.
+- **Foto del retro (facoltativa):** nella scheda del prodotto puoi aggiungere anche la foto del retro della confezione: l'AI legge l'etichetta (ingredienti e valori per 100 g) e questi dati valgono più della ricerca sul web. La foto parte con il prodotto. Le immagini trovate online non vengono mai inviate (diritti d'autore): serve la tua foto.
 

@@ -30,6 +30,10 @@ _CASA = ("pulizi", "detersiv", "ammorbident", "lavatrice", "lavastoviglie", "sgr
          "sacchi", "straccio", "scopa", "casalingh", "bucato", "piatti", "pavimenti", "vetri", "carta igienica", "pellicola", "alluminio", "detergent")
 _BELLEZZA = ("igiene", "cura persona", "cosmet", "shampoo", "balsamo", "bagnoschiuma", "dentifric", "deodorant", "doccia", "crema viso", "crema corpo",
              "rasatura", "trucco", "profumo", "assorbent", "struccant", "collutorio")
+CAMPI_TESTO = ("nome", "marca", "confezione", "descrizione", "categorie", "etichette", "ingredienti", "allergeni", "origine", "imballaggio")
+NUTRI = (("energia_kcal", "energy-kcal", "kcal"), ("grassi", "fat", "g"), ("saturi", "saturated-fat", "g"), ("carboidrati", "carbohydrates", "g"),
+         ("zuccheri", "sugars", "g"), ("fibre", "fiber", "g"), ("proteine", "proteins", "g"), ("sale", "salt", "g"))
+CAMPI = CAMPI_TESTO + tuple("n_" + n[0] for n in NUTRI)
 FOTO_OK = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 
@@ -89,11 +93,13 @@ def _http(metodo: str, url: str, campi: Optional[dict] = None, file: Optional[tu
 
 class Off:
     def __init__(self, inv, utente: str = "", password: str = "", percorso: str = "", cartella: str = "", http: Callable = _http,
-                 pausa: float = 0.8, versione: str = "", oggi: Callable = datetime.now):
+                 pausa: float = 0.8, versione: str = "", oggi: Callable = datetime.now, arricchisci: Optional[Callable] = None, dati_percorso: str = "", leggi_retro: Optional[Callable] = None):
         base = os.environ.get("DATA_DIR") or ("/data" if os.path.isdir("/data") else tempfile.gettempdir())
         self.inv, self.utente, self.password, self.http, self.pausa, self.oggi = inv, (utente or "").strip(), password or "", http, pausa, oggi
         self.percorso = percorso or os.path.join(base, "off_stato.json")
         self.cartella = cartella or os.path.join(base, "foto_off")
+        self.dati_percorso = dati_percorso or os.path.join(base, "off_dati.json")
+        self.arricchisci, self.leggi_retro = arricchisci, leggi_retro
         self.agent = "InventarioCasa/%s (add-on Home Assistant per uso domestico)" % (versione or "1")
         self._lock = threading.RLock()
         self._in_corso = False
@@ -128,34 +134,164 @@ class Off:
         return bool(self.utente and self.password)
 
     # --- foto ------------------------------------------------------------
-    def salva_foto(self, barcode, dati: bytes, mime: str) -> bool:
+    def _nome_foto(self, k: str, lato: str) -> str:
+        return k + ("_retro" if lato == "retro" else "")
+
+    def salva_foto(self, barcode, dati: bytes, mime: str, lato: str = "fronte") -> bool:
         k, ext = nbc(barcode), FOTO_OK.get(mime)
         if not k or not ext or not dati or len(dati) > 8 * 1024 * 1024:
             return False
         try:
             os.makedirs(self.cartella, exist_ok=True)
-            self.togli_foto(k)
-            with open(os.path.join(self.cartella, "%s.%s" % (k, ext)), "wb") as f:
+            self.togli_foto(k, lato)
+            with open(os.path.join(self.cartella, "%s.%s" % (self._nome_foto(k, lato), ext)), "wb") as f:
                 f.write(dati)
             return True
         except Exception:
             return False
 
-    def foto_file(self, barcode) -> Optional[tuple]:
+    def foto_file(self, barcode, lato: str = "fronte") -> Optional[tuple]:
         k = nbc(barcode)
         for ext in FOTO_OK.values():
-            p = os.path.join(self.cartella, "%s.%s" % (k, ext))
+            p = os.path.join(self.cartella, "%s.%s" % (self._nome_foto(k, lato), ext))
             if k and os.path.isfile(p):
                 return p, {v: m for m, v in FOTO_OK.items()}[ext]
         return None
 
-    def togli_foto(self, barcode) -> None:
-        f = self.foto_file(barcode)
-        if f:
+    def togli_foto(self, barcode, lato: Optional[str] = None) -> None:
+        for l in ((lato,) if lato else ("fronte", "retro")):
+            f = self.foto_file(barcode, l)
+            if f:
+                try:
+                    os.remove(f[0])
+                except Exception:
+                    pass
+
+    # --- scheda da inviare (dati del catalogo + arricchimento + correzioni a mano) ---
+    def _dati_tutti(self) -> dict:
+        try:
+            with open(self.dati_percorso, encoding="utf-8") as f:
+                d = json.load(f)
+            return d if isinstance(d, dict) else {}
+        except Exception:
+            return {}
+
+    def _scrivi_dati(self, d: dict) -> None:
+        try:
+            os.makedirs(os.path.dirname(self.dati_percorso), exist_ok=True)
+            tmp = self.dati_percorso + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(d, f, ensure_ascii=False)
+            os.replace(tmp, self.dati_percorso)
+        except Exception:
+            pass
+
+    def campi(self, p: dict) -> dict:
+        """Cosa invierei per questo prodotto: i dati del catalogo, sopra i dati arricchiti e le correzioni a mano."""
+        salvati = self._dati_tutti().get(p["barcode"], {}).get("campi", {})
+        base = {"nome": p.get("nome", ""), "marca": p.get("marca", ""), "confezione": p.get("confezione", "")}
+        return {k: str(salvati.get(k) or base.get(k, "") or "").strip() for k in CAMPI}
+
+    def manca(self, p: dict, prog: str, campi: Optional[dict] = None) -> List[str]:
+        c = campi if campi is not None else self.campi(p)
+        m = [e for k, e in (("marca", "marca"), ("confezione", "confezione")) if not c.get(k)]
+        if prog in ("food", "pet", "beauty") and not c.get("ingredienti"):
+            m.append("ingredienti")
+        if prog == "food" and sum(1 for n in NUTRI if c.get("n_" + n[0])) < 4:
+            m.append("valori nutrizionali")
+        if self.foto_file(p["barcode"]) is None:
+            m.append("foto")
+        return m
+
+    def salva_campi(self, barcode, campi: dict) -> dict:
+        """Correzioni a mano dalla scheda: restano sopra qualsiasi arricchimento futuro."""
+        k = nbc(barcode)
+        with self._lock:
+            d = self._dati_tutti()
+            e = d.setdefault(k, {})
+            att = e.setdefault("campi", {})
+            mod = set(e.get("mod", []))
+            for c in CAMPI:
+                if c in (campi or {}):
+                    v = re.sub(r"[ \t]+", " ", str((campi or {})[c] or "")).strip()[:1500]
+                    if v != str(att.get(c, "") or ""):
+                        att[c] = v
+                        mod.add(c)
+            e["mod"] = sorted(mod)
+            self._scrivi_dati(d)
+        return att
+
+    def scheda(self, barcode) -> Optional[dict]:
+        k = nbc(barcode)
+        p = next((x for x in self._catalogo() if x["barcode"] == k), None)
+        if not p:
+            return None
+        s = self._carica().get("prodotti", {}).get(k, {})
+        prog = s.get("progetto") if s.get("progetto") in PROGETTI else progetto_per(p)
+        e = self._dati_tutti().get(k, {})
+        c = self.campi(p)
+        return {"barcode": k, "progetto": prog, "progetto_nome": PROGETTI[prog][0], "campi": c, "manca": self.manca(p, prog, c), "fonte": e.get("fonte", ""),
+                "arricchito": bool(e.get("quando")), "foto": self.foto_file(k) is not None, "retro": self.foto_file(k, "retro") is not None, "immagine_web": e.get("immagine_web", "") or p.get("immagine", ""),
+                "modificati": e.get("mod", [])}
+
+    def arricchisci_uno(self, barcode) -> Optional[dict]:
+        """Cerca per codice a barre (database e web) e compila i campi; i campi corretti a mano non si toccano."""
+        k = nbc(barcode)
+        p = next((x for x in self._catalogo() if x["barcode"] == k), None)
+        if not p or not self.arricchisci:
+            return None
+        try:
+            r = self.arricchisci(dict(p, **{c: v for c, v in self.campi(p).items() if v})) or {}
+        except Exception:
+            r = {}
+        rf = self.foto_file(k, "retro")
+        if rf and self.leggi_retro:   # l'etichetta del retro e la fonte piu esatta: vale piu della ricerca sul web
             try:
-                os.remove(f[0])
+                with open(rf[0], "rb") as fh:
+                    rr = self.leggi_retro(fh.read(), rf[1], dict(p, **{c: v for c, v in self.campi(p).items() if v})) or {}
             except Exception:
-                pass
+                rr = {}
+            if rr:
+                r = dict(r, **{c: v for c, v in rr.items() if v})
+                r["fonte"] = (str(r.get("fonte") or "") + " + foto del retro").strip(" +")
+        with self._lock:
+            d = self._dati_tutti()
+            e = d.setdefault(k, {})
+            att, mod = e.setdefault("campi", {}), set(e.get("mod", []))
+            for c in CAMPI:
+                v = str(r.get(c) or "").strip()
+                if v and c not in mod:
+                    att[c] = v
+            e["fonte"] = r.get("fonte") or e.get("fonte", "")
+            if r.get("immagine_web"):
+                e["immagine_web"] = r["immagine_web"]
+            e["tentato"] = self.oggi().isoformat(timespec="seconds")
+            if r:
+                e["quando"] = e["tentato"]
+            self._scrivi_dati(d)
+        return self.scheda(k)
+
+    def arricchisci_elenco(self, massimo: int = 40, pausa: float = 3.0) -> int:
+        """In background: arricchisce i prodotti dell'elenco mai provati (o provati senza successo piu di una settimana fa)."""
+        n = 0
+        dati = self._dati_tutti()
+        for p in self.elenco():
+            if n >= massimo:
+                break
+            e = dati.get(p["barcode"], {})
+            if e.get("quando"):
+                continue
+            t = e.get("tentato")
+            if t:
+                try:
+                    if (self.oggi() - datetime.fromisoformat(t)).days < 7:
+                        continue
+                except Exception:
+                    pass
+            self.arricchisci_uno(p["barcode"])
+            n += 1
+            time.sleep(pausa)
+        return n
 
     # --- controllo -------------------------------------------------------
     def _catalogo(self) -> List[dict]:
@@ -230,7 +366,9 @@ class Off:
             if not s or s.get("stato") != "assente":
                 continue
             prog = s.get("progetto") if s.get("progetto") in PROGETTI else progetto_per(p)
-            out.append(dict(p, progetto=prog, progetto_nome=PROGETTI[prog][0], foto=self.foto_file(p["barcode"]) is not None))
+            c = self.campi(p)
+            out.append(dict(p, nome=c["nome"] or p["nome"], marca=c["marca"], confezione=c["confezione"], progetto=prog, progetto_nome=PROGETTI[prog][0],
+                            foto=self.foto_file(p["barcode"]) is not None, manca=self.manca(p, prog, c)))
         return sorted(out, key=lambda x: x["nome"].lower())
 
     def stato(self) -> dict:
@@ -286,8 +424,24 @@ class Off:
             self._imposta(p["barcode"], "presente", prog)
             return {"ok": True, "messaggio": "C'è già su Open*Facts: non lo invio."}
         auth = {"user_id": self.utente, "password": self.password}
-        campi = dict(auth, code=cod, product_name=p["nome"], brands=p["marca"], quantity=p["confezione"], lc="it", cc="it",
+        c = self.campi(p)
+        campi = dict(auth, code=cod, product_name=c["nome"] or p["nome"], brands=c["marca"], quantity=c["confezione"], lc="it", cc="it",
                      app_name="InventarioCasa", app_version="1", comment="Aggiunto da Inventario Casa")
+        if c["descrizione"]:
+            campi["generic_name"] = c["descrizione"]
+        for chiave, k in (("categories", "categorie"), ("labels", "etichette"), ("packaging", "imballaggio"), ("origins", "origine")):
+            if c[k]:
+                campi[chiave] = c[k]
+        if prog in ("food", "pet", "beauty") and c["ingredienti"]:
+            campi["ingredients_text"] = c["ingredienti"]
+        if prog in ("food", "pet") and c["allergeni"]:
+            campi["allergens"] = c["allergeni"]
+        if prog == "food" and any(c["n_" + n[0]] for n in NUTRI):
+            campi["nutrition_data_per"] = "100g"
+            for nome, off_n, unita in NUTRI:
+                if c["n_" + nome]:
+                    campi["nutriment_" + off_n] = c["n_" + nome].replace(",", ".")
+                    campi["nutriment_%s_unit" % off_n] = unita
         codice, j = self.http("POST", base + "/cgi/product_jqm2.pl", campi, agent=self.agent, timeout=40.0)
         if not (isinstance(j, dict) and j.get("status") == 1):
             motivo = (j or {}).get("status_verbose") if isinstance(j, dict) else ""
@@ -301,7 +455,7 @@ class Off:
                 c2, j2 = self.http("POST", base + "/cgi/product_image_upload.pl", dict(auth, code=cod, imagefield="front"),
                                    ("imgupload_front", "foto." + FOTO_OK[f[1]], dati, f[1]), agent=self.agent, timeout=90.0)
                 if isinstance(j2, dict) and j2.get("status") == "status ok":
-                    self.togli_foto(p["barcode"])
+                    self.togli_foto(p["barcode"], "fronte")
                     msg += " Foto caricata."
                 else:
                     msg += " La foto non è partita (%s): caricala a mano dal sito." % (str((j2 or {}).get("debug") or "HTTP %s" % c2)[:80])
@@ -309,5 +463,21 @@ class Off:
                 msg += " La foto non è partita (%s)." % str(e)[:60]
         else:
             msg += " Senza foto."
+        rf = self.foto_file(p["barcode"], "retro")
+        if rf:
+            campi_retro = ("ingredients", "nutrition") if prog == "food" else ("ingredients",) if prog in ("pet", "beauty") else ("other",)
+            ok_r = True
+            try:
+                with open(rf[0], "rb") as fh:
+                    dati_r = fh.read()
+                for campo in campi_retro:
+                    c3, j3 = self.http("POST", base + "/cgi/product_image_upload.pl", dict(auth, code=cod, imagefield=campo),
+                                       ("imgupload_" + campo, "retro." + FOTO_OK[rf[1]], dati_r, rf[1]), agent=self.agent, timeout=90.0)
+                    ok_r = ok_r and isinstance(j3, dict) and j3.get("status") == "status ok"
+            except Exception:
+                ok_r = False
+            msg += " Foto del retro caricata." if ok_r else " La foto del retro non è partita."
+            if ok_r:
+                self.togli_foto(p["barcode"], "retro")
         self._imposta(p["barcode"], "inviato", prog)
         return {"ok": True, "messaggio": msg}

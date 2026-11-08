@@ -239,8 +239,57 @@ _off = None
 def off_():
     global _off
     if _off is None:
-        _off = off.Off(inv(), _env("OFF_UTENTE"), os.environ.get("OFF_PASSWORD", ""), versione=_env("APP_VERSION"))
+        _off = off.Off(inv(), _env("OFF_UTENTE"), os.environ.get("OFF_PASSWORD", ""), versione=_env("APP_VERSION"), arricchisci=_scheda_off, leggi_retro=_leggi_retro)
     return _off
+
+
+def _leggi_retro(dati: bytes, mime: str, p: dict) -> dict:
+    return ai.scheda_off_foto(dati, mime, p["barcode"], p.get("nome", ""), p.get("marca", ""), p.get("confezione", ""),
+                              _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO_POTENTE") or _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")) or {}
+
+
+def _scheda_off(p: dict) -> dict:
+    """Arricchimento di un prodotto da mandare a Open Food Facts, a partire dal codice a barre: prima gli archivi dei codici, poi la ricerca sul web
+    (senza AI); l'AI legge i risultati e compila nome esatto, marca, confezione, ingredienti e valori nutrizionali, solo se compaiono davvero."""
+    bc = lookup.codice_da_cercare(p["barcode"])
+    out: dict = {}
+    fonti = []
+    img = ""
+    if bc:
+        r = None
+        try:
+            r = lookup.cerca(bc, chiavi=chiavi())
+        except Exception:
+            r = None
+        testo, urls = "", []
+        if _env("GEMINI_API_KEY"):
+            try:
+                testo, urls = ricerca.contesto([bc, "%s codice a barre prodotto" % bc], bc, _chiavi_ricerca())
+            except Exception:
+                testo, urls = "", []
+        if testo:
+            a = ai.scheda_off(bc, (r or {}).get("nome") or p.get("nome", ""), (r or {}).get("marca") or p.get("marca", ""), (r or {}).get("confezione") or p.get("confezione", ""),
+                              testo, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
+            if a:
+                out.update({k: v for k, v in a.items() if v})
+                fonti.append("ricerca web per codice (letta dall'AI)")
+            for u in urls[:3]:
+                try:
+                    img = img or pagina.immagine_da_pagina(u, bc)
+                except Exception:
+                    pass
+        if r:   # l'archivio dei codici vale piu della lettura dell'AI per i campi che ha
+            for k in ("nome", "marca", "confezione"):
+                if r.get(k):
+                    out[k] = r[k]
+            ing = str(r.get("composizione") or "").replace("🧪 Ingredienti:", "").strip()
+            if ing and not out.get("ingredienti"):
+                out["ingredienti"] = ing
+            img = r.get("immagine") or img
+            fonti.insert(0, "archivio " + str(r.get("fonte") or "codici"))
+    out["fonte"] = " + ".join(fonti)
+    out["immagine_web"] = img
+    return out
 
 
 def check(code):
@@ -730,12 +779,51 @@ def off_lista(x_code: str = Header(None)):
     return off_().elenco()
 
 
+def _off_giro():
+    off_().controlla()
+    off_().arricchisci_elenco()
+
+
 @app.post("/api/off/controlla")
 def off_controlla(x_code: str = Header(None)):
     check(x_code)
     if not off_().in_corso():
-        threading.Thread(target=lambda: off_().controlla(), daemon=True).start()
+        threading.Thread(target=_off_giro, daemon=True).start()
     return {"ok": True}
+
+
+class OffScheda(BaseModel):
+    barcode: str
+    campi: dict = {}
+
+
+@app.get("/api/off/scheda/{barcode}")
+def off_scheda(barcode: str, x_code: str = Header(None)):
+    check(x_code)
+    r = off_().scheda(barcode)
+    if r is None:
+        raise HTTPException(404, "Prodotto non trovato")
+    return r
+
+
+@app.post("/api/off/scheda")
+def off_scheda_salva(m: OffScheda, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    off_().salva_campi(m.barcode, m.campi)
+    return off_().scheda(m.barcode)
+
+
+@app.post("/api/off/arricchisci")
+def off_arricchisci(m: OffCodici, x_code: str = Header(None)):
+    """Un solo codice: risponde con la scheda aggiornata (qualche secondo). Piu codici: parte in background."""
+    check(x_code)
+    writable()
+    cod = [str(b) for b in m.barcodes][:40]
+    if len(cod) == 1:
+        return {"scheda": off_().arricchisci_uno(cod[0])}
+    threading.Thread(target=lambda: [off_().arricchisci_uno(b) or time.sleep(3) for b in cod], daemon=True).start()
+    return {"avviato": len(cod)}
 
 
 @app.post("/api/off/progetto")
@@ -764,11 +852,11 @@ def off_ignora(m: OffCodici, x_code: str = Header(None)):
 
 
 @app.post("/api/off/foto")
-async def off_foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: str = Header(None)):
+async def off_foto(barcode: str = Form(...), lato: str = Form("fronte"), file: UploadFile = File(...), x_code: str = Header(None)):
     check(x_code)
     writable()
     dati, mime = await file.read(), file.content_type or ""
-    if not off_().salva_foto(barcode, dati, mime):
+    if not off_().salva_foto(barcode, dati, mime, "retro" if lato == "retro" else "fronte"):
         raise HTTPException(400, "Foto non valida (JPEG, PNG o WebP, al massimo 8 MB)")
     return {"ok": True}
 
@@ -783,12 +871,22 @@ def off_foto_vista(barcode: str, x_code: str = Header(None)):
     return FileResponse(f[0], media_type=f[1], headers={"Cache-Control": "no-store"})
 
 
+@app.get("/api/off/foto/{barcode}/retro")
+def off_foto_retro(barcode: str, x_code: str = Header(None)):
+    check(x_code)
+    f = off_().foto_file(barcode, "retro")
+    if not f:
+        raise HTTPException(404, "Nessuna foto")
+    from fastapi.responses import FileResponse
+    return FileResponse(f[0], media_type=f[1], headers={"Cache-Control": "no-store"})
+
+
 def _off_ciclo():
     """Una volta al giorno controlla i prodotti nuovi su Open*Facts (solo letture, la scheda compare solo se c'e qualcosa da inviare)."""
     time.sleep(240)
     while True:
         try:
-            off_().controlla()
+            _off_giro()
         except Exception:
             logging.getLogger("inventario").exception("controllo Open Food Facts")
         time.sleep(24 * 3600)

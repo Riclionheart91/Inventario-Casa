@@ -431,10 +431,98 @@ def integra_scheda(barcode: str, nome: str, marca: str, confezione: str, chiave:
     return None
 
 
+def _num_off(x):
+    try:
+        v = float(str(x).replace(",", ".").strip().split()[0])
+        return v if 0 <= v < 100000 else None
+    except Exception:
+        return None
+
+
+NUTRIENTI_OFF = ("energia_kcal", "grassi", "saturi", "carboidrati", "zuccheri", "fibre", "proteine", "sale")
+
+
+def _lista_off(x, massimo=8):
+    if isinstance(x, str):
+        x = re.split(r"[,;]", x)
+    return [re.sub(r"\s+", " ", str(i)).strip(" .\"'")[:60] for i in (x if isinstance(x, list) else []) if str(i).strip()][:massimo]
+
+
+def scheda_off(barcode: str, nome: str, marca: str, confezione: str, contesto: str, chiave: str, modello: str = "", riserva: str = "",
+               post: Callable = post_gemini) -> Optional[dict]:
+    """Legge i risultati della ricerca per codice a barre (testo preso dal web) e compila la scheda da mandare a Open Food Facts:
+    nome esatto, marca, confezione, ingredienti, valori nutrizionali per 100 g/ml e il resto, SOLO se compaiono nei risultati. Senza testo non fa nulla."""
+    ULTIMO_ERRORE[0] = ""
+    bc = re.sub(r"\D", "", str(barcode))
+    if not chiave or not bc or not (contesto or "").strip():
+        return None
+    prompt = ("Leggi i risultati di ricerca qui sotto sul prodotto con codice a barre (EAN/GTIN) %s (nome attuale: %s; marca: %s; confezione: %s). "
+              "Rispondi SOLO con JSON {\"nome\":\"\",\"marca\":\"\",\"confezione\":\"\",\"descrizione\":\"\",\"categorie\":[],\"etichette\":[],"
+              "\"ingredienti\":\"\",\"allergeni\":[],\"origine\":\"\",\"imballaggio\":[],"
+              "\"nutrizione\":{\"energia_kcal\":null,\"grassi\":null,\"saturi\":null,\"carboidrati\":null,\"zuccheri\":null,\"fibre\":null,\"proteine\":null,\"sale\":null}}. "
+              "nome = nome ESATTO del prodotto come scritto sulla confezione, senza marca ne peso, maiuscole normali (es. \"Spaghetti n. 5\"); "
+              "marca = marca esatta; confezione = peso o volume come sulla confezione (es. 500 g, 1,5 L); descrizione = breve descrizione generica (es. Pasta di semola di grano duro); "
+              "categorie = categorie del prodotto (es. Cibi e bevande, Pasta); etichette = bio, senza glutine, DOP... solo se indicate; "
+              "ingredienti = elenco ingredienti come in etichetta, in italiano; allergeni = allergeni dichiarati; origine = paese di origine se indicato; "
+              "imballaggio = materiali della confezione; nutrizione = valori per 100 g (o 100 ml) in grammi, energia in kcal. "
+              "REGOLE: usa SOLO cio che compare nei risultati e riguarda QUESTO codice o QUESTO prodotto; se un dato non c'e o non sei sicuro lascia vuoto o null. Non inventare e non stimare."
+              % (bc, str(nome)[:80], str(marca)[:40], str(confezione)[:30]))
+    corpo = {"contents": [{"parts": [{"text": prompt + _blocco_contesto(contesto)}]}], "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}}
+    for m in _modelli("leggero", modello, riserva):
+        d = _estrai(post(URL % m, chiave, corpo, 60.0))
+        if not d:
+            continue
+        nu = d.get("nutrizione") if isinstance(d.get("nutrizione"), dict) else {}
+        out = {"nome": str(d.get("nome") or "").strip()[:120], "marca": str(d.get("marca") or "").strip()[:80],
+               "confezione": str(d.get("confezione") or "").strip()[:40], "descrizione": str(d.get("descrizione") or "").strip()[:160],
+               "categorie": ", ".join(_lista_off(d.get("categorie"))), "etichette": ", ".join(_lista_off(d.get("etichette"))),
+               "ingredienti": str(d.get("ingredienti") or "").strip()[:1500], "allergeni": ", ".join(_lista_off(d.get("allergeni"))),
+               "origine": str(d.get("origine") or "").strip()[:80], "imballaggio": ", ".join(_lista_off(d.get("imballaggio")))}
+        for k in NUTRIENTI_OFF:
+            v = _num_off(nu.get(k))
+            if v is not None:
+                out["n_" + k] = ("%g" % round(v, 2))
+        if any(out.values()):
+            return out
+    return None
+
+
+def scheda_off_foto(img: bytes, mime: str, barcode: str, nome: str, marca: str, confezione: str, chiave: str, modello: str = "", riserva: str = "",
+                    post: Callable = post_gemini) -> Optional[dict]:
+    """Legge la foto del RETRO della confezione (etichetta): ingredienti, valori nutrizionali per 100 g, allergeni, origine, materiali. La foto non si salva qui."""
+    import base64
+    ULTIMO_ERRORE[0] = ""
+    if not chiave or not img:
+        return None
+    prompt = ("Leggi l'etichetta nella foto (retro della confezione) del prodotto %s %s %s. Rispondi SOLO con JSON "
+              "{\"nome\":\"\",\"marca\":\"\",\"confezione\":\"\",\"ingredienti\":\"\",\"allergeni\":[],\"origine\":\"\",\"imballaggio\":[],\"etichette\":[],"
+              "\"nutrizione\":{\"energia_kcal\":null,\"grassi\":null,\"saturi\":null,\"carboidrati\":null,\"zuccheri\":null,\"fibre\":null,\"proteine\":null,\"sale\":null}}. "
+              "ingredienti = testo degli ingredienti come stampato (in italiano); nutrizione = valori PER 100 g (o 100 ml) in grammi, energia in kcal "
+              "(se la tabella e per porzione e non per 100 g, lascia null); allergeni, origine, materiali di imballaggio come stampati. "
+              "Scrivi SOLO cio che leggi nella foto: se non si legge o non c'e, lascia vuoto o null. Non inventare." % (str(nome)[:80], str(marca)[:40], str(confezione)[:30]))
+    corpo = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": mime, "data": base64.b64encode(img).decode()}}]}],
+             "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}}
+    for m in _modelli("potente", modello, riserva):
+        d = _estrai(post(URL % m, chiave, corpo, 60.0))
+        if not d:
+            continue
+        nu = d.get("nutrizione") if isinstance(d.get("nutrizione"), dict) else {}
+        out = {"nome": str(d.get("nome") or "").strip()[:120], "marca": str(d.get("marca") or "").strip()[:80], "confezione": str(d.get("confezione") or "").strip()[:40],
+               "ingredienti": str(d.get("ingredienti") or "").strip()[:1500], "allergeni": ", ".join(_lista_off(d.get("allergeni"))),
+               "origine": str(d.get("origine") or "").strip()[:80], "imballaggio": ", ".join(_lista_off(d.get("imballaggio"))), "etichette": ", ".join(_lista_off(d.get("etichette")))}
+        for k in NUTRIENTI_OFF:
+            v = _num_off(nu.get(k))
+            if v is not None:
+                out["n_" + k] = ("%g" % round(v, 2))
+        if any(out.values()):
+            return out
+    return None
+
+
 # conteggio delle chiamate e memoria delle risposte (attivi solo nell'app: aiuso.ATTIVO)
 for _nome, _compito, _mem in (("suggerisci", "classificazione", True), ("traduci", "traduzione", True), ("cerca_web", "ricerca web", True),
                               ("foto_prodotto", "foto", False), ("controlla_categorie", "controllo categorie", False),
-                              ("tipi_generici", "tipi generici", False), ("integra_scheda", "punteggi e riciclo", True), ("riscrivi_regole", "riscrittura regole", True)):
+                              ("tipi_generici", "tipi generici", False), ("scheda_off", "scheda Open Food Facts", True), ("scheda_off_foto", "foto del retro", False), ("integra_scheda", "punteggi e riciclo", True), ("riscrivi_regole", "riscrittura regole", True)):
     globals()[_nome] = aiuso.registra(_compito, _mem, extra=_regole_txt)(globals()[_nome])
 cerca_web = _con_freno(cerca_web)          # le due funzioni che usano la ricerca Google (fuori dal conteggio quando sospese)
 integra_scheda = _con_freno(integra_scheda)

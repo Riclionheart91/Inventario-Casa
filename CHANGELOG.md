@@ -3,6 +3,13 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.20.0 — 2026-11-08
+**Condividi su Open Food Facts, rifatta**:
+- Elenco con filtri (pronti, da completare, per sito), badge «completo» o «manca: …» su ogni prodotto e barra fissa in basso: «Spunta pronti», «Completa», «Invia», «Non proporre più».
+- **Completamento dal codice a barre**: l'app cerca prima negli archivi dei codici e sul web, poi l'AI legge i risultati e compila nome esatto, marca, confezione, ingredienti e valori nutrizionali (solo se compaiono davvero, mai inventati). Parte da sola in background per i prodotti dell'elenco.
+- **Tocca il nome**: si apre la scheda con tutto quello che verrà inviato, modificabile. Le tue correzioni restano sopra ogni completamento successivo.
+- **Foto del retro** (facoltativa): l'AI legge l'etichetta e compila ingredienti e valori per 100 g; la foto parte con il prodotto. Le immagini trovate online non vengono inviate (diritti d'autore).
+
 ## 0.19.0 — 2026-11-08
 **Condividi su Open Food Facts**: nuova scheda «Condividi», che compare solo quando ci sono prodotti non ancora presenti su Open Food Facts (cibo), Open Pet Food Facts (cibo per animali), Open Products Facts (casa e detersivi) o Open Beauty Facts (cosmetici). Spunti quelli da inviare, scegli il sito se serve e premi «Invia selezionati»: partono nome, marca, confezione e la tua foto. «Non proporre più» li toglie per sempre dall'elenco. Servono `off_utente` e `off_password` nelle opzioni. Il controllo dei codici avviene una volta al giorno, con solo letture. La foto di un codice nuovo resta nell'app fino all'invio o allo scarto.
 
