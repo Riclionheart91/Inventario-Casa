@@ -339,7 +339,8 @@ class Off:
                 out.append({"barcode": k, "nome": str(r.get("Prodotto", "")).strip(), "marca": str(r.get("Marca", "") or "").strip(),
                             "confezione": str(r.get("Confezione", "") or "").strip(), "categoria": str(r.get("Categoria", "") or "").strip(),
                             "sottocategoria": str(r.get("Sottocategoria", "") or "").strip(), "tipo": str(r.get("Tipo", "") or "").strip(),
-                            "immagine": str(r.get("Immagine", "") or "").strip()})
+                            "immagine": str(r.get("Immagine", "") or "").strip(),
+                            "composizione": str(r.get("Composizione", "") or "").strip(), "nutrizione": str(r.get("Nutrizione (100g)", "") or "").strip()})
         return out
 
     def _presente(self, progetto: str, codice: str) -> Optional[bool]:
@@ -353,6 +354,17 @@ class Off:
         if cod == 404 or (isinstance(j, dict) and j.get("status") == 0):
             return False
         return None
+
+    def _dove(self, progetto: str, codice: str):
+        """Progetto che conosce gia il codice (quello scelto, poi Open Food Facts), False se nessuno, None se non si e potuto sapere."""
+        r = self._presente(progetto, codice)
+        if r:
+            return progetto
+        if r is False and progetto != "food":
+            time.sleep(self.pausa)
+            r2 = self._presente("food", codice)
+            return "food" if r2 else (False if r2 is False else None)
+        return r
 
     def _gia_su_off(self, progetto: str, codice: str) -> Optional[bool]:
         """Il codice e gia su uno dei progetti? Si guarda quello scelto e, per i prodotti non alimentari, anche Open Food Facts (capita che ci siano finiti li)."""
@@ -377,9 +389,9 @@ class Off:
             for p in da:
                 cod = valido_per_off(p["barcode"])
                 prog = progetto_per(p)
-                r = self._gia_su_off(prog, cod)
+                r = self._dove(prog, cod)
                 if r is not None:
-                    self._imposta(p["barcode"], "presente" if r else "assente", prog)
+                    self._imposta(p["barcode"], "presente" if r else "assente", r or prog)
                     if r:
                         self.togli_foto(p["barcode"])   # c'e gia: la foto tenuta per l'invio non serve
                 self._prog[0] += 1

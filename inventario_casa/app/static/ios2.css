@@ -1,0 +1,60 @@
+/* ritocchi grafici delle schede Spesa, Da fare, Condividi e Impostazioni (iPhone) */
+/* testi delle schede: piccoli e grigi come nelle Impostazioni di iOS, senza spazi enormi */
+.card p,.card .m,.sc-body .m,.prop .m{margin:0;font-size:14px;line-height:1.4;color:var(--mut);text-align:left}
+.card p.m b,.card p b{color:var(--tx);font-weight:600}
+.card h2{font-size:17px;font-weight:600}
+.card a,.card a.m{color:var(--acc);text-decoration:none}
+.card{gap:10px;padding:14px 16px}
+.card input[type=text],.card input[type=search],.card select,.card textarea,#offscheda input[type=text],#offscheda textarea{background:var(--s3)}
+.fld{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
+.fld>span{font-size:13px;color:var(--mut)}
+h3.sez,.sez{font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--mut);text-transform:uppercase;margin:18px 0 8px 4px}
+
+/* Spesa: righe come Promemoria */
+#spesa-list .row,#spesa-list .item{align-items:center}
+#spesa-list .sp-x,#spesa-list .btn{border:0;background:var(--s3);color:var(--acc);border-radius:10px;min-height:40px}
+.sp-x{border:0;background:var(--s3);color:var(--mut)}
+#spesa-list .badge{font-size:13px;font-weight:600}
+
+/* Condividi */
+.offlist{margin-top:10px;gap:8px}
+.offcard{padding:12px 14px}
+.offrow .th{border-radius:10px;overflow:hidden;background:var(--s3)}
+.offrow .th img{width:100%;height:100%;object-fit:cover}
+.offbar{flex-wrap:nowrap;gap:6px;padding:8px;border-radius:16px;background:rgba(28,28,30,.98);bottom:8px}
+.offbar .btn{flex:1 1 0;min-width:0;min-height:44px;padding:0 4px;font-size:13px;line-height:1.15;text-align:center}
+.offbar .btn:disabled{opacity:.35}
+.offlist+.note,.offlist~.note{margin-top:8px}
+.badge{font-size:12px}
+.offbadges .badge{background:var(--s3)}
+.offbadges .badge.okb{color:var(--ok);background:rgba(48,209,88,.14);border:0}
+.offbadges .badge.missb{color:var(--warn);background:rgba(255,159,10,.14);border:0}
+
+/* foglio di invio */
+.offhead .th:empty{display:none}
+.offhead .th.big{width:72px;height:72px;border-radius:12px;overflow:hidden;background:var(--s3)}
+.offhead .th.big img{width:100%;height:100%;object-fit:cover}
+.offhead b{font-size:17px}
+.offfoto .btn{min-height:46px;font-size:14px;line-height:1.2;padding:0 8px}
+.offfoot{padding-top:10px}
+.offfoot .btn{min-height:48px;font-size:14px;line-height:1.15;padding:0 6px}
+.nutgrid{gap:0 10px}
+
+/* Da fare */
+#bozze-list .card .btns .btn,#appr .card .btns .btn{min-height:46px;font-size:15px}
+#bozze-list .card .m{color:var(--mut)}
+.fld input,.fld textarea,.fld select,.card input[type=text],.card textarea{color:var(--tx)}
+#offscheda .sc-body>p.m,#offscheda .sc-body>.note{margin:0 0 12px}
+#offscheda .offfoto{margin:10px 0}
+.offbar .btn{font-size:12.5px;letter-spacing:-.1px}
+.offbar .btn.bad{flex:1.35 1 0}
+.offlist{padding-bottom:10px}
+/* Spesa: righe e pulsanti */
+.sp-row{border-top:0;position:relative;min-height:60px}
+.sp-row::after{content:"";position:absolute;left:44px;right:0;bottom:0;border-bottom:.5px solid var(--sep)}
+.sp-row .th{width:44px;height:44px;border-radius:8px;overflow:hidden}.sp-row .th:empty{background:var(--s3);border:0}
+.sp-row .n b{font-size:16px}.sp-row .n span{font-size:13px}
+.sp-plus{border:0;background:var(--s3);color:var(--acc);width:44px;height:40px;font-size:15px}
+.sp-chk input{accent-color:var(--acc)}
+.sp-q{font-size:13px}
+#bozze-list .card a.m,#bozze-list .card a{color:var(--acc)}

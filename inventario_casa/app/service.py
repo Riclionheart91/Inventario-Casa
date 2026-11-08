@@ -262,6 +262,37 @@ class Inventory:
         self._drop(SH_PROD, SH_MOV)
         return {"ok": True, "movimenti_aggiornati": n}
 
+    def aggiorna_da_off(self, barcode, campi: dict) -> dict:
+        """Scrive nel foglio prodotti i valori che l'utente ha scelto di prendere da Open Food Facts (nome, marca, confezione, ingredienti, valori, immagine).
+        Ogni modifica finisce nel registro delle modifiche AI con la fonte."""
+        k = nbc(barcode)
+        h, rows = self._rows(SH_PROD, True)
+        if "Barcode" not in h:
+            raise ApiError(500, "Il foglio prodotti non ha la colonna Barcode")
+        ib = h.index("Barcode")
+        riga = next((i for i, r in enumerate(rows) if len(r) > ib and nbc(r[ib]) == k), None)
+        if riga is None:
+            raise ApiError(404, "Prodotto non trovato")
+        att = dict(zip(h, list(rows[riga]) + [""] * len(h)))
+        if any(c in campi for c in ("nome", "marca", "confezione")):
+            self.modifica_dati(k, campi.get("nome") or str(att.get("Prodotto", "") or ""),
+                               campi["marca"] if "marca" in campi else str(att.get("Marca", "") or ""),
+                               campi["confezione"] if "confezione" in campi else str(att.get("Confezione", "") or ""))
+            for c, col in (("marca", "Marca"), ("confezione", "Confezione")):
+                if c in campi:
+                    self._log_ai(k, col, str(att.get(col, "") or ""), campi[c], fonte="OPEN FOOD FACTS")
+        ups = []
+        for c, col, val in (("ingredienti", "Composizione", "🧪 Ingredienti: %s" % str(campi.get("ingredienti", "")).strip()),
+                            ("nutrizione", "Nutrizione (100g)", str(campi.get("nutrizione", "")).strip()),
+                            ("immagine", "Immagine", str(campi.get("immagine", "")).strip())):
+            if c in campi and col in h and str(campi[c]).strip():
+                ups.append((riga + 2, col, val))
+                self._log_ai(k, col, str(att.get(col, "") or ""), val, fonte="OPEN FOOD FACTS")
+        if ups:
+            self.store.update_cells(SH_PROD, ups)
+        self._drop(SH_PROD)
+        return {"ok": True}
+
     def imposta_tipo(self, barcode, tipo: str) -> dict:
         """Cambia il tipo di un prodotto (menu nella scheda). Un tipo che non esiste va in coda Approvazioni con scorta 0."""
         k = nbc(barcode)

@@ -13,7 +13,7 @@
     off: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 21h14"/>',
     imp: '<circle cx="12" cy="12" r="3"/>'
   };
-  var TABS = [['mov', '+/-', 'Movimento +/-'], ['stock', 'Stock', 'Stock'], ['prod', 'Prodotti', 'Tutti i prodotti'], ['spesa', 'Spesa', 'Spesa'], ['bozze', 'Da fare', 'Da inserire e approvare'], ['off', 'Condividi', 'Condividi su Open Food Facts'], ['imp', 'Impostazioni', 'Impostazioni']];
+  var TABS = [['mov', '+/-', 'Movimento +/-'], ['stock', 'Stock', 'Stock'], ['prod', 'Prodotti', 'Tutti i prodotti'], ['spesa', 'Spesa', 'Spesa'], ['bozze', 'Da fare', 'Da fare'], ['off', 'Condividi', 'Condividi su Open Food Facts'], ['imp', 'Impostazioni', 'Impostazioni']];
   var $ = function (id) { return document.getElementById(id); };
   var st = { tipo: 'Carico', luogo: 'Casa', qta: 1, known: null, giac: [], riga: 0, cats: null, ro: true, fotoBlob: null, stock: [], filtro: 'Tutti', tab: 'mov' };
 
@@ -66,6 +66,12 @@
     if (path === 'api/revisione') return { ultima: '2026-04-30', aperte: 3, in_corso: false, dovuta: true, riepilogo: '5 voci: 2 con correzione proposta, 3 solo da leggere', sola_lettura: false };
     if (path === 'api/revisione/avvia') return { ok: true };
     if (path === 'api/arricchimento/avvia') return { ok: true, avviato: true };
+    if (path === 'api/off/confronti') return [{ barcode: '8002795002995', nome: 'Latte fresco intero', progetto_nome: 'Open Food Facts', voci: [
+      { campo: 'nome', etichetta: 'Nome', nostro: 'Latte fresco intero', off: 'Latte Fresco Alta Qualità Intero', azioni: ['foglio', 'nessuna'], suggerita: 'foglio' },
+      { campo: 'confezione', etichetta: 'Confezione', nostro: '1 l', off: '', azioni: ['off', 'nessuna'], suggerita: 'off' },
+      { campo: 'ingredienti', etichetta: 'Ingredienti', nostro: '', off: 'Latte intero pastorizzato. Può contenere tracce di lattosio e di altre proteine animali, come indicato dal produttore sulla confezione originale.', azioni: ['foglio', 'nessuna'], suggerita: 'foglio' }] }];
+    if (path.indexOf('api/off/confronti/applica') === 0) return { ok: true, esiti: [{ campo: 'nome', ok: true, messaggio: 'Foglio aggiornato' }, { campo: 'confezione', ok: true, messaggio: 'Inviato a Open Food Facts' }, { campo: 'ingredienti', ok: false, messaggio: 'Non riuscito (prova)' }] };
+    if (path.indexOf('api/off/confronti/') === 0) return { ok: true };
     if (path === 'api/off/lista') return [{ barcode: '8001234567890', nome: 'Crocchette gatto sterilizzato', marca: 'Miglior Gatto', confezione: '1,5 kg', categoria: 'Animali', sottocategoria: 'Gatto', tipo: 'Crocchette', immagine: '', progetto: 'pet', progetto_nome: 'Open Pet Food Facts', foto: false }, { barcode: '8009876543210', nome: 'Detersivo piatti limone', marca: 'Svelto', confezione: '750 ml', categoria: 'Casa', sottocategoria: 'Pulizia', tipo: 'Detersivo piatti', immagine: '', progetto: 'products', progetto_nome: 'Open Products Facts', foto: false }];
     if (path === 'api/off') return { configurato: true, in_corso: false, controllati: 0, totale: 0, ultimo: '2026-11-08T03:00:00', presenti: 40, inviati: 2, ignorati: 1, sola_lettura: false, progetti: { food: 'Open Food Facts', pet: 'Open Pet Food Facts', products: 'Open Products Facts', beauty: 'Open Beauty Facts' } };
     if (path === 'api/off/invia') return { esiti: [{ barcode: '8001234567890', ok: true, messaggio: 'Inviato a Open Pet Food Facts. Senza foto.' }] };
@@ -118,7 +124,7 @@
 
   /* ---------- navigazione ---------- */
   /* Da inserire e Approvazioni compaiono nella barra solo quando c'e qualcosa da fare (o se ci si e gia dentro) */
-  var NASCONDIBILI = { bozze: ['api/bozze', 'api/approvazioni', 'api/scadenze'], off: ['api/off/lista'] };
+  var NASCONDIBILI = { bozze: ['api/bozze', 'api/approvazioni', 'api/scadenze', 'api/off/confronti'], off: ['api/off/lista'] };
   function tabVisibile(id) { if (id === 'imp') return false; return !(id in NASCONDIBILI) || st.tab === id || (st.n && st.n[id] > 0); }
   function idVisibili() { return TABS.map(function (t) { return t[0]; }).filter(tabVisibile); }
   function applicaNav() {
@@ -323,6 +329,7 @@
       if (t[0] === tab) $('title').textContent = t[2];
     });
     Array.prototype.forEach.call($('nav').children, function (b) { if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    if (tab !== 'bozze') $('sub').textContent = '';
     applicaNav(); aggiornaConteggi();
     navInd(0, true);
     if (tab === 'stock' || tab === 'prod') hintSwipe('v-' + tab);
@@ -331,7 +338,7 @@
     if (tab === 'prod') loadProd();
     if (tab === 'imp') loadImp();
     if (tab === 'spesa') loadSpesa();
-    if (tab === 'bozze') { loadScad(); loadBozze(); loadAppr(); }
+    if (tab === 'bozze') { loadScad(); loadBozze(); loadAppr(); loadOffConf(); }
     if (tab === 'off') loadOff();
     if (tab === 'mov') $('bc').focus();
     setStk();
@@ -1516,9 +1523,66 @@
       .catch(function (e) { toast('Bozze non caricate: ' + e.message, true); });
   }
   function aggiornaDaFare() {
-    var nb = st.nb || 0, na = st.na || 0, ns = st.ns || 0, v = $('da-fare-vuoto');
-    if (v) v.hidden = !!(nb || na || ns);
-    if (st.tab === 'bozze') $('sub').textContent = (nb || na || ns) ? [ns ? ns + (ns === 1 ? ' in scadenza' : ' in scadenza') : '', nb ? nb + ' da inserire' : '', na ? na + (na === 1 ? ' proposta AI' : ' proposte AI') : ''].filter(Boolean).join(' · ') : 'Niente da fare';
+    var nb = st.nb || 0, na = st.na || 0, ns = st.ns || 0, nc = st.nc || 0, v = $('da-fare-vuoto');
+    if (v) v.hidden = !!(nb || na || ns || nc);
+    if (st.tab === 'bozze') $('sub').textContent = (nb || na || ns || nc) ? [ns ? ns + (ns === 1 ? ' in scadenza' : ' in scadenza') : '', nb ? nb + ' da inserire' : '', na ? na + (na === 1 ? ' proposta AI' : ' proposte AI') : '', nc ? nc + (nc === 1 ? ' differenza con Open Food Facts' : ' differenze con Open Food Facts') : ''].filter(Boolean).join(' · ') : 'Niente da fare';
+  }
+  /* ---------- Open Food Facts: differenze (approvazione prima di scrivere, sul foglio o su Open Food Facts) ---------- */
+  var ETICHETTA_AZ = { foglio: 'Usa quello di OFF', off: 'Invia il mio a OFF', nessuna: 'Lascia' };
+  function loadOffConf() {
+    api('GET', 'api/off/confronti').then(function (l) { renderOffConf(l || []); }).catch(function () { renderOffConf([]); });
+  }
+  function renderOffConf(list) {
+    var box = $('off-conf'); if (!box) return; box.textContent = '';
+    st.nc = list.length; aggiornaDaFare();
+    if (!list.length) return;
+    var h = el('h3', 'sez', 'Open Food Facts · differenze (' + list.length + ')'); box.appendChild(h);
+    box.appendChild(el('p', 'm oc-intro', 'Per ogni voce scegli se aggiornare il tuo foglio con i dati di Open Food Facts, inviare a Open Food Facts il tuo dato dove manca, o lasciare com\'è. Non scrivo niente finché non premi «Applica le scelte».'));
+    list.forEach(function (sc) {
+      var c = el('article', 'card oc'), scelte = {}, ctrl = {};
+      var nm = el('button', 'oc-nome', sc.nome); nm.type = 'button'; nm.addEventListener('click', function () { openScheda(sc.barcode); }); c.appendChild(nm);
+      if (sc.progetto_nome) c.appendChild(el('div', 'm', sc.progetto_nome + ' · codice ' + sc.barcode));
+      (sc.voci || []).forEach(function (v) {
+        var riga = el('div', 'oc-voce'); riga.appendChild(el('div', 'oc-et', v.etichetta));
+        var due = el('div', 'oc-due');
+        [['Il tuo foglio', v.nostro], ['Open Food Facts', v.off]].forEach(function (x) {
+          var col = el('div', 'oc-col'); col.appendChild(el('small', '', x[0]));
+          var t = el('div', 'oc-val' + (x[1] ? '' : ' vuoto'), x[1] || '— vuoto —');
+          if (x[1]) { t.tabIndex = 0; t.setAttribute('role', 'button'); t.setAttribute('aria-expanded', 'false'); t.addEventListener('click', function () { var a = t.classList.toggle('aperto'); t.setAttribute('aria-expanded', String(a)); }); }
+          col.appendChild(t); due.appendChild(col);
+        });
+        riga.appendChild(due);
+        var az = (v.azioni && v.azioni.length ? v.azioni : ['nessuna']), seg = el('div', 'seg oc-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', v.etichetta);
+        scelte[v.campo] = az.indexOf(v.suggerita) >= 0 ? v.suggerita : az[az.length - 1];
+        ctrl[v.campo] = [];
+        az.forEach(function (a) {
+          var b = el('button', '', ETICHETTA_AZ[a] || a); b.type = 'button'; b.setAttribute('aria-pressed', String(scelte[v.campo] === a));
+          b.addEventListener('click', function () { scelte[v.campo] = a; ctrl[v.campo].forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); });
+          ctrl[v.campo].push(b); seg.appendChild(b);
+        });
+        seg.style.gridTemplateColumns = 'repeat(' + az.length + ',minmax(0,1fr))';
+        riga.appendChild(seg); c.appendChild(riga);
+      });
+      var nt = el('div', 'note', ''); c.appendChild(nt);
+      var bt = el('div', 'btns'), ok = el('button', 'btn primary', 'Applica le scelte'), no = el('button', 'btn bad', 'Non proporre più');
+      [ok, no].forEach(function (b) { b.type = 'button'; bt.appendChild(b); }); c.appendChild(bt);
+      if (st.ro) { ok.disabled = no.disabled = true; c.appendChild(el('div', 'note warn', 'Sola lettura attiva: le scelte non si possono applicare.')); }
+      ok.addEventListener('click', function () {
+        ok.disabled = no.disabled = true; note(nt, 'Applico…');
+        api('POST', 'api/off/confronti/applica', { barcode: sc.barcode, scelte: scelte }).then(function (r) {
+          var tutti = true, etic = {}; (sc.voci || []).forEach(function (v) { etic[v.campo] = v.etichetta; });
+          note(nt, (r.esiti || []).map(function (e) { if (!e.ok) tutti = false; return (e.ok ? '✓ ' : '✗ ') + (etic[e.campo] || e.campo) + ': ' + e.messaggio; }).join('\n'), tutti ? 'ok' : 'warn'); nt.style.whiteSpace = 'pre-line';
+          azzeraCache(); setTimeout(function () { aggiornaConteggi(); loadOffConf(); }, 2500);
+        }).catch(function (e) { note(nt, 'Non applicato: ' + e.message, 'warn'); ok.disabled = no.disabled = !!st.ro; });
+      });
+      var armato = 0;
+      no.addEventListener('click', function () {   // due tocchi per confermare
+        if (!armato) { armato = setTimeout(function () { armato = 0; no.textContent = 'Non proporre più'; }, 5000); no.textContent = 'Tocca ancora'; return; }
+        clearTimeout(armato); armato = 0; ok.disabled = no.disabled = true;
+        api('POST', 'api/off/confronti/ignora', { barcode: sc.barcode }).then(function () { toast('Fatto: non verrà più proposto.'); aggiornaConteggi(); loadOffConf(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); ok.disabled = no.disabled = !!st.ro; });
+      });
+      box.appendChild(c);
+    });
   }
   function loadScad() {
     api('GET', 'api/scadenze').then(function (l) { renderScad(l || []); }).catch(function () { renderScad([]); });

@@ -3,6 +3,13 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.21.0 — 2026-11-08
+**App con l'aspetto di un'app iPhone** (modello: Musica): titolo grande che si riduce allo scorrimento, barra delle schede traslucida, righe con miniatura quadrata arrotondata, intestazioni di sezione in grassetto, controlli segmentati, caselle tonde come in Promemoria, schede e fogli che salgono dal basso, tema scuro iOS. Passando da una scheda all'altra la nuova scheda scorre dal lato giusto.
+- **Indice A-Z** sul bordo destro dell'elenco Prodotti e dell'elenco Condividi: trascinando il dito la lettera si evidenzia e l'elenco scorre.
+- **Vibrazione aptica** leggera su cambi di scheda, indice, gesti sulle righe e conferme (si spegne in Impostazioni › Aspetto e vibrazione). Su iPhone usa un trucco che funziona da iOS 17.4: se non la senti, il tuo sistema non la permette.
+**Open Food Facts · differenze** (in «Da fare», come le altre approvazioni): per i prodotti che su Open Food Facts ci sono già, l'app confronta nome, marca, confezione, ingredienti, valori nutrizionali e foto con il tuo foglio. Per ogni differenza decidi tu: usare il valore di Open Food Facts nel tuo foglio, mandare il tuo a Open Food Facts (solo dove lì è vuoto: non si sovrascrive mai niente) o lasciare com'è. Niente viene scritto finché non applichi; le modifiche al foglio finiscono nel registro con la fonte «OPEN FOOD FACTS». «Non proporre più» le toglie per sempre.
+**Foto per Open Food Facts**: restano nell'app solo finché il prodotto non è inviato o scartato; si cancellano da sole anche quando il codice risulta già su Open Food Facts.
+
 ## 0.20.0 — 2026-11-08
 **Condividi su Open Food Facts, rifatta**:
 - Elenco con filtri (pronti, da completare, per sito), badge «completo» o «manca: …» su ogni prodotto e barra fissa in basso: «Spunta pronti», «Completa», «Invia», «Non proporre più».

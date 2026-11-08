@@ -97,3 +97,9 @@ L'app controlla (una volta al giorno, con solo letture) quali prodotti del catal
 - **Completare i dati:** l'app parte dal codice a barre (archivi dei codici e ricerca sul web), l'AI legge i risultati e compila nome esatto, marca, confezione, ingredienti e valori nutrizionali, solo se compaiono davvero. Tocca il nome di un prodotto per vedere e correggere tutto ciò che verrà inviato; le tue correzioni non vengono mai sovrascritte.
 - **Foto del retro (facoltativa):** nella scheda del prodotto puoi aggiungere anche la foto del retro della confezione: l'AI legge l'etichetta (ingredienti e valori per 100 g) e questi dati valgono più della ricerca sul web. La foto parte con il prodotto. Le immagini trovate online non vengono mai inviate (diritti d'autore): serve la tua foto.
 
+## Aspetto iPhone, indice A-Z e vibrazione
+L'app segue lo stile delle app di iPhone (modello: Musica). Negli elenchi alfabetici (Prodotti e Condividi) trascina il dito sulle lettere a destra per saltare alla lettera. La vibrazione leggera si spegne in Impostazioni › «Aspetto e vibrazione».
+
+## Differenze con Open Food Facts
+Per i prodotti già presenti su Open Food Facts, in «Da fare» compaiono schede «Open Food Facts · differenze»: scegli campo per campo se usare il valore di Open Food Facts nel tuo foglio, mandare il tuo a Open Food Facts (solo dove lì è vuoto) o lasciare com'è. Niente viene scritto prima della tua conferma.
+

@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
-from . import ai, aiuso, analisi, lookup, off, pagina, regole_auto, ricerca
+from . import ai, aiuso, analisi, confronti, lookup, off, pagina, regole_auto, ricerca
 from .accesso import Accesso, _Mw
 from .store import make_store
 
@@ -290,6 +290,16 @@ def _scheda_off(p: dict) -> dict:
     out["fonte"] = " + ".join(fonti)
     out["immagine_web"] = img
     return out
+
+
+_conf = None
+
+
+def conf_():
+    global _conf
+    if _conf is None:
+        _conf = confronti.Confronti(off_(), inv())
+    return _conf
 
 
 def check(code):
@@ -782,6 +792,7 @@ def off_lista(x_code: str = Header(None)):
 def _off_giro():
     off_().controlla()
     off_().arricchisci_elenco()
+    conf_().scansiona()
 
 
 @app.post("/api/off/controlla")
@@ -789,6 +800,44 @@ def off_controlla(x_code: str = Header(None)):
     check(x_code)
     if not off_().in_corso():
         threading.Thread(target=_off_giro, daemon=True).start()
+    return {"ok": True}
+
+
+class ConfApplica(BaseModel):
+    barcode: str
+    scelte: dict = {}
+
+
+class ConfCodice(BaseModel):
+    barcode: str
+
+
+@app.get("/api/off/confronti")
+def off_confronti(x_code: str = Header(None)):
+    check(x_code)
+    return conf_().elenco()
+
+
+@app.post("/api/off/confronti/cerca")
+def off_confronti_cerca(x_code: str = Header(None)):
+    check(x_code)
+    if not conf_().in_corso():
+        threading.Thread(target=lambda: conf_().scansiona(), daemon=True).start()
+    return {"ok": True}
+
+
+@app.post("/api/off/confronti/applica")
+def off_confronti_applica(m: ConfApplica, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return {"ok": True, "esiti": conf_().applica(m.barcode, {str(k): str(v) for k, v in (m.scelte or {}).items()})}
+
+
+@app.post("/api/off/confronti/ignora")
+def off_confronti_ignora(m: ConfCodice, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    conf_().ignora(m.barcode)
     return {"ok": True}
 
 
