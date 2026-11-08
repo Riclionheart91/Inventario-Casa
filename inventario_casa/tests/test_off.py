@@ -207,5 +207,20 @@ class TRetro(unittest.TestCase):
         self.assertIsNone(o.foto_file("8001234567890", "retro"))
 
 
+class TPulizia(unittest.TestCase):
+    def test_pulisce_solo_le_foto_inutili(self):
+        h = Finto(); o = crea(h)
+        o.salva_foto("8002795002995", b"latte", "image/jpeg")      # gia su Open Food Facts
+        o.salva_foto("8001234567890", b"gatto", "image/jpeg")      # da inviare
+        o.salva_foto("8009876543210", b"x", "image/jpeg", "retro") # da inviare (retro)
+        o.controlla()   # il latte risulta presente: la sua foto sparisce da sola
+        self.assertIsNone(o.foto_file("8002795002995"))
+        self.assertIsNotNone(o.foto_file("8001234567890")); self.assertIsNotNone(o.foto_file("8009876543210", "retro"))
+        self.assertEqual(o.stato()["foto_n"], 2)
+        o._imposta("8001234567890", "inviato", "pet")
+        self.assertEqual(o.pulisci_foto(), 1)
+        self.assertEqual(o.stato()["foto_n"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -293,6 +293,43 @@ class Off:
             time.sleep(pausa)
         return n
 
+    def pulisci_foto(self, giorni_orfane: int = 60) -> int:
+        """Cancella le foto che non servono piu: prodotto gia su Open*Facts, inviato o scartato, oppure fuori catalogo da troppo tempo.
+        Restano solo quelle dei prodotti ancora da inviare."""
+        try:
+            nomi = os.listdir(self.cartella)
+        except Exception:
+            return 0
+        stati = self._carica().get("prodotti", {})
+        catalogo = {p["barcode"] for p in self._catalogo()}
+        n = 0
+        for f in nomi:
+            k = f.split(".")[0].replace("_retro", "")
+            percorso = os.path.join(self.cartella, f)
+            st = stati.get(k, {}).get("stato", "")
+            vecchia = False
+            try:
+                vecchia = (time.time() - os.path.getmtime(percorso)) > giorni_orfane * 86400
+            except Exception:
+                pass
+            if st in ("presente", "inviato", "ignorato") or (k not in catalogo and vecchia) or (not st and vecchia):
+                try:
+                    os.remove(percorso)
+                    n += 1
+                except Exception:
+                    pass
+        return n
+
+    def foto_in_attesa(self) -> dict:
+        n, b = 0, 0
+        try:
+            for f in os.listdir(self.cartella):
+                n += 1
+                b += os.path.getsize(os.path.join(self.cartella, f))
+        except Exception:
+            pass
+        return {"foto_n": n, "foto_mb": round(b / 1048576, 1)}
+
     # --- controllo -------------------------------------------------------
     def _catalogo(self) -> List[dict]:
         out = []
@@ -343,12 +380,15 @@ class Off:
                 r = self._gia_su_off(prog, cod)
                 if r is not None:
                     self._imposta(p["barcode"], "presente" if r else "assente", prog)
+                    if r:
+                        self.togli_foto(p["barcode"])   # c'e gia: la foto tenuta per l'invio non serve
                 self._prog[0] += 1
                 time.sleep(self.pausa)
             with self._lock:
                 d = self._carica()
                 d["ultimo"] = self.oggi().isoformat(timespec="seconds")
                 self._salva(d)
+            self.pulisci_foto()
             return {"avviato": True, "controllati": len(da)}
         finally:
             self._in_corso = False
@@ -378,7 +418,7 @@ class Off:
             c[v.get("stato", "")] = c.get(v.get("stato", ""), 0) + 1
         return {"configurato": self.configurato(), "in_corso": self._in_corso, "controllati": self._prog[0], "totale": self._prog[1],
                 "ultimo": d.get("ultimo", ""), "presenti": c.get("presente", 0), "inviati": c.get("inviato", 0), "ignorati": c.get("ignorato", 0),
-                "progetti": {k: v[0] for k, v in PROGETTI.items()}}
+                "progetti": {k: v[0] for k, v in PROGETTI.items()}, **self.foto_in_attesa()}
 
     def cambia_progetto(self, barcode, progetto: str) -> None:
         k = nbc(barcode)
