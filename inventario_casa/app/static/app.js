@@ -1405,10 +1405,11 @@
       testa.appendChild(ctl); box.appendChild(testa);
       var elenco = el('div', 'offlist'); box.appendChild(elenco);
       var esito = el('div', 'note', ''); box.appendChild(esito);
-      var barra = el('div', 'offbar'), tutti = el('button', 'btn', 'Spunta pronti'), arr = el('button', 'btn', 'Completa'), invia = el('button', 'btn primary', 'Invia'), rim = el('button', 'btn', 'Rimanda'), ignora = el('button', 'btn bad', 'Non proporre più');
+      var barra = el('div', 'offbar'), tutti = el('button', 'btn', 'Pronti'), arr = el('button', 'btn', 'Completa'), invia = el('button', 'btn primary', 'Invia'), rim = el('button', 'btn', 'Rimanda'), ignora = el('button', 'btn bad', 'Nascondi');
+      tutti.setAttribute('aria-label', 'Spunta tutti i prodotti pronti'); ignora.setAttribute('aria-label', 'Non proporre più');
       [tutti, arr, invia, rim, ignora].forEach(function (b) { b.type = 'button'; barra.appendChild(b); });
       function scelti() { return Object.keys(sel).filter(function (k) { return sel[k]; }); }
-      function conta() { var n = scelti().length; arr.textContent = 'Completa' + (n ? ' (' + n + ')' : ''); invia.textContent = 'Invia' + (n ? ' (' + n + ')' : ''); rim.textContent = 'Rimanda' + (n ? ' (' + n + ')' : ''); ignora.textContent = 'Non proporre più' + (n ? ' (' + n + ')' : ''); rim.disabled = !n || s.sola_lettura; invia.disabled = !n || !s.configurato || s.sola_lettura; arr.disabled = !n || s.sola_lettura; ignora.disabled = !n || s.sola_lettura; }
+      function conta() { var n = scelti().length; arr.textContent = 'Completa' + (n ? ' (' + n + ')' : ''); invia.textContent = 'Invia' + (n ? ' (' + n + ')' : ''); rim.textContent = 'Rimanda' + (n ? ' (' + n + ')' : ''); ignora.textContent = 'Nascondi' + (n ? ' (' + n + ')' : ''); rim.disabled = !n || s.sola_lettura; invia.disabled = !n || !s.configurato || s.sola_lettura; arr.disabled = !n || s.sola_lettura; ignora.disabled = !n || s.sola_lettura; }
       function visibile(p) { return (OFF_FLT === 'Tutti' || (OFF_FLT === 'Pronti' && pronto(p)) || (OFF_FLT === 'Da completare' && !pronto(p))) && (OFF_PRJ === 'Tutti' || OFF_PRJ === p.progetto); }
       function applica() { lista.forEach(function (p) { righe[p.barcode].card.hidden = !visibile(p); }); }
       lista.forEach(function (p) {
@@ -1425,7 +1426,7 @@
         elenco.appendChild(c);
       });
       if (!lista.length) elenco.appendChild(el('p', 'empty', 'Niente da condividere per ora.'));
-      else box.appendChild(barra);
+      else box.insertBefore(barra, elenco);   // barra fissa in alto, sempre a portata di dito
       tutti.addEventListener('click', function () {
         var pr = lista.filter(pronto); var tutto = pr.some(function (p) { return !sel[p.barcode]; });
         lista.forEach(function (p) { sel[p.barcode] = tutto && pronto(p); });
@@ -1451,7 +1452,7 @@
       var armato = 0;
       ignora.addEventListener('click', function () {   // due tocchi per confermare (i popup del browser nell'app non sempre si aprono)
         var cod = scelti(); if (!cod.length) return;
-        if (!armato) { armato = setTimeout(function () { armato = 0; conta(); }, 5000); ignora.textContent = 'Tocca ancora (' + cod.length + ')'; return; }
+        if (!armato) { armato = setTimeout(function () { armato = 0; conta(); }, 5000); ignora.textContent = 'Sicuro? (' + cod.length + ')'; return; }
         clearTimeout(armato); armato = 0;
         api('POST', 'api/off/ignora', { barcodes: cod }).then(function () { toast('Fatto: non verranno più proposti.'); aggiornaConteggi(); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); });
       });

@@ -3,6 +3,10 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.22.4
+- Barra delle sezioni flottante su telefono, come iPhone: capsula traslucida staccata dai bordi, con la sezione attiva evidenziata.
+- Condividi: la barra con «Spunta pronti, Completa, Invia, Rimanda, Non proporre più» è fissata in alto e resta visibile scorrendo l'elenco.
+
 ## 0.22.3
 - Layout con barra laterale solo su iPad e Mac: serve anche un'altezza di almeno 600 px, così un iPhone tenuto in orizzontale mantiene il layout da telefono.
 - Condividi: i filtri sono due gruppi separati e si sommano (stato: Tutti/Pronti/Da completare; sito: Open Food Facts, Pet, Products…).

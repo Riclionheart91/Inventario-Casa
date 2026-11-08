@@ -96,7 +96,8 @@
     az.classList.toggle('on', mostra); if (app) app.classList.toggle('conaz', mostra);
     if (!mostra) return;
     var a = app.getBoundingClientRect(), m = main.getBoundingClientRect();
-    az.style.top = (m.top - a.top + 6) + 'px'; az.style.height = Math.max(120, m.height - 12) + 'px';
+    var nv = $('nav'), occ = nv && getComputedStyle(nv).position === 'fixed' ? nv.offsetHeight + 20 : 0;   // barra flottante: l'indice non ci finisce sotto
+    az.style.top = (m.top - a.top + 6) + 'px'; az.style.height = Math.max(120, m.height - 12 - occ) + 'px';
     Array.prototype.forEach.call(az.children, function (s) { s.classList.toggle('vuota', !voci[s.dataset.l]); s.classList.remove('att'); }); attiva = '';
   }
   function vaiA(l) {
