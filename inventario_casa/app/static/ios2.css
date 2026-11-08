@@ -58,3 +58,38 @@ h3.sez,.sez{font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--mut)
 .sp-chk input{accent-color:var(--acc)}
 .sp-q{font-size:13px}
 #bozze-list .card a.m,#bozze-list .card a{color:var(--acc)}
+
+/* 0.22: testi più piccoli, barra in alto sottile, niente scorrimento laterale */
+html,body,#app{max-width:100%;overflow-x:hidden}
+main{overflow-x:hidden;overscroll-behavior-x:none;padding:6px 16px 24px;touch-action:pan-y}
+#app.conaz main{padding-right:28px}
+.top{min-height:26px;padding:calc(2px + env(safe-area-inset-top)) 14px 2px}
+.top h1{font-size:15px}
+.large{padding:0 0 4px}.large h1{font-size:24px;line-height:1.15}.large .lsub{font-size:12px;margin-top:2px}
+body{font-size:14px}
+label,.lbl{font-size:12px}
+.item{padding:6px 0;gap:10px}.item::after{left:56px}
+.item .th{width:46px;height:46px;border-radius:7px}
+.item .n b{font-size:15px}.item .n span,.item .n .m1,.item .n .m2{font-size:12px}
+.qta{font-size:16px}.badge{font-size:11px}
+details.g summary,.letter{font-size:16px;padding:10px 0 6px}details.g.sub summary{font-size:13px}
+.card{padding:12px;border-radius:12px}.card h2{font-size:15px}.card .why,.note,.prop .m,.m{font-size:12px}
+.btn{min-height:42px;font-size:14px;border-radius:12px}
+.chip{min-height:30px;font-size:12px;padding:0 12px}
+input[type=text],input[type=search],input[type=number],input[type=date],input[type=time],select,textarea{height:42px;font-size:15px}
+textarea{height:auto}
+#qv{height:42px}.sq{width:42px;height:42px}
+.seg:not(.one) button{height:32px;font-size:13px}
+nav{padding:4px 2px calc(4px + env(safe-area-inset-bottom))}
+nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px}
+.offname{font-size:15px}
+.offrow,.offtx,.card,.oc-col,.oc-val{min-width:0;max-width:100%}
+.offname{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+.offbar{left:0;right:0;max-width:100%;box-sizing:border-box}
+.oc-nome{font-size:15px;overflow-wrap:anywhere}
+.oc-et{font-size:12px}.oc-val{font-size:13px}.oc-col small{font-size:10.5px}
+.oc-seg button{font-size:12px}
+.oc .btns .btn{font-size:14px}
+.oc-mass{margin:0 0 10px}.oc-mass .btn{font-size:13px;min-height:40px}
+.sc-head h2{font-size:17px}.sc-head .m,.sc-sec p,.sc-giac{font-size:13px}
+#toast{font-size:13px}

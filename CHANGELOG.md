@@ -3,6 +3,14 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.22.0
+- «Applica» nelle differenze con Open Food Facts lavora in background: la scheda sparisce subito e puoi andare avanti; se qualcosa non riesce, la scheda ritorna con il motivo.
+- Pulsanti invertiti: «Usa OFF» (predefinito) e «Lascia»; «Invia il mio» solo dove OFF è vuoto.
+- Nuovo «Usa OFF per tutte» e «Applica a tutte» per decidere in massa.
+- Scheda «Condividi»: nuovo «Rimanda» (la richiesta torna quando carichi di nuovo il prodotto); niente elenco di ciò che manca, solo «mancano informazioni».
+- Foto del retro e «Completa dal codice a barre» lavorano in background; le correzioni nella scheda si salvano da sole alla chiusura.
+- Testi, barra in alto e titoli più piccoli; corretto lo spostamento laterale della schermata.
+
 ## 0.21.0 — 2026-11-08
 **App con l'aspetto di un'app iPhone** (modello: Musica): titolo grande che si riduce allo scorrimento, barra delle schede traslucida, righe con miniatura quadrata arrotondata, intestazioni di sezione in grassetto, controlli segmentati, caselle tonde come in Promemoria, schede e fogli che salgono dal basso, tema scuro iOS. Passando da una scheda all'altra la nuova scheda scorre dal lato giusto.
 - **Indice A-Z** sul bordo destro dell'elenco Prodotti e dell'elenco Condividi: trascinando il dito la lettera si evidenzia e l'elenco scorre.

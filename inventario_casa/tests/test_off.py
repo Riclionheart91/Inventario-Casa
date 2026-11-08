@@ -61,6 +61,16 @@ class TOff(unittest.TestCase):
         n = len(h.chiamate); o.controlla()
         self.assertEqual(len(h.chiamate), n)   # niente ricontrolli
 
+    def test_rimanda_e_riprendi(self):
+        o = crea(Finto()); o.controlla()
+        self.assertEqual(o.rimanda(["8001234567890"]), 1)
+        self.assertNotIn("Crocchette gatto", [p["nome"] for p in o.elenco()])
+        o.controlla()                                   # il controllo non lo riporta indietro
+        self.assertNotIn("Crocchette gatto", [p["nome"] for p in o.elenco()])
+        self.assertTrue(o.riprendi("8001234567890"))    # nuovo carico: torna
+        self.assertIn("Crocchette gatto", [p["nome"] for p in o.elenco()])
+        self.assertFalse(o.riprendi("8001234567890"))
+
     def test_invio_con_foto_e_stato(self):
         h = Finto(); o = crea(h)
         o.controlla()

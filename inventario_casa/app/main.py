@@ -544,8 +544,14 @@ def scheda(barcode: str, x_code: str = Header(None)):
 def movimento(m: Mov, x_code: str = Header(None)):
     check(x_code)
     writable()
-    return inv().movimento(m.barcode, m.tipo, m.location, m.quantita, m.prodotto, m.foto,
-                          m.destinazione, m.categoria, m.categoria_new, scadenza=m.scadenza)
+    r = inv().movimento(m.barcode, m.tipo, m.location, m.quantita, m.prodotto, m.foto,
+                        m.destinazione, m.categoria, m.categoria_new, scadenza=m.scadenza)
+    if str(m.tipo) == "Carico":      # una richiesta di invio a Open Food Facts rimandata torna nell'elenco
+        try:
+            off_().riprendi(m.barcode)
+        except Exception:
+            pass
+    return r
 
 
 @app.get("/api/scadenze")
@@ -770,6 +776,11 @@ class OffVoci(BaseModel):
 
 class OffCodici(BaseModel):
     barcodes: list = []
+    sfondo: bool = False
+
+
+class ConfMassivo(BaseModel):
+    voci: list = []
 
 
 class OffProg(BaseModel):
@@ -830,7 +841,23 @@ def off_confronti_cerca(x_code: str = Header(None)):
 def off_confronti_applica(m: ConfApplica, x_code: str = Header(None)):
     check(x_code)
     writable()
-    return {"ok": True, "esiti": conf_().applica(m.barcode, {str(k): str(v) for k, v in (m.scelte or {}).items()})}
+    n = conf_().applica_sfondo([{"barcode": m.barcode, "scelte": {str(k): str(v) for k, v in (m.scelte or {}).items()}}])
+    return {"ok": True, "avviato": n}
+
+
+@app.post("/api/off/confronti/applica_tutte")
+def off_confronti_applica_tutte(m: ConfMassivo, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    lav = [{"barcode": str(v.get("barcode", "")), "scelte": {str(k): str(x) for k, x in (v.get("scelte") or {}).items()}} for v in (m.voci or [])[:200] if isinstance(v, dict)]
+    return {"ok": True, "avviato": conf_().applica_sfondo(lav)}
+
+
+@app.post("/api/off/rimanda")
+def off_rimanda(m: OffCodici, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return {"ok": True, "rimandati": off_().rimanda([str(b) for b in m.barcodes][:200])}
 
 
 @app.post("/api/off/confronti/ignora")
@@ -869,7 +896,7 @@ def off_arricchisci(m: OffCodici, x_code: str = Header(None)):
     check(x_code)
     writable()
     cod = [str(b) for b in m.barcodes][:40]
-    if len(cod) == 1:
+    if len(cod) == 1 and not m.sfondo:
         return {"scheda": off_().arricchisci_uno(cod[0])}
     threading.Thread(target=lambda: [off_().arricchisci_uno(b) or time.sleep(3) for b in cod], daemon=True).start()
     return {"avviato": len(cod)}

@@ -62,6 +62,8 @@ class Confronti:
         self.percorso = percorso or os.path.join(base, "off_confronti.json")
         self._lock = threading.RLock()
         self._in_corso = False
+        self._appl: set = set()      # codici in applicazione in background (non si mostrano piu)
+        self._errori: Dict[str, str] = {}
 
     # --- stato -----------------------------------------------------------
     def _carica(self) -> dict:
@@ -179,14 +181,42 @@ class Confronti:
         cat = {p["barcode"]: p for p in self.off._catalogo()}
         out = []
         for bc, s in self._carica().get("schede", {}).items():
-            if s.get("stato") == "aperto" and s.get("voci") and bc in cat:
-                out.append({"barcode": bc, "nome": cat[bc]["nome"], "voci": s["voci"], "progetto_nome": PROGETTI.get(s.get("progetto"), PROGETTI["food"])[0]})
+            if s.get("stato") == "aperto" and s.get("voci") and bc in cat and bc not in self._appl:
+                out.append({"errore": self._errori.get(bc, ""), "barcode": bc, "nome": cat[bc]["nome"], "voci": s["voci"], "progetto_nome": PROGETTI.get(s.get("progetto"), PROGETTI["food"])[0]})
         return sorted(out, key=lambda x: x["nome"].lower())
 
     def ignora(self, barcode) -> None:
         k = nbc(barcode)
         s = self._carica().get("schede", {}).get(k)
         self._imposta(k, "ignorato", s.get("voci") if s else [], (s or {}).get("progetto", ""))
+
+    def applica_sfondo(self, lavori: List[dict]) -> int:
+        """Mette le schede in coda e le applica una dopo l'altra in background; intanto spariscono dall'elenco.
+        Se qualcosa non riesce la scheda ritorna con il motivo."""
+        coda = []
+        with self._lock:
+            for l in lavori or []:
+                k = nbc(l.get("barcode"))
+                if k and k not in self._appl:
+                    self._appl.add(k)
+                    coda.append((k, dict(l.get("scelte") or {})))
+        if coda:
+            threading.Thread(target=self._lavora, args=(coda,), daemon=True).start()
+        return len(coda)
+
+    def _lavora(self, coda) -> None:
+        for k, scelte in coda:
+            try:
+                esiti = self.applica(k, scelte)
+                err = "; ".join("%s: %s" % (e["campo"], e["messaggio"]) for e in esiti if not e["ok"])
+            except Exception as e:
+                err = str(e)[:120] or "errore"
+            with self._lock:
+                if err:
+                    self._errori[k] = err
+                else:
+                    self._errori.pop(k, None)
+                self._appl.discard(k)
 
     def applica(self, barcode, scelte: Dict[str, str]) -> List[dict]:
         """Esegue le scelte dell'utente. Ritorna l'esito per campo. La scheda si chiude quando non resta niente da decidere."""

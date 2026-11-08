@@ -429,7 +429,7 @@ class Off:
         for v in d.get("prodotti", {}).values():
             c[v.get("stato", "")] = c.get(v.get("stato", ""), 0) + 1
         return {"configurato": self.configurato(), "in_corso": self._in_corso, "controllati": self._prog[0], "totale": self._prog[1],
-                "ultimo": d.get("ultimo", ""), "presenti": c.get("presente", 0), "inviati": c.get("inviato", 0), "ignorati": c.get("ignorato", 0),
+                "ultimo": d.get("ultimo", ""), "presenti": c.get("presente", 0), "inviati": c.get("inviato", 0), "ignorati": c.get("ignorato", 0), "rimandati": c.get("rimandato", 0),
                 "progetti": {k: v[0] for k, v in PROGETTI.items()}, **self.foto_in_attesa()}
 
     def cambia_progetto(self, barcode, progetto: str) -> None:
@@ -448,6 +448,26 @@ class Off:
                 self.togli_foto(k)
                 n += 1
         return n
+
+    def rimanda(self, barcodes: List[str]) -> int:
+        """«Rimanda»: esce dall'elenco finche il prodotto non viene caricato di nuovo; la foto resta."""
+        n = 0
+        stati = self._carica().get("prodotti", {})
+        for b in barcodes or []:
+            k = nbc(b)
+            if k and stati.get(k, {}).get("stato") == "assente":
+                self._imposta(k, "rimandato", stati[k].get("progetto", ""))
+                n += 1
+        return n
+
+    def riprendi(self, barcode) -> bool:
+        """Al nuovo carico del prodotto la richiesta rimandata torna nell'elenco."""
+        k = nbc(barcode)
+        s = self._carica().get("prodotti", {}).get(k)
+        if s and s.get("stato") == "rimandato":
+            self._imposta(k, "assente", s.get("progetto", ""))
+            return True
+        return False
 
     def invia(self, voci: List[dict]) -> List[dict]:
         """Invia i prodotti scelti. voci = [{barcode, progetto}]. Ritorna per ciascuno {barcode, ok, messaggio}."""

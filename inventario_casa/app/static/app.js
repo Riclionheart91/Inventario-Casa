@@ -70,7 +70,8 @@
       { campo: 'nome', etichetta: 'Nome', nostro: 'Latte fresco intero', off: 'Latte Fresco Alta Qualità Intero', azioni: ['foglio', 'nessuna'], suggerita: 'foglio' },
       { campo: 'confezione', etichetta: 'Confezione', nostro: '1 l', off: '', azioni: ['off', 'nessuna'], suggerita: 'off' },
       { campo: 'ingredienti', etichetta: 'Ingredienti', nostro: '', off: 'Latte intero pastorizzato. Può contenere tracce di lattosio e di altre proteine animali, come indicato dal produttore sulla confezione originale.', azioni: ['foglio', 'nessuna'], suggerita: 'foglio' }] }];
-    if (path.indexOf('api/off/confronti/applica') === 0) return { ok: true, esiti: [{ campo: 'nome', ok: true, messaggio: 'Foglio aggiornato' }, { campo: 'confezione', ok: true, messaggio: 'Inviato a Open Food Facts' }, { campo: 'ingredienti', ok: false, messaggio: 'Non riuscito (prova)' }] };
+    if (path.indexOf('api/off/confronti/applica') === 0) return { ok: true, avviato: 1 };
+    if (path === 'api/off/rimanda') return { ok: true, rimandati: 1 };
     if (path.indexOf('api/off/confronti/') === 0) return { ok: true };
     if (path === 'api/off/lista') return [{ barcode: '8001234567890', nome: 'Crocchette gatto sterilizzato', marca: 'Miglior Gatto', confezione: '1,5 kg', categoria: 'Animali', sottocategoria: 'Gatto', tipo: 'Crocchette', immagine: '', progetto: 'pet', progetto_nome: 'Open Pet Food Facts', foto: false }, { barcode: '8009876543210', nome: 'Detersivo piatti limone', marca: 'Svelto', confezione: '750 ml', categoria: 'Casa', sottocategoria: 'Pulizia', tipo: 'Detersivo piatti', immagine: '', progetto: 'products', progetto_nome: 'Open Products Facts', foto: false }];
     if (path === 'api/off') return { configurato: true, in_corso: false, controllati: 0, totale: 0, ultimo: '2026-11-08T03:00:00', presenti: 40, inviati: 2, ignorati: 1, sola_lettura: false, progetti: { food: 'Open Food Facts', pet: 'Open Pet Food Facts', products: 'Open Products Facts', beauty: 'Open Beauty Facts' } };
@@ -1378,7 +1379,7 @@
       testa.appendChild(el('h2', '', lista.length + (lista.length === 1 ? ' prodotto' : ' prodotti') + ' da condividere'));
       testa.appendChild(el('p', 'm', 'Non sono ancora su Open Food Facts. Tocca il nome per vedere e correggere cosa invierò; l\'app completa i dati partendo dal codice a barre.'));
       var np = lista.filter(pronto).length;
-      testa.appendChild(el('p', 'm', np + ' pronti · ' + (lista.length - np) + ' da completare · inviati finora ' + s.inviati + ' · non proposti ' + s.ignorati));
+      testa.appendChild(el('p', 'm', np + ' pronti · ' + (lista.length - np) + ' da completare · inviati ' + s.inviati + ' · non proposti ' + s.ignorati + (s.rimandati ? ' · rimandati ' + s.rimandati : '')));
       if (s.in_corso) testa.appendChild(el('p', 'note', 'Sto controllando i codici nuovi… ' + s.controllati + ' di ' + s.totale));
       if (!s.configurato) testa.appendChild(el('p', 'note warn', 'Per inviare servono utente e password di Open Food Facts nelle opzioni dell\'app (off_utente, off_password).'));
       if (s.sola_lettura) testa.appendChild(el('p', 'note warn', 'Sola lettura attiva: l\'invio è disattivato.'));
@@ -1395,19 +1396,19 @@
       testa.appendChild(ctl); box.appendChild(testa);
       var elenco = el('div', 'offlist'); box.appendChild(elenco);
       var esito = el('div', 'note', ''); box.appendChild(esito);
-      var barra = el('div', 'offbar'), tutti = el('button', 'btn', 'Spunta pronti'), arr = el('button', 'btn', 'Completa'), invia = el('button', 'btn primary', 'Invia'), ignora = el('button', 'btn bad', 'Non proporre più');
-      [tutti, arr, invia, ignora].forEach(function (b) { b.type = 'button'; barra.appendChild(b); });
+      var barra = el('div', 'offbar'), tutti = el('button', 'btn', 'Spunta pronti'), arr = el('button', 'btn', 'Completa'), invia = el('button', 'btn primary', 'Invia'), rim = el('button', 'btn', 'Rimanda'), ignora = el('button', 'btn bad', 'Non proporre più');
+      [tutti, arr, invia, rim, ignora].forEach(function (b) { b.type = 'button'; barra.appendChild(b); });
       function scelti() { return Object.keys(sel).filter(function (k) { return sel[k]; }); }
-      function conta() { var n = scelti().length; arr.textContent = 'Completa' + (n ? ' (' + n + ')' : ''); invia.textContent = 'Invia' + (n ? ' (' + n + ')' : ''); ignora.textContent = 'Non proporre più' + (n ? ' (' + n + ')' : ''); invia.disabled = !n || !s.configurato || s.sola_lettura; arr.disabled = !n || s.sola_lettura; ignora.disabled = !n || s.sola_lettura; }
+      function conta() { var n = scelti().length; arr.textContent = 'Completa' + (n ? ' (' + n + ')' : ''); invia.textContent = 'Invia' + (n ? ' (' + n + ')' : ''); rim.textContent = 'Rimanda' + (n ? ' (' + n + ')' : ''); ignora.textContent = 'Non proporre più' + (n ? ' (' + n + ')' : ''); rim.disabled = !n || s.sola_lettura; invia.disabled = !n || !s.configurato || s.sola_lettura; arr.disabled = !n || s.sola_lettura; ignora.disabled = !n || s.sola_lettura; }
       function visibile(p) { return OFF_FLT === 'Tutti' || (OFF_FLT === 'Pronti' && pronto(p)) || (OFF_FLT === 'Da completare' && !pronto(p)) || OFF_FLT === p.progetto; }
       function applica() { lista.forEach(function (p) { righe[p.barcode].card.hidden = !visibile(p); }); }
       lista.forEach(function (p) {
         var c = el('article', 'card offcard'), top = el('div', 'offrow'), cb = el('input'); cb.type = 'checkbox'; cb.setAttribute('aria-label', 'Seleziona ' + p.nome);
         var th = el('div', 'th'); offFoto(th, p);
         var tx = el('div', 'offtx'), nm = el('button', 'offname', p.nome); nm.type = 'button'; nm.addEventListener('click', function () { apriOffScheda(p.barcode, loadOff); });
-        tx.appendChild(nm); tx.appendChild(el('div', 'm', [p.marca, p.confezione].filter(Boolean).join(' · ') || 'Marca e confezione mancanti'));
+        tx.appendChild(nm); var sm = [p.marca, p.confezione].filter(Boolean).join(' · '); if (sm) tx.appendChild(el('div', 'm', sm));
         var bd = el('div', 'offbadges'); bd.appendChild(el('span', 'badge', p.progetto_nome));
-        bd.appendChild(el('span', 'badge ' + (pronto(p) ? 'okb' : 'missb'), pronto(p) ? 'completo' : 'manca: ' + p.manca.join(', ')));
+        bd.appendChild(el('span', 'badge ' + (pronto(p) ? 'okb' : 'missb'), pronto(p) ? 'completo' : 'mancano informazioni'));
         tx.appendChild(bd);
         top.appendChild(cb); top.appendChild(th); top.appendChild(tx); c.appendChild(top);
         var nt = el('div', 'note', ''); c.appendChild(nt); righe[p.barcode] = { card: c, nt: nt };
@@ -1434,6 +1435,10 @@
           azzeraCache(); setTimeout(function () { aggiornaConteggi(); loadOff(); }, 3000);
         }).catch(function (e) { note(esito, 'Non inviato: ' + e.message, 'warn'); conta(); });
       });
+      rim.addEventListener('click', function () {   // esce dall'elenco finché il prodotto non viene caricato di nuovo
+        var cod = scelti(); if (!cod.length) return; rim.disabled = true;
+        api('POST', 'api/off/rimanda', { barcodes: cod }).then(function () { toast('Rimandato: tornerà quando carichi di nuovo il prodotto.'); aggiornaConteggi(); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); conta(); });
+      });
       var armato = 0;
       ignora.addEventListener('click', function () {   // due tocchi per confermare (i popup del browser nell'app non sempre si aprono)
         var cod = scelti(); if (!cod.length) return;
@@ -1452,8 +1457,9 @@
     var bar = el('div', 'sc-bar'), x = el('button', 'sq', '←'); x.type = 'button'; x.setAttribute('aria-label', 'Chiudi'); bar.appendChild(x); bar.appendChild(el('b', '', 'Cosa invio a Open Food Facts'));
     var body = el('div', 'sc-body'), foot = el('div', 'sc-foot offfoot');
     ov.appendChild(bar); ov.appendChild(body); ov.appendChild(foot); document.body.appendChild(ov);
+    var salvaAuto = null;
     function chiudi() { ov.remove(); if (dopo) dopo(); }
-    x.addEventListener('click', chiudi);
+    x.addEventListener('click', function () { if (salvaAuto && !st.ro && !ov.dataset.fatto) { salvaAuto().then(chiudi, chiudi); } else chiudi(); });   // salva da solo le correzioni
     body.textContent = 'Carico…';
     function disegna(d) {
       body.textContent = ''; foot.textContent = '';
@@ -1462,7 +1468,7 @@
       var tt = el('div', ''); tt.appendChild(el('b', '', d.progetto_nome)); tt.appendChild(el('div', 'm', 'Codice ' + d.barcode));
       tt.appendChild(el('div', 'm', d.arricchito ? 'Completato da: ' + (d.fonte || 'ricerca per codice') : 'Non ancora completato dal codice a barre'));
       testa.appendChild(tt); body.appendChild(testa);
-      if (d.manca.length) body.appendChild(el('p', 'note warn', 'Manca: ' + d.manca.join(', ') + '. Puoi completarlo o inviarlo così.'));
+      if (d.manca.length) body.appendChild(el('p', 'note warn', 'Mancano alcune informazioni. Puoi completarle o inviarlo così.'));
       else body.appendChild(el('p', 'note ok', 'Scheda completa.'));
       var fotoRiga = el('div', 'offfoto');
       function bottoneFoto(lato, testo) {
@@ -1471,10 +1477,10 @@
           var f = i.files && i.files[0]; if (!f) return; note(nt, 'Carico la foto…');
           resizeImage(f).then(function (b) { var fd = new FormData(); fd.append('barcode', d.barcode); fd.append('lato', lato); fd.append('file', b, 'foto.jpg'); return api('POST', 'api/off/scheda', { barcode: d.barcode, campi: valori() }).then(function () { return api('POST', 'api/off/foto', undefined, undefined, fd); }); })
             .then(function () {
-              if (lato !== 'retro') return api('GET', 'api/off/scheda/' + d.barcode);
-              note(nt, 'Leggo l\'etichetta del retro… (fino a un minuto)');   // il retro si legge subito: ingredienti e valori esatti
-              return api('POST', 'api/off/arricchisci', { barcodes: [d.barcode] }).then(function (r) { return r.scheda || api('GET', 'api/off/scheda/' + d.barcode); });
-            }).then(disegna).catch(function (e) { note(nt, 'Foto non salvata: ' + e.message, 'warn'); });
+              if (lato !== 'retro') return api('GET', 'api/off/scheda/' + d.barcode).then(disegna);
+              // il retro si legge in background: intanto puoi passare ad altri prodotti, i dati si salvano da soli
+              return api('POST', 'api/off/arricchisci', { barcodes: [d.barcode], sfondo: true }).then(function () { toast('Leggo il retro in background: i dati si salvano da soli.'); chiudi(); });
+            }).catch(function (e) { note(nt, 'Foto non salvata: ' + e.message, 'warn'); });
         });
       }
       bottoneFoto('fronte', d.foto ? 'Cambia foto fronte' : 'Foto fronte');
@@ -1499,16 +1505,17 @@
         OFF_NUTRI.forEach(function (n) { var w = el('label', 'fld'); w.appendChild(el('span', '', n[1])); var i = el('input'); i.type = 'text'; i.inputMode = 'decimal'; i.value = c['n_' + n[0]] || ''; i.setAttribute('aria-label', n[1]); w.appendChild(i); g.appendChild(w); inp['n_' + n[0]] = i; });
       }
       function valori() { var o = {}; Object.keys(inp).forEach(function (k) { o[k] = inp[k].value.trim(); }); return o; }
-      var comp = el('button', 'btn', 'Completa dal codice a barre'), salva = el('button', 'btn primary', 'Salva');
+      salvaAuto = function () { return api('POST', 'api/off/scheda', { barcode: d.barcode, campi: valori() }); };
+      var comp = el('button', 'btn', 'Completa dal codice a barre'), salva = el('button', 'btn primary', 'Fatto');
       [comp, salva].forEach(function (b) { b.type = 'button'; foot.appendChild(b); });
       comp.addEventListener('click', function () {
-        comp.disabled = salva.disabled = true; note(nt, 'Cerco il codice online e faccio leggere i risultati all\'AI… (fino a un minuto)');
-        api('POST', 'api/off/scheda', { barcode: d.barcode, campi: valori() }).then(function () { return api('POST', 'api/off/arricchisci', { barcodes: [d.barcode] }); })
-          .then(function (r) { if (r && r.scheda) { disegna(r.scheda); } else { note(nt, 'Niente di nuovo trovato.', 'warn'); comp.disabled = salva.disabled = false; } })
+        comp.disabled = salva.disabled = true;
+        api('POST', 'api/off/scheda', { barcode: d.barcode, campi: valori() }).then(function () { return api('POST', 'api/off/arricchisci', { barcodes: [d.barcode], sfondo: true }); })
+          .then(function () { toast('Completo in background: i dati si salvano da soli.'); chiudi(); })
           .catch(function (e) { note(nt, 'Non riuscito: ' + e.message, 'warn'); comp.disabled = salva.disabled = false; });
       });
       salva.addEventListener('click', function () {
-        salva.disabled = true;
+        salva.disabled = true; ov.dataset.fatto = '1';
         api('POST', 'api/off/scheda', { barcode: d.barcode, campi: valori() }).then(function () { toast('Salvato.'); chiudi(); }).catch(function (e) { note(nt, 'Non salvato: ' + e.message, 'warn'); salva.disabled = false; });
       });
       if (s_ro()) { salva.disabled = comp.disabled = true; note(nt, 'Sola lettura attiva: le modifiche sono disattivate.', 'warn'); }
@@ -1528,7 +1535,7 @@
     if (st.tab === 'bozze') $('sub').textContent = (nb || na || ns || nc) ? [ns ? ns + (ns === 1 ? ' in scadenza' : ' in scadenza') : '', nb ? nb + ' da inserire' : '', na ? na + (na === 1 ? ' proposta AI' : ' proposte AI') : '', nc ? nc + (nc === 1 ? ' differenza con Open Food Facts' : ' differenze con Open Food Facts') : ''].filter(Boolean).join(' · ') : 'Niente da fare';
   }
   /* ---------- Open Food Facts: differenze (approvazione prima di scrivere, sul foglio o su Open Food Facts) ---------- */
-  var ETICHETTA_AZ = { foglio: 'Usa quello di OFF', off: 'Invia il mio a OFF', nessuna: 'Lascia' };
+  var ETICHETTA_AZ = { foglio: 'Usa OFF', nessuna: 'Lascia', off: 'Invia il mio' }, ORDINE_AZ = { foglio: 0, nessuna: 1, off: 2 };
   function loadOffConf() {
     api('GET', 'api/off/confronti').then(function (l) { renderOffConf(l || []); }).catch(function () { renderOffConf([]); });
   }
@@ -1537,9 +1544,24 @@
     st.nc = list.length; aggiornaDaFare();
     if (!list.length) return;
     var h = el('h3', 'sez', 'Open Food Facts · differenze (' + list.length + ')'); box.appendChild(h);
-    box.appendChild(el('p', 'm oc-intro', 'Per ogni voce scegli se aggiornare il tuo foglio con i dati di Open Food Facts, inviare a Open Food Facts il tuo dato dove manca, o lasciare com\'è. Non scrivo niente finché non premi «Applica le scelte».'));
+    box.appendChild(el('p', 'm oc-intro', 'Per ogni voce: «Usa OFF» allinea il tuo foglio ai dati di Open Food Facts, «Lascia» non cambia niente, «Invia il mio» manda il tuo dato dove OFF è vuoto. Non scrivo niente finché non applichi; poi lavoro in background.'));
+    var schede = [];
+    function dopoApplica() { azzeraCache(); setTimeout(function () { aggiornaConteggi(); loadOffConf(); }, 8000); setTimeout(function () { aggiornaConteggi(); loadOffConf(); }, 30000); }
+    if (list.length > 1) {
+      var mb = el('div', 'btns oc-mass'), tuttiOff = el('button', 'btn', 'Usa OFF per tutte'), tuttiOk = el('button', 'btn primary', 'Applica a tutte (' + list.length + ')');
+      [tuttiOff, tuttiOk].forEach(function (b) { b.type = 'button'; mb.appendChild(b); }); box.appendChild(mb);
+      if (st.ro) tuttiOff.disabled = tuttiOk.disabled = true;
+      tuttiOff.addEventListener('click', function () { schede.forEach(function (x) { x.usaOff(); }); toast('Impostato «Usa OFF» dove possibile.'); });
+      tuttiOk.addEventListener('click', function () {
+        tuttiOk.disabled = true;
+        api('POST', 'api/off/confronti/applica_tutte', { voci: schede.map(function (x) { return { barcode: x.sc.barcode, scelte: x.scelte }; }) }).then(function () {
+          toast('Applico tutte in background.'); schede.forEach(function (x) { x.el.remove(); }); box.textContent = ''; st.nc = 0; aggiornaDaFare(); dopoApplica();
+        }).catch(function (e) { toast('Non avviato: ' + e.message, true); tuttiOk.disabled = false; });
+      });
+    }
     list.forEach(function (sc) {
       var c = el('article', 'card oc'), scelte = {}, ctrl = {};
+      schede.push({ sc: sc, scelte: scelte, el: c, usaOff: function () { (sc.voci || []).forEach(function (v) { if ((v.azioni || []).indexOf('foglio') >= 0) { scelte[v.campo] = 'foglio'; ctrl[v.campo].forEach(function (x) { x.setAttribute('aria-pressed', String(x.dataset.az === 'foglio')); }); } }); } });
       var nm = el('button', 'oc-nome', sc.nome); nm.type = 'button'; nm.addEventListener('click', function () { openScheda(sc.barcode); }); c.appendChild(nm);
       if (sc.progetto_nome) c.appendChild(el('div', 'm', sc.progetto_nome + ' · codice ' + sc.barcode));
       (sc.voci || []).forEach(function (v) {
@@ -1552,27 +1574,25 @@
           col.appendChild(t); due.appendChild(col);
         });
         riga.appendChild(due);
-        var az = (v.azioni && v.azioni.length ? v.azioni : ['nessuna']), seg = el('div', 'seg oc-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', v.etichetta);
-        scelte[v.campo] = az.indexOf(v.suggerita) >= 0 ? v.suggerita : az[az.length - 1];
+        var az = (v.azioni && v.azioni.length ? v.azioni.slice() : ['nessuna']).sort(function (a, b) { return (ORDINE_AZ[a] || 0) - (ORDINE_AZ[b] || 0); }), seg = el('div', 'seg oc-seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', v.etichetta);
+        scelte[v.campo] = az.indexOf('foglio') >= 0 ? 'foglio' : az.indexOf(v.suggerita) >= 0 ? v.suggerita : az[az.length - 1];
         ctrl[v.campo] = [];
         az.forEach(function (a) {
-          var b = el('button', '', ETICHETTA_AZ[a] || a); b.type = 'button'; b.setAttribute('aria-pressed', String(scelte[v.campo] === a));
+          var b = el('button', '', ETICHETTA_AZ[a] || a); b.type = 'button'; b.dataset.az = a; b.setAttribute('aria-pressed', String(scelte[v.campo] === a));
           b.addEventListener('click', function () { scelte[v.campo] = a; ctrl[v.campo].forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); });
           ctrl[v.campo].push(b); seg.appendChild(b);
         });
         seg.style.gridTemplateColumns = 'repeat(' + az.length + ',minmax(0,1fr))';
         riga.appendChild(seg); c.appendChild(riga);
       });
-      var nt = el('div', 'note', ''); c.appendChild(nt);
-      var bt = el('div', 'btns'), ok = el('button', 'btn primary', 'Applica le scelte'), no = el('button', 'btn bad', 'Non proporre più');
+      var nt = el('div', 'note', ''); c.appendChild(nt); if (sc.errore) note(nt, 'Non riuscito l\'ultima volta: ' + sc.errore, 'warn');
+      var bt = el('div', 'btns'), ok = el('button', 'btn primary', 'Applica'), no = el('button', 'btn bad', 'Non proporre più');
       [ok, no].forEach(function (b) { b.type = 'button'; bt.appendChild(b); }); c.appendChild(bt);
       if (st.ro) { ok.disabled = no.disabled = true; c.appendChild(el('div', 'note warn', 'Sola lettura attiva: le scelte non si possono applicare.')); }
-      ok.addEventListener('click', function () {
-        ok.disabled = no.disabled = true; note(nt, 'Applico…');
-        api('POST', 'api/off/confronti/applica', { barcode: sc.barcode, scelte: scelte }).then(function (r) {
-          var tutti = true, etic = {}; (sc.voci || []).forEach(function (v) { etic[v.campo] = v.etichetta; });
-          note(nt, (r.esiti || []).map(function (e) { if (!e.ok) tutti = false; return (e.ok ? '✓ ' : '✗ ') + (etic[e.campo] || e.campo) + ': ' + e.messaggio; }).join('\n'), tutti ? 'ok' : 'warn'); nt.style.whiteSpace = 'pre-line';
-          azzeraCache(); setTimeout(function () { aggiornaConteggi(); loadOffConf(); }, 2500);
+      ok.addEventListener('click', function () {   // parte in background: la scheda sparisce subito e puoi andare avanti
+        ok.disabled = no.disabled = true;
+        api('POST', 'api/off/confronti/applica', { barcode: sc.barcode, scelte: scelte }).then(function () {
+          c.remove(); schede = schede.filter(function (x) { return x.el !== c; }); st.nc = Math.max(0, (st.nc || 1) - 1); aggiornaDaFare(); toast('Applico in background.'); dopoApplica();
         }).catch(function (e) { note(nt, 'Non applicato: ' + e.message, 'warn'); ok.disabled = no.disabled = !!st.ro; });
       });
       var armato = 0;
