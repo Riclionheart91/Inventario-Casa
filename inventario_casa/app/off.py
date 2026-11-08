@@ -460,6 +460,27 @@ class Off:
                 n += 1
         return n
 
+    def nascosti(self) -> List[dict]:
+        """Prodotti messi da parte («Non proporre più» o «Rimanda»): si vedono solo su richiesta esplicita."""
+        stati = self._carica().get("prodotti", {})
+        cat = {p["barcode"]: p for p in self._catalogo()}
+        out = []
+        for bc, s in stati.items():
+            if s.get("stato") in ("ignorato", "rimandato") and bc in cat:
+                prog = s.get("progetto") if s.get("progetto") in PROGETTI else progetto_per(cat[bc])
+                out.append({"barcode": bc, "nome": cat[bc]["nome"], "stato": s["stato"], "quando": s.get("quando", ""), "progetto_nome": PROGETTI[prog][0], "tipo": "invio"})
+        return out
+
+    def ripristina(self, barcodes: List[str]) -> int:
+        n = 0
+        stati = self._carica().get("prodotti", {})
+        for b in barcodes or []:
+            k = nbc(b)
+            if k and stati.get(k, {}).get("stato") in ("ignorato", "rimandato"):
+                self._imposta(k, "assente", stati[k].get("progetto", ""))
+                n += 1
+        return n
+
     def riprendi(self, barcode) -> bool:
         """Al nuovo carico del prodotto la richiesta rimandata torna nell'elenco."""
         k = nbc(barcode)

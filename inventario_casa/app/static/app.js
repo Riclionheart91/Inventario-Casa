@@ -72,6 +72,8 @@
       { campo: 'ingredienti', etichetta: 'Ingredienti', nostro: '', off: 'Latte intero pastorizzato. Può contenere tracce di lattosio e di altre proteine animali, come indicato dal produttore sulla confezione originale.', azioni: ['foglio', 'nessuna'], suggerita: 'foglio' }] }];
     if (path.indexOf('api/off/confronti/applica') === 0) return { ok: true, avviato: 1 };
     if (path === 'api/off/rimanda') return { ok: true, rimandati: 1 };
+    if (path === 'api/off/nascosti') return [{ barcode: '8001111111111', nome: 'Pasta integrale', stato: 'ignorato', quando: '2026-11-01T10:00:00', progetto_nome: 'Open Food Facts', tipo: 'invio' }];
+    if (path === 'api/off/ripristina') return { ok: true, ripristinati: 1 };
     if (path.indexOf('api/off/confronti/') === 0) return { ok: true };
     if (path === 'api/off/lista') return [{ barcode: '8001234567890', nome: 'Crocchette gatto sterilizzato', marca: 'Miglior Gatto', confezione: '1,5 kg', categoria: 'Animali', sottocategoria: 'Gatto', tipo: 'Crocchette', immagine: '', progetto: 'pet', progetto_nome: 'Open Pet Food Facts', foto: false }, { barcode: '8009876543210', nome: 'Detersivo piatti limone', marca: 'Svelto', confezione: '750 ml', categoria: 'Casa', sottocategoria: 'Pulizia', tipo: 'Detersivo piatti', immagine: '', progetto: 'products', progetto_nome: 'Open Products Facts', foto: false }];
     if (path === 'api/off') return { configurato: true, in_corso: false, controllati: 0, totale: 0, ultimo: '2026-11-08T03:00:00', presenti: 40, inviati: 2, ignorati: 1, sola_lettura: false, progetti: { food: 'Open Food Facts', pet: 'Open Pet Food Facts', products: 'Open Products Facts', beauty: 'Open Beauty Facts' } };
@@ -1367,7 +1369,7 @@
   }
 
   /* ---------- condividi su Open Food Facts ---------- */
-  var offTimer, OFF_FLT = 'Tutti';
+  var offTimer, OFF_FLT = 'Tutti', OFF_PRJ = 'Tutti', OFF_NASC = false;
   var OFF_NUTRI = [['energia_kcal', 'Energia (kcal)'], ['grassi', 'Grassi (g)'], ['saturi', 'di cui saturi (g)'], ['carboidrati', 'Carboidrati (g)'], ['zuccheri', 'di cui zuccheri (g)'], ['fibre', 'Fibre (g)'], ['proteine', 'Proteine (g)'], ['sale', 'Sale (g)']];
   function offFoto(th, p) { if (p.foto) { var im = document.createElement('img'); im.alt = ''; im.src = './api/off/foto/' + encodeURIComponent(p.barcode) + '?t=' + Date.now(); th.appendChild(im); } else if (p.immagine) thumb(th, p.immagine); }
   function loadOff() {
@@ -1384,14 +1386,20 @@
       if (s.in_corso) testa.appendChild(el('p', 'note', 'Sto controllando i codici nuovi… ' + s.controllati + ' di ' + s.totale));
       if (!s.configurato) testa.appendChild(el('p', 'note warn', 'Per inviare servono utente e password di Open Food Facts nelle opzioni dell\'app (off_utente, off_password).'));
       if (s.sola_lettura) testa.appendChild(el('p', 'note warn', 'Sola lettura attiva: l\'invio è disattivato.'));
-      var flt = el('div', 'chips'); flt.setAttribute('role', 'group'); flt.setAttribute('aria-label', 'Filtra');
+      function gruppoFiltro(etichetta, voci, get, set) {   // due gruppi separati: lo stato e il sito; i filtri si sommano
+        var g = el('div', 'chips'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', etichetta);
+        voci.forEach(function (f) {
+          var c = el('button', 'chip', f[1]); c.type = 'button'; c.setAttribute('aria-pressed', String(get() === f[0]));
+          c.addEventListener('click', function () { set(f[0]); Array.prototype.forEach.call(g.children, function (x) { x.setAttribute('aria-pressed', 'false'); }); c.setAttribute('aria-pressed', 'true'); applica(); });
+          g.appendChild(c);
+        });
+        return g;
+      }
       var nomiP = {}; lista.forEach(function (p) { nomiP[p.progetto] = p.progetto_nome; });
-      [['Tutti', 'Tutti'], ['Pronti', 'Pronti'], ['Da completare', 'Da completare']].concat(Object.keys(nomiP).map(function (k) { return [k, nomiP[k]]; })).forEach(function (f) {
-        var c = el('button', 'chip', f[1]); c.type = 'button'; c.setAttribute('aria-pressed', String(OFF_FLT === f[0]));
-        c.addEventListener('click', function () { OFF_FLT = f[0]; Array.prototype.forEach.call(flt.children, function (x) { x.setAttribute('aria-pressed', 'false'); }); c.setAttribute('aria-pressed', 'true'); applica(); });
-        flt.appendChild(c);
-      });
-      if (lista.length) testa.appendChild(flt);
+      if (lista.length) {
+        testa.appendChild(gruppoFiltro('Stato', [['Tutti', 'Tutti'], ['Pronti', 'Pronti'], ['Da completare', 'Da completare']], function () { return OFF_FLT; }, function (v) { OFF_FLT = v; }));
+        if (Object.keys(nomiP).length > 1) testa.appendChild(gruppoFiltro('Sito', [['Tutti', 'Tutti i siti']].concat(Object.keys(nomiP).map(function (k) { return [k, nomiP[k]]; })), function () { return OFF_PRJ; }, function (v) { OFF_PRJ = v; }));
+      }
       var ctl = el('button', 'btn', s.in_corso ? 'Controllo in corso…' : 'Controlla e completa ora'); ctl.type = 'button'; ctl.disabled = !!s.in_corso || !!s.sola_lettura;
       ctl.addEventListener('click', function () { ctl.disabled = true; api('POST', 'api/off/controlla').then(function () { toast('Controllo avviato.'); setTimeout(loadOff, 1500); }).catch(function (e) { toast('Non avviato: ' + e.message, true); ctl.disabled = false; }); });
       testa.appendChild(ctl); box.appendChild(testa);
@@ -1401,7 +1409,7 @@
       [tutti, arr, invia, rim, ignora].forEach(function (b) { b.type = 'button'; barra.appendChild(b); });
       function scelti() { return Object.keys(sel).filter(function (k) { return sel[k]; }); }
       function conta() { var n = scelti().length; arr.textContent = 'Completa' + (n ? ' (' + n + ')' : ''); invia.textContent = 'Invia' + (n ? ' (' + n + ')' : ''); rim.textContent = 'Rimanda' + (n ? ' (' + n + ')' : ''); ignora.textContent = 'Non proporre più' + (n ? ' (' + n + ')' : ''); rim.disabled = !n || s.sola_lettura; invia.disabled = !n || !s.configurato || s.sola_lettura; arr.disabled = !n || s.sola_lettura; ignora.disabled = !n || s.sola_lettura; }
-      function visibile(p) { return OFF_FLT === 'Tutti' || (OFF_FLT === 'Pronti' && pronto(p)) || (OFF_FLT === 'Da completare' && !pronto(p)) || OFF_FLT === p.progetto; }
+      function visibile(p) { return (OFF_FLT === 'Tutti' || (OFF_FLT === 'Pronti' && pronto(p)) || (OFF_FLT === 'Da completare' && !pronto(p))) && (OFF_PRJ === 'Tutti' || OFF_PRJ === p.progetto); }
       function applica() { lista.forEach(function (p) { righe[p.barcode].card.hidden = !visibile(p); }); }
       lista.forEach(function (p) {
         var c = el('article', 'card offcard'), top = el('div', 'offrow'), cb = el('input'); cb.type = 'checkbox'; cb.setAttribute('aria-label', 'Seleziona ' + p.nome);
@@ -1447,6 +1455,24 @@
         clearTimeout(armato); armato = 0;
         api('POST', 'api/off/ignora', { barcodes: cod }).then(function () { toast('Fatto: non verranno più proposti.'); aggiornaConteggi(); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); });
       });
+      var nasc = el('div', 'offnasc'), nb = el('button', 'btn ghost', OFF_NASC ? 'Nascondi i messi da parte' : 'Mostra i messi da parte' + ((s.ignorati + (s.rimandati || 0)) ? ' (' + (s.ignorati + (s.rimandati || 0)) + ')' : ''));
+      nb.type = 'button'; nasc.appendChild(nb); var nl = el('div', ''); nasc.appendChild(nl); box.appendChild(nasc);
+      function mostraNascosti() {
+        nl.textContent = 'Carico…';
+        api('GET', 'api/off/nascosti').then(function (l) {
+          nl.textContent = '';
+          if (!l.length) { nl.appendChild(el('p', 'm', 'Non hai messo da parte niente.')); return; }
+          nl.appendChild(el('p', 'm', 'Messi da parte da te. «Ripristina» li rimette tra quelli da gestire.'));
+          l.forEach(function (x) {
+            var r = el('div', 'card offcard nascosto'), t = el('div', 'offtx'), bt = el('button', 'btn', 'Ripristina'); bt.type = 'button'; bt.disabled = !!st.ro;
+            t.appendChild(el('b', '', x.nome)); t.appendChild(el('div', 'm', [x.progetto_nome, x.tipo === 'differenze' ? 'differenze con OFF' : x.stato === 'rimandato' ? 'rimandato' : 'non più proposto', (x.quando || '').slice(0, 10)].filter(Boolean).join(' · ')));
+            r.appendChild(t); r.appendChild(bt); nl.appendChild(r);
+            bt.addEventListener('click', function () { bt.disabled = true; api('POST', 'api/off/ripristina', { voci: [{ barcode: x.barcode, tipo: x.tipo }] }).then(function () { toast('Ripristinato.'); aggiornaConteggi(); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); bt.disabled = false; }); });
+          });
+        }).catch(function (e) { nl.textContent = 'Non riesco a leggere l\'elenco: ' + e.message; });
+      }
+      nb.addEventListener('click', function () { OFF_NASC = !OFF_NASC; loadOff(); });
+      if (OFF_NASC) mostraNascosti();
       applica(); conta();
       if (s.in_corso && st.tab === 'off') offTimer = setTimeout(loadOff, 6000);
     }).catch(function (e) { box.textContent = 'Non riesco a leggere l\'elenco: ' + e.message; });

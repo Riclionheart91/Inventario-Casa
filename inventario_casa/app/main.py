@@ -855,6 +855,26 @@ def off_confronti_applica_tutte(m: ConfMassivo, x_code: str = Header(None)):
     return {"ok": True, "avviato": conf_().applica_sfondo(lav)}
 
 
+@app.get("/api/off/nascosti")
+def off_nascosti(x_code: str = Header(None)):
+    check(x_code)
+    return sorted(off_().nascosti() + conf_().nascosti(), key=lambda x: x["nome"].lower())
+
+
+class Ripristina(BaseModel):
+    voci: list = []     # [{barcode, tipo}]
+
+
+@app.post("/api/off/ripristina")
+def off_ripristina(m: Ripristina, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    v = [x for x in (m.voci or [])[:200] if isinstance(x, dict)]
+    n = off_().ripristina([str(x.get("barcode", "")) for x in v if x.get("tipo") != "differenze"])
+    n += conf_().ripristina([str(x.get("barcode", "")) for x in v if x.get("tipo") == "differenze"])
+    return {"ok": True, "ripristinati": n}
+
+
 @app.post("/api/off/rimanda")
 def off_rimanda(m: OffCodici, x_code: str = Header(None)):
     check(x_code)

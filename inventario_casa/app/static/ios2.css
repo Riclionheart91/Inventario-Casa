@@ -102,7 +102,7 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 .oc-bar{position:sticky}
 
 /* iPad e Mac (schermo largo): barra laterale a sinistra come le app Apple, titolo nella barra in alto, fogli centrati */
-@media (min-width:744px){
+@media (min-width:744px) and (min-height:600px){
   #app{display:grid;grid-template-columns:232px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);max-width:1180px;height:100dvh;margin:0 auto}
   nav{grid-column:1;grid-row:1/-1;display:flex;flex-direction:column;gap:2px;align-content:flex-start;padding:calc(18px + env(safe-area-inset-top)) 10px 16px;background:var(--s1);border-top:0;border-right:.5px solid var(--sep);overflow:auto;-webkit-backdrop-filter:none;backdrop-filter:none}
   nav::before{content:"Inventario Casa";display:block;padding:4px 12px 14px;font-size:20px;font-weight:800;letter-spacing:.2px;color:var(--tx)}
@@ -127,9 +127,10 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
   .offbar{max-width:640px}
   .oc{max-width:720px}
 }
-@media (min-width:744px) and (hover:hover){
+@media (min-width:744px) and (min-height:600px) and (hover:hover){
   nav button:hover:not([aria-current=page]){background:var(--s3)}
   .item:hover{background:var(--s1)}
   .btn:hover{opacity:.88}
   .chip:hover,.seg button:hover{filter:brightness(1.15)}
 }
+.offnasc{margin-top:18px}.offnasc>.btn{width:100%}.nascosto{display:flex;align-items:center;gap:10px;margin-top:8px}.nascosto .offtx{flex:1}.nascosto .btn{flex:none;min-height:36px;padding:0 14px}

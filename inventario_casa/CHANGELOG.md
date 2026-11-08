@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.22.3
+- Layout con barra laterale solo su iPad e Mac: serve anche un'altezza di almeno 600 px, così un iPhone tenuto in orizzontale mantiene il layout da telefono.
+- Condividi: i filtri sono due gruppi separati e si sommano (stato: Tutti/Pronti/Da completare; sito: Open Food Facts, Pet, Products…).
+- Condividi: «Mostra i messi da parte» (solo su richiesta) elenca quelli nascosti con «Non proporre più» o «Rimanda» e le differenze ignorate, con «Ripristina».
+
 ## 0.22.2
 - Schermo largo (iPad, Mac): barra laterale a sinistra con le sezioni, titolo nella barra in alto, schede prodotto come fogli centrati, effetto al passaggio del mouse. Sul telefono resta la barra in basso.
 

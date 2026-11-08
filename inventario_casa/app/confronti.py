@@ -185,6 +185,25 @@ class Confronti:
                 out.append({"errore": self._errori.get(bc, ""), "barcode": bc, "nome": cat[bc]["nome"], "voci": s["voci"], "progetto_nome": PROGETTI.get(s.get("progetto"), PROGETTI["food"])[0]})
         return sorted(out, key=lambda x: x["nome"].lower())
 
+    def nascosti(self) -> List[dict]:
+        cat = {p["barcode"]: p for p in self.off._catalogo()}
+        out = []
+        for bc, s in self._carica().get("schede", {}).items():
+            if s.get("stato") == "ignorato" and s.get("voci") and bc in cat:
+                out.append({"barcode": bc, "nome": cat[bc]["nome"], "stato": "ignorato", "quando": s.get("quando", ""),
+                            "progetto_nome": PROGETTI.get(s.get("progetto"), PROGETTI["food"])[0], "tipo": "differenze"})
+        return out
+
+    def ripristina(self, barcodes: List[str]) -> int:
+        n = 0
+        for b in barcodes or []:
+            k = nbc(b)
+            s = self._carica().get("schede", {}).get(k)
+            if s and s.get("stato") == "ignorato" and s.get("voci"):
+                self._imposta(k, "aperto", s["voci"], s.get("progetto", ""))
+                n += 1
+        return n
+
     def ignora(self, barcode) -> None:
         k = nbc(barcode)
         s = self._carica().get("schede", {}).get(k)

@@ -71,6 +71,15 @@ class TOff(unittest.TestCase):
         self.assertIn("Crocchette gatto", [p["nome"] for p in o.elenco()])
         self.assertFalse(o.riprendi("8001234567890"))
 
+    def test_nascosti_e_ripristino(self):
+        o = crea(Finto()); o.controlla()
+        o.ignora(["8009876543210"]); o.rimanda(["8001234567890"])
+        n = {x["nome"]: x["stato"] for x in o.nascosti()}
+        self.assertEqual(n, {"Detersivo piatti": "ignorato", "Crocchette gatto": "rimandato"})
+        self.assertEqual(o.elenco(), [])
+        self.assertEqual(o.ripristina(["8009876543210", "8001234567890"]), 2)
+        self.assertEqual(len(o.elenco()), 2)
+
     def test_invio_con_foto_e_stato(self):
         h = Finto(); o = crea(h)
         o.controlla()
