@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.22.5
+- Corretto il grande vuoto nero in alto dentro Home Assistant: l'area sicura dell'iPhone veniva contata due volte. Ora la barra in alto è sottile (solo l'ingranaggio e, scorrendo, il titolo).
+
 ## 0.22.4
 - Barra delle sezioni flottante su telefono, come iPhone: capsula traslucida staccata dai bordi, con la sezione attiva evidenziata.
 - Condividi: la barra con «Spunta pronti, Completa, Invia, Rimanda, Non proporre più» è fissata in alto e resta visibile scorrendo l'elenco.

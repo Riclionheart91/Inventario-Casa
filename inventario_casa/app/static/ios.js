@@ -3,6 +3,7 @@
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
+  try { if (window.self !== window.top) document.documentElement.classList.add('framed'); } catch (e) { document.documentElement.classList.add('framed'); }   // dentro Home Assistant: l'area sicura la gestisce già lui
   var RIDOTTO = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- vibrazione aptica ----------
