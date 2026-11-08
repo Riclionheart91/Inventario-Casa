@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.22.2
+- Schermo largo (iPad, Mac): barra laterale a sinistra con le sezioni, titolo nella barra in alto, schede prodotto come fogli centrati, effetto al passaggio del mouse. Sul telefono resta la barra in basso.
+
 ## 0.22.1
 - Differenze con Open Food Facts: scegli su ogni scheda, poi un solo «Applica le scelte» in fondo per tutte (via i pulsanti «per tutte» e «Applica» di ogni scheda).
 - Codice nuovo non trovato da nessuna parte: i pulsanti «Foto fronte» e «Foto retro» compaiono subito sotto il codice a barre; il retro viene tenuto per completare i dati per Open Food Facts.

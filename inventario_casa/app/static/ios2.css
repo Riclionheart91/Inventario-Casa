@@ -100,3 +100,36 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 .fotobtn{gap:8px;font-size:14px;min-height:42px;cursor:pointer}
 .fprev{grid-column:1/-1;display:flex;gap:8px}.fprev img{flex:1;min-width:0;max-height:120px;border-radius:10px;object-fit:cover}.fprev img[hidden]{display:none}
 .oc-bar{position:sticky}
+
+/* iPad e Mac (schermo largo): barra laterale a sinistra come le app Apple, titolo nella barra in alto, fogli centrati */
+@media (min-width:744px){
+  #app{display:grid;grid-template-columns:232px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);max-width:1180px;height:100dvh;margin:0 auto}
+  nav{grid-column:1;grid-row:1/-1;display:flex;flex-direction:column;gap:2px;align-content:flex-start;padding:calc(18px + env(safe-area-inset-top)) 10px 16px;background:var(--s1);border-top:0;border-right:.5px solid var(--sep);overflow:auto;-webkit-backdrop-filter:none;backdrop-filter:none}
+  nav::before{content:"Inventario Casa";display:block;padding:4px 12px 14px;font-size:20px;font-weight:800;letter-spacing:.2px;color:var(--tx)}
+  nav button{flex-direction:row;justify-content:flex-start;gap:12px;min-height:40px;padding:0 12px;border-radius:10px;font-size:14px;font-weight:500;color:var(--tx);text-align:left;width:100%}
+  nav button svg{width:20px;height:20px;flex:none;color:var(--acc)}
+  nav button[aria-current=page]{background:rgba(250,45,72,.16);color:var(--acc);font-weight:600}
+  .top{grid-column:2;grid-row:1;padding:calc(12px + env(safe-area-inset-top)) 28px 10px;min-height:56px;border-bottom:.5px solid var(--sep)}
+  .top .grow{text-align:left}.top h1{opacity:1;font-size:20px;font-weight:700}.top .sub{display:block}
+  .top svg{display:none}
+  .large{display:none}
+  main{grid-column:2;grid-row:2;padding:16px 28px 32px}
+  #app.conaz main{padding-right:36px}
+  body{font-size:15px}
+  .item .n b{font-size:16px}.item .th{width:52px;height:52px}.item::after{left:64px}
+  .btn{min-height:44px;font-size:15px}
+  #f,#v-imp{max-width:600px}
+  #scheda,#offscheda{top:40px;bottom:40px;left:0;right:0;margin:0 auto;width:min(640px,92vw);max-width:none;border-radius:16px;height:auto}
+  #scheda::before,#offscheda::before{display:none}
+  .sc-bar{padding-top:12px}
+  #toast{bottom:32px}
+  #undo{left:calc(232px + 28px);right:28px;bottom:24px}
+  .offbar{max-width:640px}
+  .oc{max-width:720px}
+}
+@media (min-width:744px) and (hover:hover){
+  nav button:hover:not([aria-current=page]){background:var(--s3)}
+  .item:hover{background:var(--s1)}
+  .btn:hover{opacity:.88}
+  .chip:hover,.seg button:hover{filter:brightness(1.15)}
+}
