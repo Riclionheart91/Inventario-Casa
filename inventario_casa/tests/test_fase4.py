@@ -279,6 +279,13 @@ class TFotoAI(unittest.TestCase):
         self.assertIsNone(ai.foto_prodotto(b"jpg", "image/jpeg", cats, [], "", post=post))
 
 
+class TFotoDb(unittest.TestCase):
+    def test_solo_https_pubblico(self):
+        from app import lookup
+        for u in ("http://example.com/a.jpg", "https://127.0.0.1/a.jpg", "https://localhost/a.jpg", "https://192.168.1.1/a.jpg", "file:///etc/passwd", ""):
+            self.assertFalse(lookup.pubblico(u), u)
+
+
 class TProposteCategoria(unittest.TestCase):
     def test_valida_propone_nuova_coppia(self):
         from app import ai

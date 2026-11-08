@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.18.2 — 2026-11-08
+**Codice trovato senza nome**: se i database riconoscono il codice ma non danno il nome, l'app usa la foto del database e la fa leggere all'AI (in background, come per le foto scattate): puoi salvare subito e il prodotto si compila da solo in «Da inserire». Se il database non ha nemmeno la foto, l'app ti chiede di scattarla. Puoi comunque scattare una foto tua al posto di quella del database.
+
 ## 0.18.1 — 2026-11-08
 **Codice nuovo senza attese**: quando inserisci un prodotto nuovo con la foto, il movimento si salva subito e puoi passare al prodotto successivo. La lettura della foto e la ricerca sul web partono dopo, in background: in «Da inserire» il prodotto compare con lo stato «in elaborazione» e si compila da solo appena l'AI finisce (la pagina si aggiorna da sola). Se l'AI non risponde, la scheda resta da compilare a mano, con un avviso.
 

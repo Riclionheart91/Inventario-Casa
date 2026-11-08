@@ -633,7 +633,37 @@ async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: s
     return out
 
 
-def _analizza_foto(barcode: str, dati: bytes, mime: str) -> None:
+class FotoUrl(BaseModel):
+    barcode: str
+    url: str
+
+
+@app.post("/api/foto_url")
+def foto_url(m: FotoUrl, x_code: str = Header(None)):
+    """Il database ha trovato il codice ma non il nome: la sua foto va all'AI al posto di quella scattata (stessa analisi, in background)."""
+    check(x_code)
+    writable()
+    inv().foto(m.barcode, b"x", "image/jpeg")   # solo il controllo del codice
+    if _env("GEMINI_API_KEY"):
+        threading.Thread(target=_analizza_foto_url, args=(m.barcode, m.url), daemon=True).start()
+    return {"ok": True, "url": "", "id": "AI"}
+
+
+def _analizza_foto_url(barcode: str, url: str) -> None:
+    try:
+        dati, mime = lookup.scarica_immagine(url)
+    except Exception:
+        dati, mime = None, ""
+    if not dati or not mime:
+        try:
+            inv().applica_analisi(barcode, {"immagine": url} if url else None)
+        except Exception:
+            pass
+        return
+    _analizza_foto(barcode, dati, mime, url)
+
+
+def _analizza_foto(barcode: str, dati: bytes, mime: str, immagine: str = "") -> None:
     try:
         a = ai.foto_prodotto(dati, mime, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
         cod = lookup.codice_da_cercare(barcode)
@@ -644,6 +674,8 @@ def _analizza_foto(barcode: str, dati: bytes, mime: str) -> None:
                 w = None
             if w and w.get("immagine"):
                 a = dict(a or {}, immagine=w["immagine"])
+        if immagine and not (a or {}).get("immagine"):
+            a = dict(a or {}, immagine=immagine)
         if a and a.get("proposta") and not READ_ONLY:
             p = a["proposta"]
             inv().proponi_categoria(p["categoria"], p["sottocategoria"], a.get("nome", ""), p.get("categoria_nuova", False))

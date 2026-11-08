@@ -303,3 +303,37 @@ def cerca(barcode: str, fetch: Callable = fetch_http, providers=PROVIDERS, timeo
         if risultati[i]:
             return risultati[i]
     return None
+
+
+def pubblico(url: str) -> bool:
+    """Solo https verso indirizzi pubblici: la foto del database non deve far leggere alla app la rete di casa."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+    u = urlparse(url)
+    if u.scheme != "https" or not u.hostname:
+        return False
+    try:
+        return all(ipaddress.ip_address(i[4][0]).is_global for i in socket.getaddrinfo(u.hostname, u.port or 443))
+    except Exception:
+        return False
+
+
+def scarica_immagine(url: str):
+    import urllib.request
+
+    class _Redir(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            if not pubblico(newurl):
+                raise ValueError("indirizzo non consentito")
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+    if not pubblico(url):
+        return None, ""
+    with urllib.request.build_opener(_Redir).open(urllib.request.Request(url, headers={"User-Agent": "InventarioCasa/1.0"}), timeout=15) as r:
+        dati = r.read(8 * 1024 * 1024 + 1)
+        mime = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    if len(dati) > 8 * 1024 * 1024:
+        return None, ""
+    if mime not in ("image/jpeg", "image/png", "image/webp"):
+        mime = "image/png" if dati[:4] == b"\x89PNG" else "image/webp" if dati[8:12] == b"WEBP" else "image/jpeg" if dati[:2] == b"\xff\xd8" else ""
+    return dati, mime

@@ -65,6 +65,7 @@
     if (path === 'api/revisione') return { ultima: '2026-04-30', aperte: 3, in_corso: false, dovuta: true, riepilogo: '5 voci: 2 con correzione proposta, 3 solo da leggere', sola_lettura: false };
     if (path === 'api/revisione/avvia') return { ok: true };
     if (path === 'api/arricchimento/avvia') return { ok: true, avviato: true };
+    if (path === 'api/foto_url') return { ok: true, id: 'AI' };
     if (path === 'api/foto') return { ok: true, id: 'mock-foto' };
     if (path === 'api/approvazioni') return MOCKDB.appr.slice();
     if ((m = /^api\/approvazioni\/(.+)$/.exec(path))) { MOCKDB.appr = MOCKDB.appr.filter(function (x) { return x.id !== decodeURIComponent(m[1]); }); return { ok: true }; }
@@ -342,7 +343,7 @@
   }
   function setQta(n) { st.qta = Math.max(1, n); $('qv').value = st.qta; $('qv').textContent = st.qta; }
   function setKnown(k) {
-    st.known = k;
+    st.known = k; st.fotoDb = null;
     $('foto').hidden = k !== false;
     $('pr').readOnly = k === true;
     if (k !== false) { st.fotoBlob = null; $('prev').hidden = true; $('file').value = ''; }
@@ -375,7 +376,11 @@
     var tipi = st.tipi ? Promise.resolve() : api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; }).catch(function () { st.tipi = []; });
     Promise.all([cats, tipi]).then(function () { return api('GET', 'api/cerca/' + bc); }).then(function (r) {
       if (my !== lookupSeq) return;
-      if (r && r.found) { st.prop = r; showProp(bc, r); note($('hint'), 'Trovato su ' + r.fonte + ': controlla e conferma.', 'ok'); }
+      if (r && r.found && !String(r.nome || '').trim()) {   // codice noto al database ma senza nome: foto del database all'AI, oppure foto scattata
+        if (r.immagine) { st.fotoDb = r.immagine; note($('hint'), 'Trovato su ' + r.fonte + ' ma senza nome: uso la sua foto per far leggere il prodotto all\'AI. Puoi salvare subito, oppure scatta una tua foto.', 'ok'); }
+        else note($('hint'), 'Trovato su ' + r.fonte + ' ma senza nome né foto. ' + NOTA_NUOVO, 'warn');
+      }
+      else if (r && r.found) { st.prop = r; showProp(bc, r); note($('hint'), 'Trovato su ' + r.fonte + ': controlla e conferma.', 'ok'); }
       else note($('hint'), 'Non trovato nei database' + (r && r.errori && r.errori.length ? ' (alcuni non hanno risposto: ' + r.errori.join(', ') + ')' : '') + '. ' + NOTA_NUOVO, 'warn');
     }).catch(function () { if (my === lookupSeq) note($('hint'), 'Ricerca nei database non riuscita. ' + NOTA_NUOVO, 'warn'); });
   }
@@ -487,7 +492,8 @@
     var btn = $('save'); btn.disabled = true;
     var go = st.known === null ? lookup() : Promise.resolve();
     go.then(function () {
-      if (st.known === false && !st.fotoBlob) { toast('Per un codice nuovo serve la foto.', true); throw new Error('stop'); }
+      if (st.known === false && !st.fotoBlob && !st.fotoDb) { toast('Per un codice nuovo serve la foto.', true); throw new Error('stop'); }
+      if (st.known === false && !st.fotoBlob && st.fotoDb) return api('POST', 'api/foto_url', { barcode: bc, url: st.fotoDb }).then(function () { return 'AI'; });
       return st.known === false ? api('POST', 'api/foto', undefined, undefined, (function () { var fd = new FormData(); fd.append('barcode', bc); fd.append('file', st.fotoBlob, 'foto.jpg'); return fd; })()).then(function (r) { return String(r.url || 'AI'); }) : '';
     }).then(function (foto) {
       var tipoVal = TIPI.filter(function (t) { return t[0] === st.tipo; })[0][1];
