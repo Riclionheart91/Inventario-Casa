@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .service import ApiError, Inventory
-from . import ai, aiuso, analisi, lookup, pagina, regole_auto, ricerca
+from . import ai, aiuso, analisi, lookup, off, pagina, regole_auto, ricerca
 from .accesso import Accesso, _Mw
 from .store import make_store
 
@@ -193,6 +193,7 @@ def _notturno():
 def _avvio():
     threading.Thread(target=_tieni_fresco, daemon=True).start()
     threading.Thread(target=_notturno, daemon=True).start()
+    threading.Thread(target=_off_ciclo, daemon=True).start()
     if os.environ.get("ARRICCHIMENTO_AVVIO", "false").lower() == "true" and not READ_ONLY:   # una tantum: cerca subito i dati mancanti (anche con l'AI su Google)
         threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60), 3000.0), daemon=True).start()
     if os.environ.get("TRADUZIONE_AVVIO", "false").lower() == "true" and not READ_ONLY:   # una tantum: traduce in italiano i testi esistenti
@@ -230,6 +231,16 @@ def inv() -> Inventory:
         aiuso.ATTIVO = True                       # conteggio e memoria delle risposte AI solo nell'app (non nei test)
         ai.regole_provider = _inv.regole          # le regole della casa entrano nelle richieste all'AI
     return _inv
+
+
+_off = None
+
+
+def off_():
+    global _off
+    if _off is None:
+        _off = off.Off(inv(), _env("OFF_UTENTE"), os.environ.get("OFF_PASSWORD", ""), versione=_env("APP_VERSION"))
+    return _off
 
 
 def check(code):
@@ -636,6 +647,7 @@ async def foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: s
     writable()
     dati, mime = await file.read(), file.content_type or ""
     out = dict(inv().foto(barcode, dati, mime), id="AI")   # id: segnaposto per le versioni vecchie della pagina rimaste in cache
+    off_().salva_foto(barcode, dati, mime)   # la foto resta nell'app solo per poterla inviare a Open Food Facts (si cancella a invio o rifiuto)
     if _env("GEMINI_API_KEY"):   # la foto va solo a Gemini, non si salva da nessuna parte
         # risponde subito: l'AI e la ricerca web girano in background e completano la bozza quando finiscono (il salvataggio non aspetta)
         threading.Thread(target=_analizza_foto, args=(barcode, dati, mime), daemon=True).start()
@@ -691,6 +703,95 @@ def _analizza(barcode: str, da_foto, immagine: str = "") -> None:
             inv().applica_analisi(barcode, None)
         except Exception:
             pass
+
+
+class OffVoci(BaseModel):
+    voci: list = []
+
+
+class OffCodici(BaseModel):
+    barcodes: list = []
+
+
+class OffProg(BaseModel):
+    barcode: str
+    progetto: str
+
+
+@app.get("/api/off")
+def off_stato(x_code: str = Header(None)):
+    check(x_code)
+    return dict(off_().stato(), sola_lettura=READ_ONLY)
+
+
+@app.get("/api/off/lista")
+def off_lista(x_code: str = Header(None)):
+    check(x_code)
+    return off_().elenco()
+
+
+@app.post("/api/off/controlla")
+def off_controlla(x_code: str = Header(None)):
+    check(x_code)
+    if not off_().in_corso():
+        threading.Thread(target=lambda: off_().controlla(), daemon=True).start()
+    return {"ok": True}
+
+
+@app.post("/api/off/progetto")
+def off_progetto(m: OffProg, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    off_().cambia_progetto(m.barcode, m.progetto)
+    return {"ok": True}
+
+
+@app.post("/api/off/invia")
+def off_invia(m: OffVoci, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    try:
+        return {"esiti": off_().invia([v for v in m.voci if isinstance(v, dict)][:25])}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/off/ignora")
+def off_ignora(m: OffCodici, x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    return {"ok": True, "n": off_().ignora([str(b) for b in m.barcodes][:200])}
+
+
+@app.post("/api/off/foto")
+async def off_foto(barcode: str = Form(...), file: UploadFile = File(...), x_code: str = Header(None)):
+    check(x_code)
+    writable()
+    dati, mime = await file.read(), file.content_type or ""
+    if not off_().salva_foto(barcode, dati, mime):
+        raise HTTPException(400, "Foto non valida (JPEG, PNG o WebP, al massimo 8 MB)")
+    return {"ok": True}
+
+
+@app.get("/api/off/foto/{barcode}")
+def off_foto_vista(barcode: str, x_code: str = Header(None)):
+    check(x_code)
+    f = off_().foto_file(barcode)
+    if not f:
+        raise HTTPException(404, "Nessuna foto")
+    from fastapi.responses import FileResponse
+    return FileResponse(f[0], media_type=f[1], headers={"Cache-Control": "no-store"})
+
+
+def _off_ciclo():
+    """Una volta al giorno controlla i prodotti nuovi su Open*Facts (solo letture, la scheda compare solo se c'e qualcosa da inviare)."""
+    time.sleep(240)
+    while True:
+        try:
+            off_().controlla()
+        except Exception:
+            logging.getLogger("inventario").exception("controllo Open Food Facts")
+        time.sleep(24 * 3600)
 
 
 STATIC = Path(__file__).resolve().parent / "static"

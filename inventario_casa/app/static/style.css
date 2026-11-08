@@ -219,3 +219,5 @@ details.g>summary .cs{font-size:.88em;font-weight:500;color:var(--mut);text-tran
 
 .sug1{align-items:flex-start}
 .regola-bt{display:flex;gap:6px;flex-shrink:0}
+
+.offrow{display:flex;gap:10px;align-items:center;cursor:pointer}.offrow input{width:22px;height:22px;flex:none}.offrow .th{width:48px;height:48px;flex:none}.offrow2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.offrow2 select{flex:1 1 150px;min-height:40px}

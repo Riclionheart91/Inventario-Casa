@@ -87,3 +87,11 @@ Home Assistant non apre le app agli utenti non amministratori. La porta diretta 
 - imposta `shared_code` (il codice di famiglia, cambiabile quando vuoi) e riavvia l'app;
 - in rete di casa: `http://IP-DI-HOME-ASSISTANT:8099` (senza https la fotocamera non parte: il codice si digita);
 - con la fotocamera (https) via Tailscale: da una shell sul Tailscale di Home Assistant, `/opt/tailscale serve --bg --https=8443 localhost:8099`; poi `https://homeassistant-1.tail5d3791.ts.net:8443`. La persona deve avere Tailscale e accesso alla tua rete Tailscale.
+
+## Condividere i prodotti su Open Food Facts
+L'app controlla (una volta al giorno, con solo letture) quali prodotti del catalogo non sono ancora su Open Food Facts o sui progetti fratelli: **Open Pet Food Facts** (cibo per animali), **Open Products Facts** (prodotti per la casa e detersivi), **Open Beauty Facts** (cosmetici e igiene). Se ce ne sono, nella barra compare la scheda «Condividi»; se non c'è niente da inviare la scheda non si vede.
+- Spunta i prodotti, scegli (se serve) il sito giusto e premi «Invia selezionati»: partono nome, marca, confezione e la tua foto, se l'hai scattata (puoi aggiungerla dalla scheda). I rifiutati restano nell'elenco.
+- «Non proporre più» toglie i prodotti scelti dall'elenco per sempre.
+- Servono le opzioni `off_utente` (il nome utente, non l'email) e `off_password`. Restano sul server e vanno solo ai siti Open*Facts. Verifica che il tuo account valga anche sui siti fratelli: se non entra, registrati anche lì.
+- La foto scattata per un codice nuovo resta nell'app solo finché il prodotto non è inviato o scartato.
+

@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.19.0 — 2026-11-08
+**Condividi su Open Food Facts**: nuova scheda «Condividi», che compare solo quando ci sono prodotti non ancora presenti su Open Food Facts (cibo), Open Pet Food Facts (cibo per animali), Open Products Facts (casa e detersivi) o Open Beauty Facts (cosmetici). Spunti quelli da inviare, scegli il sito se serve e premi «Invia selezionati»: partono nome, marca, confezione e la tua foto. «Non proporre più» li toglie per sempre dall'elenco. Servono `off_utente` e `off_password` nelle opzioni. Il controllo dei codici avviene una volta al giorno, con solo letture. La foto di un codice nuovo resta nell'app fino all'invio o allo scarto.
+
 ## 0.18.4 — 2026-11-08
 **Correzione urgente della 0.18.3**: in quella versione mancava il collegamento che fa mostrare la pagina dell'app (restava solo il server, senza schermata). Ripristinato. Se hai aggiornato alla 0.18.3, aggiorna subito a questa.
 

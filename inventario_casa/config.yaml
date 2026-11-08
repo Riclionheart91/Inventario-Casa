@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.18.4"
+version: "0.19.0"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
@@ -43,6 +43,8 @@ options:
   brave_search_key: ""
   serper_key: ""
   tavily_key: ""
+  off_utente: ""
+  off_password: ""
   barcodelookup_key: ""
   upcdatabase_key: ""
   goupc_token: ""
@@ -83,6 +85,8 @@ schema:
   brave_search_key: password?
   serper_key: password?
   tavily_key: password?
+  off_utente: str?
+  off_password: password?
   barcodelookup_key: password?
   upcdatabase_key: password?
   goupc_token: password?
