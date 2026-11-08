@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.18.4 — 2026-11-08
+**Correzione urgente della 0.18.3**: in quella versione mancava il collegamento che fa mostrare la pagina dell'app (restava solo il server, senza schermata). Ripristinato. Se hai aggiornato alla 0.18.3, aggiorna subito a questa.
+
 ## 0.18.3 — 2026-11-08
 **Prima il codice a barre, poi la foto**: per un codice nuovo l'app cerca prima sul web il codice a barre (con la ricerca dell'app, senza passare dall'AI) e, se trova il prodotto, usa quei dati: nome, marca, confezione e immagine, con categoria e tipo suggeriti dall'AI. La foto viene letta dall'AI solo se il web non trova il nome, o per completare la categoria. In «Da inserire» la fonte indica se i dati vengono dal web o dalla foto.
 

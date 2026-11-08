@@ -691,3 +691,7 @@ def _analizza(barcode: str, da_foto, immagine: str = "") -> None:
             inv().applica_analisi(barcode, None)
         except Exception:
             pass
+
+
+STATIC = Path(__file__).resolve().parent / "static"
+app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")
