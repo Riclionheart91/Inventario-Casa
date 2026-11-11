@@ -67,6 +67,14 @@ def _regole_txt() -> str:
 
 
 def post_gemini(url: str, chiave: str, corpo: dict, timeout: float) -> Optional[dict]:
+    try:   # rete di sicurezza: AI sospesa o limite giornaliero raggiunto (impostazioni)
+        from . import aiuso
+        motivo = aiuso.freno()
+        if motivo:
+            ULTIMO_ERRORE[0] = motivo
+            return None
+    except Exception:
+        pass
     req = urllib.request.Request(url, data=json.dumps(corpo).encode("utf-8"), method="POST",
                                  headers={"Content-Type": "application/json", "x-goog-api-key": chiave,
                                           "User-Agent": "InventarioCasa/0.4"})

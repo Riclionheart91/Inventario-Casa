@@ -29,6 +29,35 @@ BLOCCO_SECONDI = 15 * 60
 MSG_ERRORE = "Codice errato oppure troppi tentativi: riprova tra qualche minuto."
 
 
+HOOK = [None]   # funzione(evento: dict) impostata dal registro degli accessi (ext_sic); mai deve rompere una richiesta
+
+
+def _pulito(t: str, n: int = 40) -> str:
+    return "".join(c for c in str(t or "") if c.isprintable()).strip().lstrip("=+-@")[:n]
+
+
+def utente_ingress(acc, scope) -> str:
+    """Nome dell'utente di Home Assistant: lo si legge SOLO se la richiesta arriva dal gateway ingress (le intestazioni altrove sono falsificabili)."""
+    if not acc.e_ingresso_ha(scope):
+        return ""
+    return _pulito(acc._intest(scope, b"x-remote-user-display-name") or acc._intest(scope, b"x-remote-user-name"))
+
+
+def _evento(acc, scope, tipo: str) -> None:
+    f = HOOK[0]
+    if not f:
+        return
+    try:
+        ingress = acc.e_ingresso_ha(scope)
+        ip = acc._ip(scope)
+        if ingress:
+            x = acc._intest(scope, b"x-forwarded-for").split(",")[0].strip()
+            ip = x[:45] if x else ip
+        f({"tipo": tipo, "via": "ingress" if ingress else "diretto", "ip": ip, "ua": acc._intest(scope, b"user-agent")[:300], "utente": utente_ingress(acc, scope)})
+    except Exception:
+        pass
+
+
 def ritorno_sicuro(r: str) -> str:
     """Solo percorsi interni: niente indirizzi esterni ne '//' (open redirect)."""
     r = r or ""
@@ -188,6 +217,8 @@ class _Mw:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or self.acc.e_ingresso_ha(scope):
+            if scope["type"] == "http" and (scope.get("path", "/") == "/" or scope.get("path", "").startswith("/api/")):
+                _evento(self.acc, scope, "visita")
             return await self.app(scope, receive, send)
         acc, path = self.acc, scope.get("path", "/")
         if path.startswith("/voce/"):   # risposte a voce per Home Assistant: le protegge il proprio token (opzione voce_token)
@@ -206,6 +237,8 @@ class _Mw:
         if path in PUBBLICI:
             return await self.app(scope, receive, send)
         if acc.sessione_valida(acc._cookie(scope), codice):
+            if path == "/" or path.startswith("/api/"):
+                _evento(acc, scope, "visita")
             return await self.app(scope, receive, send)
         if path.startswith("/api/"):
             return await _rispondi(send, 401, json.dumps({"errore": "Accesso richiesto"}).encode(), "application/json")
@@ -226,6 +259,7 @@ class _Mw:
                 if acc._https(scope):
                     ck += "; Secure"
                 return await _rispondi(send, 303, b"", "text/plain", [(b"location", ritorno.encode()), (b"set-cookie", ck.encode())])
+            _evento(acc, scope, "blocco" if acc.bloccato(acc._ip(scope)) else "errato")   # mai il codice inserito
             corpo = PAGINA % ('<div class="e" role="alert">%s</div>' % html.escape(MSG_ERRORE), html.escape(ritorno, quote=True))
             return await _rispondi(send, 401, corpo.encode(), "text/html; charset=utf-8", [CSP, (b"x-frame-options", b"DENY")])
         qs = {k: v[0] for k, v in parse_qs(scope.get("query_string", b"").decode("latin-1")).items()}

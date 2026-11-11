@@ -96,7 +96,12 @@ def riepilogo(giorni: int = 7) -> dict:
         veri = t["richieste"] - t["memoria"]
         compiti.append({"compito": c, "richieste": t["richieste"], "dalla_memoria": t["memoria"], "errori": t["errori"], "vuote": t["vuote"], "ms_medi": int(t["ms"] / veri) if veri else 0})
     oggi = d.get("giorni", {}).get(_oggi(), {})
-    return {"giorni": giorni, "compiti": compiti, "oggi": sum(v["richieste"] - v["memoria"] for v in oggi.values()),
+    try:
+        from .impostazioni import imp
+        _v = imp().tutte()
+    except Exception:
+        _v = {}
+    return {"sospesa": bool(_v.get("ai_sospesa")), "limite": int(_v.get("ai_limite") or 0), "giorni": giorni, "compiti": compiti, "oggi": sum(v["richieste"] - v["memoria"] for v in oggi.values()),
             "esiti": d.get("esiti", {}), "memoria": len(_leggi("ai_memoria.json")), "ultimo_errore": d.get("ultimo_errore", {})}
 
 
@@ -110,6 +115,29 @@ def _valido(r) -> bool:
     if isinstance(r, list):   # una lista vuota e una risposta valida (es. «nessun prodotto da spostare»)
         return all(x is not None for x in r)
     return True
+
+
+def chiamate_oggi() -> int:
+    """Chiamate vere a Gemini fatte oggi (quelle dalla memoria non contano)."""
+    oggi = _leggi("ai_uso.json").get("giorni", {}).get(_oggi(), {})
+    return sum(max(0, v.get("richieste", 0) - v.get("memoria", 0)) for v in oggi.values())
+
+
+def freno() -> str:
+    """Motivo per cui in questo momento l'AI non va chiamata (sospesa dalle Impostazioni o limite giornaliero raggiunto), oppure ''."""
+    if not ATTIVO:
+        return ""
+    try:
+        from .impostazioni import imp
+        v = imp().tutte()
+    except Exception:
+        return ""
+    if v.get("ai_sospesa"):
+        return "AI sospesa dalle impostazioni"
+    lim = int(v.get("ai_limite") or 0)
+    if lim > 0 and chiamate_oggi() >= lim:
+        return "limite giornaliero raggiunto (%d chiamate)" % lim
+    return ""
 
 
 def extra_errore() -> str:
@@ -140,6 +168,14 @@ def registra(compito: str, memoria: bool = False, extra: Optional[Callable[[], s
                 if hit and time.time() - hit["t"] < (VALIDITA_VUOTA if hit.get("vuota") else VALIDITA_MEMORIA):
                     registra_chiamata(compito, True, 0, True)
                     return hit["v"]
+            motivo = freno()
+            if motivo:   # niente chiamata e niente errore nelle statistiche; la memoria resta intatta
+                try:
+                    from . import ai
+                    ai.ULTIMO_ERRORE[0] = motivo
+                except Exception:
+                    pass
+                return None
             t0 = time.time()
             r = f(*a, **k)
             ok = _valido(r)

@@ -359,8 +359,14 @@ class Inventory:
         tot: Dict[str, float] = {}
         minima: Dict[str, float] = {}
         posti: Dict[str, Dict[str, float]] = {}
+        scad: Dict[str, str] = {}
+        ultimo: Dict[str, str] = {}
         for e in self.stock():
             k = str(e["barcode"])
+            if e.get("scad") and (k not in scad or e["scad"] < scad[k]):
+                scad[k] = e["scad"]
+            if e.get("ultimo") and e["ultimo"] > ultimo.get(k, ""):
+                ultimo[k] = e["ultimo"]
             tot[k] = tot.get(k, 0) + e["qta"]
             minima[k] = e["minima"]
             posti.setdefault(k, {})[e["luogo"]] = posti.get(k, {}).get(e["luogo"], 0) + e["qta"]
@@ -379,7 +385,8 @@ class Inventory:
                         "tipo": g("Tipo"), "categoria": g("Categoria"), "sotto": g("Sottocategoria"), "img": g("Immagine"),
                         "qta": tot.get(k, 0), "tot_tipo": tt.get(g("Tipo").lower(), tot.get(k, 0)) if g("Tipo") else tot.get(k, 0),
                         "minima": minima.get(k, scorte.get(g("Tipo").lower(), 0)),   # anche per i prodotti senza giacenza
-                        "posti": [{"luogo": l, "qta": q} for l, q in sorted(posti.get(k, {}).items()) if q]})
+                        "posti": [{"luogo": l, "qta": q} for l, q in sorted(posti.get(k, {}).items()) if q],
+                        "scad": scad.get(k, ""), "ultimo": ultimo.get(k, "")})
         return sorted(out, key=lambda e: (e["nome"].casefold(), e["marca"].casefold()))
 
     def scheda(self, barcode) -> Optional[dict]:
@@ -462,9 +469,17 @@ class Inventory:
                                           "categoria": catm,   # la categoria appartiene alla riga di stock (stesso prodotto, categorie diverse)
                                           "sotto": c.get("sotto") or m.get("Sottocategoria", ""),   # la sottocategoria e del prodotto
                                           "tipo": c.get("tipo", ""), "minima": c.get("minima", 0),
-                                          "luogo": loc, "qta": 0})
+                                          "luogo": loc, "qta": 0, "ultimo": "", "scad": ""})
             e["qta"] += d
+            if tipo == "Carico":   # per l'ordine «ultimi caricati» (data ISO: si confronta come testo)
+                dc = parse_data(m.get("Data"))
+                if dc and dc.isoformat() > e["ultimo"]:
+                    e["ultimo"] = dc.isoformat()
         out = [e for e in acc.values() if zeri or e["qta"] != 0]
+        lotti = self._lotti()
+        for e in out:   # scadenza piu vicina tra i lotti rimasti (per l'ordine «scadenza»)
+            ds = [d for d, _n in lotti.get((nbc(e["barcode"]), e["luogo"]), []) if d]
+            e["scad"] = min(ds).isoformat() if ds else ""
         for e in out:
             e["qta"] = int(e["qta"]) if float(e["qta"]).is_integer() else e["qta"]
         tt: Dict[str, float] = {}
@@ -491,7 +506,7 @@ class Inventory:
 
     def movimento(self, barcode, tipo: str, location: str, quantita, prodotto: str = "", foto: str = "",
                   destinazione: str = "", categoria: str = "", categoria_new: str = "", noto: Optional[dict] = None,
-                  scadenza: str = "") -> dict:
+                  scadenza: str = "", chi: str = "") -> dict:
         """Carico/Scarico = una riga (il Carico puo avere la data di scadenza). Move (cambio posizione) e Cng (cambio categoria) = coppia di righe nette:
         Scarico alla situazione vecchia + Carico alla nuova, come fanno i bot di AppSheet (la riga Move/Cng non resta nel foglio)."""
         k = self.risolvi(nbc(barcode))
@@ -514,7 +529,7 @@ class Inventory:
         cat0 = (categoria or (p["categoria"] if p else "")).strip()
         base = {"Barcode": bco(k), "Quantità": qv, "Prodotto": (p["prodotto"] if p else prodotto),
                 "Sottocategoria": p["sottocategoria"] if p else "", "Foto": foto,
-                "Data": datetime.now().strftime("%d/%m/%Y"), "Chi": "App"}   # come nel foglio: gg/mm/aaaa
+                "Data": datetime.now().strftime("%d/%m/%Y"), "Chi": ("".join(c for c in str(chi or "") if c.isprintable()).strip().lstrip("=+-@")[:40] or "App")}   # come nel foglio: gg/mm/aaaa
         righe = []
         sc = parse_data(scadenza) if str(scadenza or "").strip() else None
         if str(scadenza or "").strip() and sc is None:
@@ -615,6 +630,8 @@ class Inventory:
             self.store.update_cells(sheet, items)
 
     def _log_ai(self, barcode, campo, prima, dopo, fonte="APPROVATO", conf="", modo="MANUALE"):
+        if fonte == "APPROVATO" and getattr(self._ctx_decisione, "fonte", ""):
+            fonte, modo = self._ctx_decisione.fonte, self._ctx_decisione.fonte
         try:
             self.store.append_row("log_ai", {"Quando": datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "Barcode": bco(barcode),
                                              "Campo": campo, "Prima": prima, "Dopo": dopo, "Fonte": fonte, "Confidenza": conf,
@@ -850,10 +867,16 @@ class Inventory:
             out.append(ex)
         return out
 
-    def decidi(self, id_: str, azione: str, campi: Optional[dict] = None) -> dict:
-        """Decide una proposta (vedi _decidi) e annota l'esito per il conteggio dell'AI."""
+    _ctx_decisione = threading.local()   # per thread: «AUTO» quando la decisione la prende l'app (approvazione automatica)
+
+    def decidi(self, id_: str, azione: str, campi: Optional[dict] = None, fonte: str = "") -> dict:
+        """Decide una proposta (vedi _decidi) e annota l'esito per il conteggio dell'AI. `fonte` = «AUTO» solo per l'approvazione automatica."""
         self._corretta = False
-        r = self._decidi(id_, azione, campi)
+        self._ctx_decisione.fonte = fonte
+        try:
+            r = self._decidi(id_, azione, campi)
+        finally:
+            self._ctx_decisione.fonte = ""
         try:
             from . import aiuso
             aiuso.esito(str(id_)[:1], str(azione).upper().replace("SCARTA", "RIFIUTA").replace("CORREGGI", "APPROVA"), self._corretta)
