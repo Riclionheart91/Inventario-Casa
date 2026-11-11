@@ -185,3 +185,20 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
   .imp-back{display:none}
   .imp-row[aria-current=true]{background:rgba(250,45,72,.16)}.imp-row[aria-current=true] .imp-t{color:var(--acc)}
 }
+
+/* righe di impostazione (interruttori, scelte, numeri) */
+.imp-gt{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:6px 14px 6px}
+.imp-form{margin-top:14px}
+.imp-set{display:flex;flex-direction:column}
+.imp-rowset{display:flex;align-items:center;gap:12px;padding:10px 14px;min-height:46px;position:relative}
+.imp-rowset+.imp-rowset::before{content:"";position:absolute;top:0;left:14px;right:0;border-top:.5px solid var(--sep)}
+.imp-rowwide{flex-wrap:wrap}.imp-rowwide .imp-seg{flex:1 1 100%}
+.imp-rt{flex:1;min-width:0}.imp-rn{font-size:15px}.imp-rt .m{margin-top:2px}
+.imp-in{width:96px;flex:none;height:36px;text-align:right;background:var(--s3)!important;border-radius:8px!important;font-size:15px!important;padding:0 8px}
+.imp-in[type=time]{width:110px}
+.ios-sw{position:relative;display:inline-block;width:51px;height:31px;flex:none}
+.ios-sw input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:2}
+.ios-sw-k{position:absolute;inset:0;border-radius:16px;background:#39393d;transition:background .2s}
+.ios-sw-k::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.35);transition:transform .2s}
+.ios-sw input:checked+.ios-sw-k{background:var(--ok)}.ios-sw input:checked+.ios-sw-k::after{transform:translateX(20px)}
+.ios-sw input:focus-visible+.ios-sw-k{outline:2px solid var(--acc);outline-offset:2px}

@@ -991,4 +991,43 @@ def _off_ciclo():
 
 
 STATIC = Path(__file__).resolve().parent / "static"
+# --- impostazioni modificabili dall'app ------------------------------------
+from . import impostazioni as _impost
+
+
+@app.get("/api/impostazioni")
+def impostazioni_leggi(x_code: str = Header(None)):
+    check(x_code)
+    return {"schema": _impost.SCHEMA, "valori": _impost.imp().tutte()}
+
+
+class ImpostazioniScrivi(BaseModel):
+    valori: dict = {}
+
+
+@app.post("/api/impostazioni")
+def impostazioni_scrivi(m: ImpostazioniScrivi, x_code: str = Header(None)):
+    check(x_code)
+    try:
+        return {"valori": _impost.imp().imposta(m.valori)}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+# --- moduli aggiuntivi: ognuno espone registra(app, ctx) e aggiunge i propri endpoint --------
+import importlib as _imp_lib
+import types as _types
+
+_CTX = _types.SimpleNamespace(check=check, writable=writable, inv=inv, off_=off_, conf_=conf_, arr=arr, rev=rev, env=_env,
+                              impostazioni=_impost.imp, read_only=lambda: READ_ONLY or bool(_impost.imp().get("sola_lettura_forza")))
+for _nome_mod in ("ext_sic", "ext_dati", "ext_cop"):
+    try:
+        _imp_lib.import_module("." + _nome_mod, __package__).registra(app, _CTX)
+    except ModuleNotFoundError as _e:
+        if _e.name and not _e.name.endswith(_nome_mod):
+            raise
+    except Exception:
+        logging.getLogger("inventario").exception("modulo %s non caricato", _nome_mod)
+
+
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

@@ -284,6 +284,61 @@
     }).catch(function () { /* niente scheda se non raggiungibile */ });
   }
   /* ---- Impostazioni come su iPhone: elenco a gruppi, ogni riga apre la sua schermata (su iPad e Mac: elenco a sinistra, dettaglio a destra) ---- */
+  /* ---- impostazioni modificabili: lette e scritte dal server (/api/impostazioni), mostrate con interruttori e scelte ---- */
+  var IMPST = null;      // {schema, valori}
+  function impCarica(forza) {
+    if (IMPST && !forza) return Promise.resolve(IMPST);
+    return api('GET', 'api/impostazioni').then(function (r) { IMPST = r; window.impValori = r.valori; applicaImpostazioni(r.valori); return r; }).catch(function () { return IMPST || { schema: [], valori: {} }; });
+  }
+  function applicaImpostazioni(v) {   // tema e dimensione del testo: attributi sulla pagina (i colori stanno nei CSS)
+    var h = document.documentElement; v = v || {};
+    h.dataset.tema = v.tema || 'auto'; h.dataset.testo = v.testo || 'normale';
+    try { localStorage.setItem('tema', h.dataset.tema); localStorage.setItem('testo', h.dataset.testo); } catch (e) { /* ok */ }
+    try { var m = document.querySelector('meta[name=theme-color]'); if (m) { var chiaro = h.dataset.tema === 'chiaro' || (h.dataset.tema === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches); m.setAttribute('content', chiaro ? '#f2f2f7' : '#000000'); } } catch (e) { /* ok */ }
+    if (window.impInApplica) { try { window.impInApplica(v); } catch (e) { /* ok */ } }
+  }
+  function impForm(det, sch, titolo) {   // un riquadro a righe con le impostazioni di quella schermata
+    var host = el('div', 'imp-form'); det.appendChild(host);
+    impCarica().then(function (r) {
+      var voci = (r.schema || []).filter(function (x) { return x.sch === sch; });
+      if (!voci.length) return;
+      var c = el('div', 'imp-grp imp-set');
+      if (titolo) host.appendChild(el('div', 'imp-gt', titolo));
+      voci.forEach(function (x) {
+        var riga = el('div', 'imp-rowset'), t = el('div', 'imp-rt'); t.appendChild(el('div', 'imp-rn', x.et)); if (x.desc) t.appendChild(el('div', 'm', x.desc));
+        riga.appendChild(t);
+        var salva = function (val, ctrl) {
+          var o = {}; o[x.k] = val;
+          api('POST', 'api/impostazioni', { valori: o }).then(function (rr) { r.valori = rr.valori; IMPST = r; window.impValori = r.valori; applicaImpostazioni(r.valori); toast('Salvato.'); })
+            .catch(function (e) { toast('Non salvato: ' + e.message, true); if (ctrl) ctrl.value = r.valori[x.k]; });
+        };
+        var v = r.valori[x.k];
+        if (x.tipo === 'bool') {
+          var lab = el('label', 'ios-sw'), i = el('input'); i.type = 'checkbox'; i.checked = !!v; i.setAttribute('aria-label', x.et);
+          lab.appendChild(i); lab.appendChild(el('span', 'ios-sw-k'));
+          i.addEventListener('change', function () { if (window.haptic) window.haptic('tic'); salva(i.checked, null); });
+          riga.appendChild(lab);
+        } else if (x.tipo === 'scelta') {
+          var sg = el('div', 'seg imp-seg'); sg.setAttribute('role', 'group'); sg.setAttribute('aria-label', x.et);
+          x.opzioni.forEach(function (o) {
+            var b = el('button', '', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(v === o[0]));
+            b.addEventListener('click', function () { Array.prototype.forEach.call(sg.children, function (y) { y.setAttribute('aria-pressed', 'false'); }); b.setAttribute('aria-pressed', 'true'); salva(o[0], null); });
+            sg.appendChild(b);
+          });
+          riga.className += ' imp-rowwide'; riga.appendChild(sg);
+        } else {
+          var inp = el('input', 'imp-in'); inp.type = x.tipo === 'ora' ? 'time' : x.tipo === 'numero' ? 'number' : 'text'; inp.value = v;
+          if (x.tipo === 'numero') { inp.min = x.min; inp.max = x.max; inp.inputMode = 'numeric'; }
+          inp.setAttribute('aria-label', x.et);
+          inp.addEventListener('change', function () { salva(inp.value, inp); });
+          riga.appendChild(inp);
+        }
+        c.appendChild(riga);
+      });
+      host.appendChild(c);
+    });
+  }
+  window.IMP_EXTRA = window.IMP_EXTRA || {};   // moduli aggiuntivi: IMP_EXTRA[id] = function (dettaglio, ctx) { ... }
   var impVista = '';
   function cardArricchimento(box, s) {
     var c = el('div', 'card'); c.appendChild(el('h2', '', 'Arricchimento dati'));
@@ -339,9 +394,12 @@
         off: { nome: 'Open Food Facts', somm: off ? (off.configurato ? 'Collegato' : 'Account mancante') : '', build: function (d) { cardOff(d, off); } },
         asp: { nome: 'Aspetto e vibrazione', somm: window.hapticAttivo ? (window.hapticAttivo() ? 'Vibrazione attiva' : 'Vibrazione spenta') : '', build: function (d) { if (window.cardAspetto) window.cardAspetto(d); } },
         fog: { nome: 'Riordino del foglio', somm: '', build: loadFoglio },
-        ai: { nome: 'Uso dell\'AI', somm: uso ? uso.oggi + ' oggi' : '', build: loadAiUso }
+        ai: { nome: 'Uso dell\'AI', somm: uso ? (IMPST && IMPST.valori.ai_sospesa ? 'Sospesa' : uso.oggi + ' oggi') : '', build: loadAiUso },
+        mov: { nome: 'Movimento ed elenchi', somm: '', build: function () { /* solo impostazioni */ } },
+        sic: { nome: 'Accessi e sicurezza', somm: IMPST && IMPST.valori.sola_lettura_forza ? 'Sola lettura' : '', build: function () { /* contenuto dal modulo accessi */ } },
+        cop: { nome: 'Copia ed esporta', somm: '', build: function () { /* contenuto dal modulo copia */ } }
       };
-      var GRUPPI = [['Automatico', ['arr', 'rev']], ['La mia casa', ['reg', 'avv']], ['Condivisione', ['off']], ['App', ['asp']], ['Manutenzione', ['fog']], ['Diagnostica', ['ai']]];
+      var GRUPPI = [['Automatico', ['arr', 'rev']], ['La mia casa', ['reg', 'avv']], ['Condivisione', ['off']], ['App', ['mov', 'asp']], ['Manutenzione', ['fog', 'cop']], ['Diagnostica', ['ai', 'sic']]];
       box.textContent = '';
       var split = el('div', 'imp-split' + (impVista ? ' dettaglio' : '')), lista = el('div', 'imp-list'), det = el('div', 'imp-det');
       // stato in breve
@@ -369,6 +427,8 @@
         var V = SCHERMATE[impVista];
         var back = el('button', 'imp-back', '‹ ' + tit); back.type = 'button'; back.addEventListener('click', function () { impVista = ''; loadImp('indietro'); });
         det.appendChild(back); V.build(det);
+        if (window.IMP_EXTRA[impVista]) { try { window.IMP_EXTRA[impVista](det, { st: st, api: api, el: el, toast: toast, note: note }); } catch (e) { /* ok */ } }
+        impForm(det, impVista);
         if (!largo) $('title').textContent = V.nome;
         if (anima === true && !largo) impAnim(det, 1);
       } else {
@@ -395,6 +455,7 @@
       if (s.in_corso && st.tab === 'imp') impTimer = setTimeout(loadImp, 6000);
     }).catch(function () { /* resta senza la scheda */ });
   }
+  impCarica();
   function show(tab) {
     var prima = st.tab; st.tab = tab;
     if (tab === 'imp' && prima !== 'imp' && !impLargo()) impVista = '';   // dal telefono si riparte sempre dall'elenco
