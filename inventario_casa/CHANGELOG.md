@@ -3,6 +3,17 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.24.0
+- Nuove impostazioni, tutte modificabili dall'app (interruttori, scelte, numeri):
+  - **AI:** «Sospendi l'AI» e limite giornaliero di chiamate.
+  - **Accessi e sicurezza:** «Accessi recenti» (dispositivi, utente di Home Assistant, via, tentativi errati), avviso per dispositivo nuovo, sola lettura forzabile; nei movimenti la colonna «Chi» riporta l'utente di Home Assistant quando disponibile.
+  - **Avvisi:** giorni e ora delle scadenze, scorte basse, riepilogo settimanale.
+  - **Dati automatici:** ora del giro notturno, punteggi/riciclo e traduzioni accendibili, approvazione automatica delle proposte molto sicure (spenta di serie), mesi tra le revisioni.
+  - **Open Food Facts:** siti da usare, controllo giornaliero o manuale, giorni di conservazione delle foto.
+  - **Aspetto:** tema chiaro, scuro o automatico; dimensione del testo.
+  - **Movimento ed elenchi:** posizione e quantità predefinite, ordine di Stock e Prodotti.
+  - **Copia ed esporta:** copia del foglio su Drive (a mano o automatica) ed esportazione CSV.
+
 ## 0.23.0
 - Impostazioni ripensate come su iPhone: un elenco a gruppi (Automatico, La mia casa, Condivisione, App, Manutenzione, Diagnostica) con icone colorate e il riepilogo a destra; ogni riga apre la sua schermata con «‹ Impostazioni» per tornare, con scorrimento da lato e vibrazione.
 - In cima una scheda «Tutto a posto» che diventa «Attenzione» se oggi l'AI ha avuto problemi.

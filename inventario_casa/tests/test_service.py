@@ -196,6 +196,20 @@ class TElencoPosti(unittest.TestCase):
         self.assertEqual(e[9000000000001]["posti"], [])
 
 
+class TOrdineElenchi(unittest.TestCase):
+    def test_scadenza_e_ultimo_carico_per_l_ordine(self):
+        _, inv, _ = make()
+        inv.movimento(8002795002995, "Carico", "Casa", 2, scadenza="2026-12-24")
+        inv.movimento(8002795002995, "Carico", "Cantina", 1, scadenza="2026-12-01")
+        e = {(x["barcode"], x["luogo"]): x for x in inv.stock()}
+        self.assertEqual(e[(8002795002995, "Cantina")]["scad"], "2026-12-01")
+        self.assertEqual(e[(8002795002995, "Casa")]["scad"], "")           # i 2 scaricati prima erano i pezzi col lotto piu vicino alla scadenza
+        self.assertRegex(e[(8002795002995, "Casa")]["ultimo"], r"^\d{4}-\d{2}-\d{2}$")
+        p = {x["barcode"]: x for x in inv.elenco_prodotti()}
+        self.assertEqual(p[8002795002995]["scad"], "2026-12-01")           # la piu vicina tra i due posti
+        self.assertEqual(p[9000000000001]["scad"], ""); self.assertEqual(p[9000000000001]["ultimo"], "")
+
+
 class TBarcode16(unittest.TestCase):
     def test_bco_e_testo(self):
         from app.service import bco, nbc

@@ -202,3 +202,13 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 .ios-sw-k::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.35);transition:transform .2s}
 .ios-sw input:checked+.ios-sw-k{background:var(--ok)}.ios-sw input:checked+.ios-sw-k::after{transform:translateX(20px)}
 .ios-sw input:focus-visible+.ios-sw-k{outline:2px solid var(--acc);outline-offset:2px}
+
+/* accessi recenti */
+.acc-box{display:flex;flex-direction:column;gap:6px}
+.acc-box .imp-gt{margin-top:10px}
+.acc-riga{cursor:default}
+.acc-vuoto{padding:14px}
+.acc-nome{font-size:15px;display:flex;align-items:center;gap:8px}
+.acc-nuovo{font-size:11px;font-weight:700;color:#fff;background:var(--acc);border-radius:8px;padding:1px 7px}
+.acc-nota{margin:2px 14px 8px}
+.acc-box>.btn{margin-top:6px}
