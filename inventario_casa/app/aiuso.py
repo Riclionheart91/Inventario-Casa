@@ -17,6 +17,7 @@ from typing import Callable, Optional
 ATTIVO = False
 GIORNI_STORICO = 60
 VALIDITA_MEMORIA = 30 * 86400
+VALIDITA_VUOTA = 7 * 86400      # «nessun risultato» da Gemini: per una settimana non si richiede la stessa cosa
 MAX_MEMORIA = 1500
 _lock = threading.RLock()
 
@@ -48,18 +49,20 @@ def _oggi() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
-def registra_chiamata(compito: str, ok: bool, ms: float, da_memoria: bool = False, errore: str = "") -> None:
+def registra_chiamata(compito: str, ok: bool, ms: float, da_memoria: bool = False, errore: str = "", vuota: bool = False) -> None:
     if not ATTIVO:
         return
     with _lock:
         d = _leggi("ai_uso.json")
-        g = d.setdefault("giorni", {}).setdefault(_oggi(), {}).setdefault(compito, {"richieste": 0, "errori": 0, "ms": 0, "memoria": 0})
+        g = d.setdefault("giorni", {}).setdefault(_oggi(), {}).setdefault(compito, {"richieste": 0, "errori": 0, "ms": 0, "memoria": 0, "vuote": 0})
         g["richieste"] += 1
         if da_memoria:
             g["memoria"] += 1
         else:
             g["ms"] += int(ms)
-            if not ok:
+            if not ok and vuota:
+                g["vuote"] = g.get("vuote", 0) + 1      # Gemini ha risposto ma non ha trovato niente: non e un guasto
+            elif not ok:
                 g["errori"] += 1
                 if errore:
                     d.setdefault("ultimo_errore", {})[compito] = {"quando": datetime.now().strftime("%d/%m %H:%M"), "testo": errore[:160]}
@@ -85,13 +88,13 @@ def riepilogo(giorni: int = 7) -> dict:
     tot = {}
     for g in gs:
         for c, v in d["giorni"][g].items():
-            t = tot.setdefault(c, {"richieste": 0, "errori": 0, "ms": 0, "memoria": 0})
+            t = tot.setdefault(c, {"richieste": 0, "errori": 0, "ms": 0, "memoria": 0, "vuote": 0})
             for k in t:
                 t[k] += v.get(k, 0)
     compiti = []
     for c, t in sorted(tot.items(), key=lambda x: -x[1]["richieste"]):
         veri = t["richieste"] - t["memoria"]
-        compiti.append({"compito": c, "richieste": t["richieste"], "dalla_memoria": t["memoria"], "errori": t["errori"], "ms_medi": int(t["ms"] / veri) if veri else 0})
+        compiti.append({"compito": c, "richieste": t["richieste"], "dalla_memoria": t["memoria"], "errori": t["errori"], "vuote": t["vuote"], "ms_medi": int(t["ms"] / veri) if veri else 0})
     oggi = d.get("giorni", {}).get(_oggi(), {})
     return {"giorni": giorni, "compiti": compiti, "oggi": sum(v["richieste"] - v["memoria"] for v in oggi.values()),
             "esiti": d.get("esiti", {}), "memoria": len(_leggi("ai_memoria.json")), "ultimo_errore": d.get("ultimo_errore", {})}
@@ -134,17 +137,21 @@ def registra(compito: str, memoria: bool = False, extra: Optional[Callable[[], s
                 chiave = _chiave(compito, args, extra() if extra else "")
                 with _lock:
                     hit = _leggi("ai_memoria.json").get(chiave)
-                if hit and time.time() - hit["t"] < VALIDITA_MEMORIA:
+                if hit and time.time() - hit["t"] < (VALIDITA_VUOTA if hit.get("vuota") else VALIDITA_MEMORIA):
                     registra_chiamata(compito, True, 0, True)
                     return hit["v"]
             t0 = time.time()
             r = f(*a, **k)
             ok = _valido(r)
-            registra_chiamata(compito, ok, (time.time() - t0) * 1000, errore=(extra_errore() if not ok else ""))
-            if memoria and ok:
+            err = extra_errore() if not ok else ""
+            vuota = (not ok) and not err
+            registra_chiamata(compito, ok, (time.time() - t0) * 1000, errore=err, vuota=vuota)
+            if memoria and (ok or vuota):
                 with _lock:
                     m = _leggi("ai_memoria.json")
                     m[chiave] = {"t": time.time(), "v": r}
+                    if vuota:
+                        m[chiave]["vuota"] = 1
                     if len(m) > MAX_MEMORIA:
                         for kk in sorted(m, key=lambda x: m[x]["t"])[:len(m) - MAX_MEMORIA]:
                             del m[kk]

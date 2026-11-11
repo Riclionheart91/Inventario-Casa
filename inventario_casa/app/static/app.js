@@ -209,7 +209,7 @@
       var riga = function (k, v) { var p = el('p', 'm'); p.appendChild(el('b', '', k + ': ')); p.appendChild(document.createTextNode(v)); c.appendChild(p); };
       riga('Chiamate a Gemini oggi', String(u.oggi));
       if (!u.compiti.length) riga('Compiti', 'nessuna chiamata ancora');
-      u.compiti.forEach(function (t) { riga(t.compito, t.richieste + ' richieste · ' + t.dalla_memoria + ' dalla memoria · ' + t.errori + ' errori' + (t.ms_medi ? ' · ' + (t.ms_medi / 1000).toFixed(1) + ' s' : '')); });
+      u.compiti.forEach(function (t) { riga(t.compito, t.richieste + ' richieste · ' + t.dalla_memoria + ' dalla memoria · ' + (t.vuote ? t.vuote + ' senza risultato · ' : '') + t.errori + ' errori' + (t.ms_medi ? ' · ' + (t.ms_medi / 1000).toFixed(1) + ' s' : '')); });
       var nome = { P: 'Prodotti', T: 'Tipi', C: 'Categorie', R: 'Revisione' };
       Object.keys(u.esiti || {}).forEach(function (g) { var e = u.esiti[g], tot = e.approvate + e.corrette + e.rifiutate; if (tot) riga('Proposte · ' + (nome[g] || g), e.approvate + ' approvate · ' + e.corrette + ' corrette · ' + e.rifiutate + ' rifiutate (' + Math.round(100 * e.approvate / tot) + '% giuste al primo colpo)'); });
       Object.keys(u.ultimo_errore || {}).forEach(function (cp) { var e = u.ultimo_errore[cp]; riga('Ultimo errore · ' + cp, e.quando + ' · ' + e.testo); });

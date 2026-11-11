@@ -24,16 +24,31 @@ class TAiUso(unittest.TestCase):
         c = r["compiti"][0]
         self.assertEqual((c["richieste"], c["dalla_memoria"], c["errori"]), (3, 1, 0)); self.assertEqual(r["memoria"], 2)
 
-    def test_risposta_vuota_non_va_in_memoria_e_conta_errore(self):
+    def test_guasto_non_va_in_memoria_e_conta_errore(self):
         n = [0]
 
         @aiuso.registra("prova", True)
         def f(testo, chiave=""):
             n[0] += 1
+            ai.ULTIMO_ERRORE[0] = "HTTPError 429 quota"
             return None
         f("a"); f("a")
         self.assertEqual(n[0], 2)
-        self.assertEqual(aiuso.riepilogo()["compiti"][0]["errori"], 2)
+        c = aiuso.riepilogo()["compiti"][0]
+        self.assertEqual((c["errori"], c["vuote"]), (2, 0))
+        ai.ULTIMO_ERRORE[0] = ""
+
+    def test_nessun_risultato_non_e_errore_e_non_si_ripete(self):
+        n = [0]
+
+        @aiuso.registra("prova", True)
+        def f(testo, chiave=""):
+            n[0] += 1
+            return None            # Gemini ha risposto, ma non ha trovato niente
+        f("a"); f("a")
+        self.assertEqual(n[0], 1)  # la seconda volta arriva dalla memoria (una settimana)
+        c = aiuso.riepilogo()["compiti"][0]
+        self.assertEqual((c["errori"], c["vuote"], c["dalla_memoria"]), (0, 1, 1))
 
     def test_regole_cambiano_la_chiave(self):
         n = [0]
