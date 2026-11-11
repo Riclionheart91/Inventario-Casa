@@ -41,6 +41,15 @@ def _n(s) -> str:
     return re.sub(r"\s+", " ", str(s or "").lower()).strip()
 
 
+def sito_attivo(prog: str) -> bool:
+    """Impostazioni «off_food/off_pet/off_products/off_beauty»: un sito spento non si controlla, non si propone e non si invia."""
+    try:
+        from .impostazioni import imp
+        return bool(imp().get("off_" + str(prog), True))
+    except Exception:
+        return True
+
+
 def progetto_per(p: dict) -> str:
     """Progetto Open*Facts adatto a un prodotto, dalle parole di categoria, tipo e nome. In dubbio: cibo (si cambia a mano nell'elenco)."""
     t = " " + " ".join(_n(p.get(k)) for k in ("categoria", "sottocategoria", "tipo", "nome")) + " "
@@ -293,9 +302,16 @@ class Off:
             time.sleep(pausa)
         return n
 
-    def pulisci_foto(self, giorni_orfane: int = 60) -> int:
+    def pulisci_foto(self, giorni_orfane: Optional[int] = None) -> int:
         """Cancella le foto che non servono piu: prodotto gia su Open*Facts, inviato o scartato, oppure fuori catalogo da troppo tempo.
-        Restano solo quelle dei prodotti ancora da inviare."""
+        Restano le foto dei prodotti ancora da inviare, ma solo per `giorni_orfane` giorni (impostazione «off_foto_giorni», 30 se non c'e):
+        passato quel tempo, anche quelle di prodotti mai inviati si cancellano."""
+        if giorni_orfane is None:
+            try:
+                from .impostazioni import imp
+                giorni_orfane = int(imp().get("off_foto_giorni", 30))
+            except Exception:
+                giorni_orfane = 30
         try:
             nomi = os.listdir(self.cartella)
         except Exception:
@@ -312,7 +328,7 @@ class Off:
                 vecchia = (time.time() - os.path.getmtime(percorso)) > giorni_orfane * 86400
             except Exception:
                 pass
-            if st in ("presente", "inviato", "ignorato") or (k not in catalogo and vecchia) or (not st and vecchia):
+            if st in ("presente", "inviato", "ignorato") or vecchia:   # vecchia = piu di `giorni_orfane` giorni (anche se il prodotto e ancora da inviare)
                 try:
                     os.remove(percorso)
                     n += 1
@@ -382,7 +398,7 @@ class Off:
             self._in_corso = True
         try:
             gia = self._carica().get("prodotti", {})
-            da = [p for p in self._catalogo() if p["barcode"] not in gia and valido_per_off(p["barcode"])]
+            da = [p for p in self._catalogo() if p["barcode"] not in gia and valido_per_off(p["barcode"]) and sito_attivo(progetto_per(p))]
             if massimo:
                 da = da[:massimo]
             self._prog = [0, len(da)]
@@ -418,6 +434,8 @@ class Off:
             if not s or s.get("stato") != "assente":
                 continue
             prog = s.get("progetto") if s.get("progetto") in PROGETTI else progetto_per(p)
+            if not sito_attivo(prog):
+                continue
             c = self.campi(p)
             out.append(dict(p, nome=c["nome"] or p["nome"], marca=c["marca"], confezione=c["confezione"], progetto=prog, progetto_nome=PROGETTI[prog][0],
                             foto=self.foto_file(p["barcode"]) is not None, manca=self.manca(p, prog, c)))
@@ -502,6 +520,9 @@ class Off:
             prog = v.get("progetto") if v.get("progetto") in PROGETTI else (progetto_per(p) if p else "food")
             if not p or not valido_per_off(k):
                 out.append({"barcode": k, "ok": False, "messaggio": "Prodotto non trovato o codice non valido."})
+                continue
+            if not sito_attivo(prog):
+                out.append({"barcode": k, "ok": False, "messaggio": "%s e disattivato nelle impostazioni." % PROGETTI[prog][0]})
                 continue
             try:
                 out.append(dict(self._invia_uno(p, prog), barcode=k))

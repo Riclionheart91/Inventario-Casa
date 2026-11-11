@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 from typing import Callable, Dict, List, Optional
 
-from .off import FOTO_OK, NUTRI, PROGETTI, Off, valido_per_off
+from .off import FOTO_OK, NUTRI, PROGETTI, Off, sito_attivo, valido_per_off
 from .service import ApiError, nbc
 
 ETICHETTE = {"nome": "Nome", "marca": "Marca", "confezione": "Confezione", "ingredienti": "Ingredienti", "nutrizione": "Valori nutrizionali (per 100 g)", "immagine": "Foto"}
@@ -159,6 +159,8 @@ class Confronti:
                 if s.get("stato") != "presente" or bc in visti or bc not in cat:
                     continue
                 p, prog = cat[bc], (s.get("progetto") if s.get("progetto") in PROGETTI else "food")
+                if not sito_attivo(prog):
+                    continue
                 o = self._scarica(prog, valido_per_off(bc))
                 time.sleep(self.pausa)
                 if o is None:
@@ -181,7 +183,7 @@ class Confronti:
         cat = {p["barcode"]: p for p in self.off._catalogo()}
         out = []
         for bc, s in self._carica().get("schede", {}).items():
-            if s.get("stato") == "aperto" and s.get("voci") and bc in cat and bc not in self._appl:
+            if s.get("stato") == "aperto" and s.get("voci") and bc in cat and bc not in self._appl and sito_attivo(s.get("progetto") or "food"):
                 out.append({"errore": self._errori.get(bc, ""), "barcode": bc, "nome": cat[bc]["nome"], "voci": s["voci"], "progetto_nome": PROGETTI.get(s.get("progetto"), PROGETTI["food"])[0]})
         return sorted(out, key=lambda x: x["nome"].lower())
 

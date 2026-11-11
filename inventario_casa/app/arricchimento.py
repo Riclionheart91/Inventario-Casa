@@ -15,6 +15,15 @@ from typing import Callable, Dict, List, Optional
 
 from .service import SH_PROD, nbc
 
+
+def _opz(k: str, d=True):
+    """Impostazione modificabile dall'app (vedi impostazioni.py); se non si legge vale il predefinito."""
+    try:
+        from .impostazioni import imp
+        return imp().get(k, d)
+    except Exception:
+        return d
+
 CAMPI = (("Prodotto", "nome"), ("Marca", "marca"), ("Confezione", "confezione"), ("Immagine", "immagine"),
          ("Dettagli prodotto", "dettagli"), ("Composizione", "composizione"), ("Nutrizione (100g)", "nutrizione"), ("Punteggi", "punteggi"))
 CAMPI_TRAD = ("Dettagli prodotto", "Composizione", "Free-from", "Smaltimento/riciclo")
@@ -77,13 +86,14 @@ class Arricchitore:
             cella = lambda r, n: str(r[ix[n]]).strip() if n in ix and len(r) > ix[n] and r[ix[n]] is not None else ""
             ups = []
             candidati = []
+            con_extra = bool(self.extra) and bool(_opz("arr_punteggi", True))   # impostazione «Cerca punteggi e riciclo»
             for i, r in enumerate(rows):
                 bc = nbc(r[ix["Barcode"]]) if len(r) > ix["Barcode"] else ""
                 if not bc or (not ignora_prove and prove.get(bc, "") > limite):
                     continue
                 vuoti = [n for n in ("Marca", "Confezione", "Immagine") if n in ix and not cella(r, n)]
                 incompleto = bool(vuoti) or not cella(r, "API Status").startswith("✅")
-                senza_extra = bool(self.extra) and any(n in ix and not cella(r, n) for n in ("Punteggi", "Smaltimento/riciclo"))
+                senza_extra = con_extra and any(n in ix and not cella(r, n) for n in ("Punteggi", "Smaltimento/riciclo"))
                 if incompleto or senza_extra:
                     candidati.append((0 if not cella(r, "API Status") else 1, i, bc))
             candidati.sort()
@@ -108,7 +118,7 @@ class Arricchitore:
                 if not info and incompleto:
                     rap["non_trovati"] += 1     # nessuna scrittura: il prodotto resta com'e
                 nuovi = [(n, str((info or {}).get(k) or "").strip()) for n, k in CAMPI if n in ix and not cella(r, n) and str((info or {}).get(k) or "").strip()]
-                if self.extra:   # punteggi e riciclo ancora vuoti: li cerca l'AI (solo se non c'erano gia)
+                if con_extra:   # punteggi e riciclo ancora vuoti: li cerca l'AI (solo se non c'erano gia)
                     gia = {n for n, _ in nuovi}
                     mancano = [n for n in ("Punteggi", "Smaltimento/riciclo") if n in ix and not cella(r, n) and n not in gia]
                     if mancano:
@@ -134,7 +144,7 @@ class Arricchitore:
             if ups:
                 self.inv.store.update_cells(SH_PROD, ups)
                 self.inv._drop(SH_PROD)
-            if traduci_testi:
+            if traduci_testi and _opz("arr_traduzioni", True):
                 self._traduci(st, rap, t0, budget_s)
             st["prove"] = prove
             st["ultimo"] = adesso.strftime("%Y-%m-%d")

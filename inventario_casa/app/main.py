@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from .service import ApiError, Inventory
 from . import ai, aiuso, analisi, confronti, lookup, off, pagina, regole_auto, ricerca
-from .accesso import Accesso, _Mw
+from .accesso import Accesso, _Mw, utente_ingress
 from .store import make_store
 
 app = FastAPI(title="Inventario Casa", docs_url=None, redoc_url=None)
@@ -142,7 +142,7 @@ def foglio_riordina(x_code: str = Header(None)):
 @app.get("/api/avvisi")
 def avvisi_stato(x_code: str = Header(None)):
     check(x_code)
-    return dict(avv().stato(), servizio=_env("SCADENZA_NOTIFICA"), giorni=_giorni_scadenza(), ora=_env("SCADENZA_ORA") or "08:00")
+    return dict(avv().stato(), servizio=_env("SCADENZA_NOTIFICA"), giorni=_giorni_scadenza(), ora=_ora_scadenza())
 
 
 @app.post("/api/avvisi/prova")
@@ -157,6 +157,14 @@ def avvisi_prova(x_code: str = Header(None)):
         raise HTTPException(502, "Notifica non inviata: %s" % e)
 
 
+_ult_auto = [0.0]
+
+
+def _da_fare_conteggi() -> dict:
+    """Voci in «Da fare»: da inserire, proposte da approvare, differenze con Open Food Facts."""
+    return {"bozze": len(inv().bozze()), "proposte": len(inv().approvazioni()) + len(rev().voci_aperte()), "differenze": len(conf_().elenco())}
+
+
 def _notturno():
     """Attivita programmata: ogni notte (all'ora scelta nelle opzioni) cerca i dati mancanti e traduce in italiano. Solo se acceso e non in sola lettura."""
     from datetime import datetime
@@ -167,8 +175,8 @@ def _notturno():
         fuso = None
     while True:
         try:
-            if os.environ.get("ARRICCHIMENTO", "false").lower() == "true" and not READ_ONLY:
-                ora = (_env("ARRICCHIMENTO_ORA") or "03:00")
+            if os.environ.get("ARRICCHIMENTO", "false").lower() == "true" and not solo_lettura():
+                ora = (_opz_app("arr_ora", "") or _env("ARRICCHIMENTO_ORA") or "03:00")
                 adesso = datetime.now(fuso) if fuso else datetime.now()
                 if adesso.strftime("%H:%M") >= ora and arr().da_fare_oggi():
                     arr().oggi = (lambda: datetime.now(fuso) if fuso else datetime.now())
@@ -177,15 +185,30 @@ def _notturno():
             logging.getLogger("inventario").exception("arricchimento notturno")
         try:   # avviso giornaliero delle scadenze: una notifica di Home Assistant dopo l'ora scelta (non scrive sul foglio)
             if _env("SCADENZA_NOTIFICA"):
-                avv().esegui(_env("SCADENZA_NOTIFICA"), _giorni_scadenza(), _env("SCADENZA_ORA") or "08:00", _env("SECURE_URL") or "")
+                avv().esegui(_env("SCADENZA_NOTIFICA"), _giorni_scadenza(), _ora_scadenza(), _env("SECURE_URL") or "")
         except Exception:
             logging.getLogger("inventario").exception("avviso scadenze")
+        try:   # scorte basse (una notifica al giorno) e riepilogo settimanale: solo se scelti nelle impostazioni
+            if _env("SCADENZA_NOTIFICA") and _opz_app("scorte_avviso", False):
+                avv().avvisa_scorte(_env("SCADENZA_NOTIFICA"), int(_opz_app("scorte_soglia", 1)), _ora_scadenza(), _env("SECURE_URL") or "")
+            if _env("SCADENZA_NOTIFICA") and _opz_app("riepilogo_sett", False):
+                avv().riepilogo_settimanale(_env("SCADENZA_NOTIFICA"), _opz_app("riepilogo_giorno", "dom"), _opz_app("riepilogo_ora", "09:00") or "09:00",
+                                            _giorni_scadenza() or 7, int(_opz_app("scorte_soglia", 1)), _da_fare_conteggi, _env("SECURE_URL") or "")
+        except Exception:
+            logging.getLogger("inventario").exception("scorte e riepilogo")
         try:   # revisione a tappeto ogni sei mesi: non scrive sul foglio, quindi parte anche in sola lettura
             if rev().dovuta() and time.time() - _ult_rev[0] > 3600:   # al piu un tentativo all'ora
                 _ult_rev[0] = time.time()
                 rev().esegui()
         except Exception:
             logging.getLogger("inventario").exception("revisione semestrale")
+        try:   # approvazione automatica (impostazione, spenta di serie): solo proposte di prodotto molto sicure, al piu una volta all'ora
+            if _opz_app("auto_approva", False) and time.time() - _ult_auto[0] > 3600:
+                _ult_auto[0] = time.time()
+                from .ext_dati import auto_approva
+                auto_approva(inv(), int(_opz_app("auto_soglia", 95)), solo_lettura)
+        except Exception:
+            logging.getLogger("inventario").exception("approvazione automatica")
         time.sleep(60)
 
 
@@ -194,15 +217,27 @@ def _avvio():
     threading.Thread(target=_tieni_fresco, daemon=True).start()
     threading.Thread(target=_notturno, daemon=True).start()
     threading.Thread(target=_off_ciclo, daemon=True).start()
-    if os.environ.get("ARRICCHIMENTO_AVVIO", "false").lower() == "true" and not READ_ONLY:   # una tantum: cerca subito i dati mancanti (anche con l'AI su Google)
+    if os.environ.get("ARRICCHIMENTO_AVVIO", "false").lower() == "true" and not solo_lettura():   # una tantum: cerca subito i dati mancanti (anche con l'AI su Google)
         threading.Thread(target=lambda: arr().esegui(int(_env("ARRICCHIMENTO_MAX") or 60), 3000.0), daemon=True).start()
-    if os.environ.get("TRADUZIONE_AVVIO", "false").lower() == "true" and not READ_ONLY:   # una tantum: traduce in italiano i testi esistenti
+    if os.environ.get("TRADUZIONE_AVVIO", "false").lower() == "true" and not solo_lettura():   # una tantum: traduce in italiano i testi esistenti
         threading.Thread(target=lambda: arr().esegui(0, 3000.0, True), daemon=True).start()
 _inv = None
 SHARED = os.environ.get("SHARED_CODE", "")
 ACCESSO = Accesso(lambda: SHARED)
 app.add_middleware(_Mw, acc=ACCESSO)
 READ_ONLY = os.environ.get("READ_ONLY", "true").lower() != "false"
+
+
+def solo_lettura() -> bool:
+    """Vera se l'opzione dell'add-on la impone, oppure se l'hai forzata dalle Impostazioni (non puo mai sbloccare l'opzione)."""
+    if solo_lettura():
+        return True
+    try:
+        return bool(_impost.imp().get("sola_lettura_forza"))
+    except Exception:
+        return False
+
+
 # Chiavi dalle opzioni dell'app (variabili d'ambiente): restano sul server, non vanno mai al frontend ne nei log.
 CHIAVI_PROVIDER = ("BARCODELOOKUP_KEY", "UPCDATABASE_KEY", "GOUPC_TOKEN", "SPOONACULAR_KEY", "NUTRITIONIX_APP_ID", "NUTRITIONIX_APP_KEY",
                    "EDAMAM_APP_ID", "EDAMAM_APP_KEY", "ICECAT_SHOP", "ICECAT_API_TOKEN", "GS1_API_URL", "GS1_API_KEY", "GOOGLE_BOOKS_KEY", "OPENFDA_KEY")
@@ -213,11 +248,28 @@ def _env(k):
     return "" if v.lower() == "null" else v
 
 
-def _giorni_scadenza() -> int:
+def _opz_app(k: str, default=None):
+    """Impostazione modificabile dall'app (impostazioni.py)."""
     try:
+        from .impostazioni import imp
+        return imp().get(k, default)
+    except Exception:
+        return default
+
+
+def _giorni_scadenza() -> int:
+    """Giorni di anticipo: l'impostazione dell'app (se > 0) vale piu dell'opzione dell'add-on."""
+    try:
+        v = int(_opz_app("scad_giorni", 0) or 0)
+        if v > 0:
+            return max(1, min(90, v))
         return max(0, min(90, int(_env("SCADENZA_GIORNI") or 7)))
     except ValueError:
         return 7
+
+
+def _ora_scadenza() -> str:
+    return _opz_app("scad_ora", "") or _env("SCADENZA_ORA") or "08:00"
 
 
 def chiavi():
@@ -310,7 +362,7 @@ def check(code):
 
 
 def writable():
-    if READ_ONLY:
+    if solo_lettura():
         raise HTTPException(403, "Modalita sola lettura attiva")
 
 
@@ -385,7 +437,7 @@ def imposta_scorta(m: ScortaIn, x_code: str = Header(None)):
 @app.get("/api/arricchimento")
 def arricchimento_stato(x_code: str = Header(None)):
     check(x_code)
-    return dict(arr().stato(), attivo=os.environ.get("ARRICCHIMENTO", "false").lower() == "true", sola_lettura=READ_ONLY)
+    return dict(arr().stato(), attivo=os.environ.get("ARRICCHIMENTO", "false").lower() == "true", sola_lettura=solo_lettura())
 
 
 @app.post("/api/arricchimento/avvia")
@@ -421,7 +473,7 @@ def voce_cerca(q: str = "", t: str = ""):
 
 @app.get("/api/config")
 def config(request: Request):
-    return {"diretto": ACCESSO.e_diretto(request.scope), "url_sicuro": os.environ.get("SECURE_URL", "").strip(), "sola_lettura": READ_ONLY, "ai": bool(_env("GEMINI_API_KEY")),
+    return {"diretto": ACCESSO.e_diretto(request.scope), "url_sicuro": os.environ.get("SECURE_URL", "").strip(), "sola_lettura": solo_lettura(), "ai": bool(_env("GEMINI_API_KEY")),
             "shortcut_spesa": (os.environ.get("SHORTCUT_SPESA", "Spesa AppSheet") or "Spesa AppSheet").strip()}
 
 
@@ -468,7 +520,7 @@ def suggerisci(m: ChiediAi, x_code: str = Header(None)):
         return {"ai": False, "motivo": "chiave"}
     s = ai.suggerisci(m.nome, m.marca, m.confezione, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"),
                       _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"))
-    if s and s.get("proposta") and not READ_ONLY:
+    if s and s.get("proposta") and not solo_lettura():
         p = s["proposta"]
         inv().proponi_categoria(p["categoria"], p["sottocategoria"], m.nome, p.get("categoria_nuova", False))
     return dict(s, ai=True) if s else {"ai": False, "motivo": "risposta", "dettaglio": ai.ULTIMO_ERRORE[0]}
@@ -541,11 +593,11 @@ def scheda(barcode: str, x_code: str = Header(None)):
 
 
 @app.post("/api/movimento")
-def movimento(m: Mov, x_code: str = Header(None)):
+def movimento(m: Mov, request: Request, x_code: str = Header(None)):
     check(x_code)
     writable()
     r = inv().movimento(m.barcode, m.tipo, m.location, m.quantita, m.prodotto, m.foto,
-                        m.destinazione, m.categoria, m.categoria_new, scadenza=m.scadenza)
+                        m.destinazione, m.categoria, m.categoria_new, scadenza=m.scadenza, chi=utente_ingress(ACCESSO, request.scope))
     if str(m.tipo) == "Carico":      # una richiesta di invio a Open Food Facts rimandata torna nell'elenco
         try:
             off_().riprendi(m.barcode)
@@ -648,7 +700,7 @@ def approvazioni(x_code: str = Header(None)):
 @app.get("/api/revisione")
 def revisione_stato(x_code: str = Header(None)):
     check(x_code)
-    return dict(rev().stato(), sola_lettura=READ_ONLY)
+    return dict(rev().stato(), sola_lettura=solo_lettura())
 
 
 @app.post("/api/revisione/avvia")
@@ -760,7 +812,7 @@ def _analizza(barcode: str, da_foto, immagine: str = "") -> None:
         a = analisi.analizza(lambda: _web_dati(cod) if cod else None,
                              lambda n, m, c: ai.suggerisci(n, m, c, inv().categorie(), inv().tipi(), _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA")),
                              da_foto, immagine)
-        if a and a.get("proposta") and not READ_ONLY:
+        if a and a.get("proposta") and not solo_lettura():
             p = a["proposta"]
             inv().proponi_categoria(p["categoria"], p["sottocategoria"], a.get("nome", ""), p.get("categoria_nuova", False))
         inv().applica_analisi(barcode, a or None)
@@ -793,7 +845,7 @@ class OffProg(BaseModel):
 @app.get("/api/off")
 def off_stato(x_code: str = Header(None)):
     check(x_code)
-    return dict(off_().stato(), sola_lettura=READ_ONLY)
+    return dict(off_().stato(), sola_lettura=solo_lettura())
 
 
 @app.get("/api/off/lista")
@@ -984,7 +1036,8 @@ def _off_ciclo():
     time.sleep(240)
     while True:
         try:
-            _off_giro()
+            if _opz_app("off_controllo", "giorno") != "manuale":   # «Solo se lo chiedo»: resta il pulsante «Controlla e completa ora»
+                _off_giro()
         except Exception:
             logging.getLogger("inventario").exception("controllo Open Food Facts")
         time.sleep(24 * 3600)
@@ -1019,7 +1072,7 @@ import importlib as _imp_lib
 import types as _types
 
 _CTX = _types.SimpleNamespace(check=check, writable=writable, inv=inv, off_=off_, conf_=conf_, arr=arr, rev=rev, env=_env,
-                              impostazioni=_impost.imp, read_only=lambda: READ_ONLY or bool(_impost.imp().get("sola_lettura_forza")))
+                              impostazioni=_impost.imp, read_only=solo_lettura)
 for _nome_mod in ("ext_sic", "ext_dati", "ext_cop"):
     try:
         _imp_lib.import_module("." + _nome_mod, __package__).registra(app, _CTX)

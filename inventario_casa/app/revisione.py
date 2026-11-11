@@ -13,7 +13,15 @@ from typing import Callable, Dict, List, Optional
 from .emoji import con_emoji
 from .service import elenco_prodotti, SH_AIT, SH_MOV, SH_PROD, SH_CAT, nbc, data_it, _num
 
-GIORNI = 182          # circa sei mesi
+GIORNI = 182          # circa sei mesi (predefinito: l'impostazione «rev_mesi» lo cambia)
+
+
+def giorni_revisione() -> int:
+    try:
+        from .impostazioni import imp
+        return max(30, int(round(int(imp().get("rev_mesi", 6)) * 30.4)))
+    except Exception:
+        return GIORNI
 MAX_AI = 20           # prodotti senza tipo per i quali si chiede un suggerimento all'AI, a ogni revisione
 MAX_ELENCO = 15
 LOTTO_CAT = 40        # prodotti per ogni domanda all'AI sulla categoria
@@ -62,7 +70,7 @@ class Revisione:
     def dovuta(self) -> bool:
         u = self._leggi().get("ultima", "")
         try:
-            return self.oggi().date() - datetime.strptime(u, "%Y-%m-%d").date() >= timedelta(days=GIORNI)
+            return self.oggi().date() - datetime.strptime(u, "%Y-%m-%d").date() >= timedelta(days=giorni_revisione())
         except Exception:
             return True   # mai fatta
 
