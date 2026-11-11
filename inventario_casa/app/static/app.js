@@ -283,31 +283,101 @@
       c.appendChild(sug); c.appendChild(lista); box.appendChild(c);
     }).catch(function () { /* niente scheda se non raggiungibile */ });
   }
-  function loadImp() {
+  /* ---- Impostazioni come su iPhone: elenco a gruppi, ogni riga apre la sua schermata (su iPad e Mac: elenco a sinistra, dettaglio a destra) ---- */
+  var impVista = '';
+  function cardArricchimento(box, s) {
+    var c = el('div', 'card'); c.appendChild(el('h2', '', 'Arricchimento dati'));
+    c.appendChild(el('p', 'm', 'Cerca online i dati mancanti dei prodotti (nome, marca, immagine, dettagli) e traduce i testi in italiano. È lo stesso lavoro del passaggio notturno.'));
+    var r = s.rapporto || {};
+    var righe = [['Ultimo giro', s.ultimo || 'mai'], ['Stato', s.in_corso ? 'in corso…' : 'fermo'], ['Notturno', s.attivo ? 'acceso' : 'spento']];
+    if (r.cercati !== undefined) righe.push(['Ultimo esito', r.cercati + ' cercati · ' + r.completati + ' completati · ' + r.non_trovati + ' non trovati · ' + r.campi_scritti + ' campi scritti · ' + r.tradotti + ' tradotti']);
+    righe.forEach(function (x) { var p = el('p', 'm'); p.appendChild(el('b', '', x[0] + ': ')); p.appendChild(document.createTextNode(x[1])); c.appendChild(p); });
+    var b = el('button', 'btn primary', s.in_corso ? 'In corso…' : 'Avvia ora'); b.type = 'button'; b.disabled = !!s.in_corso || !!s.sola_lettura;
+    if (s.sola_lettura) c.appendChild(el('p', 'm', 'Sola lettura attiva: spegnila nelle opzioni dell\'app per scrivere sul foglio.'));
+    b.addEventListener('click', function () {
+      b.disabled = true;
+      api('POST', 'api/arricchimento/avvia').then(function () { toast('Arricchimento avviato.'); setTimeout(loadImp, 1500); })
+        .catch(function (e) { toast('Non avviato: ' + e.message, true); b.disabled = false; });
+    });
+    c.appendChild(b); box.appendChild(c);
+  }
+  function cardOff(box, o) {
+    var c = el('div', 'card'); c.appendChild(el('h2', '', 'Open Food Facts'));
+    c.appendChild(el('p', 'm', 'I prodotti che non sono su Open Food Facts (e sui siti gemelli per animali e prodotti per la casa) si completano e si inviano dalla scheda «Condividi».'));
+    [['Account', o && o.configurato ? 'collegato' : 'mancano utente e password (opzioni off_utente, off_password)'], ['Inviati finora', String(o ? o.inviati : 0)], ['Non più proposti', String(o ? o.ignorati : 0)], ['Rimandati', String(o ? (o.rimandati || 0) : 0)]]
+      .forEach(function (x) { var p = el('p', 'm'); p.appendChild(el('b', '', x[0] + ': ')); p.appendChild(document.createTextNode(x[1])); c.appendChild(p); });
+    var b = el('button', 'btn primary', 'Apri Condividi'); b.type = 'button'; b.addEventListener('click', function () { show('off'); });
+    var n = el('button', 'btn', 'Vedi quelli messi da parte'); n.type = 'button'; n.style.marginTop = '8px'; n.addEventListener('click', function () { OFF_NASC = true; show('off'); });
+    c.appendChild(b); c.appendChild(n); box.appendChild(c);
+  }
+  var ICO = {
+    arr: ['#30d158', '<path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 4v5h-5"/>'],
+    rev: ['#5e5ce6', '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5L16 9.5"/>'],
+    reg: ['#ff9f0a', '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'],
+    avv: ['#ff453a', '<path d="M6 9a6 6 0 1112 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 004 0"/>'],
+    off: ['#0a84ff', '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>'],
+    asp: ['#64d2ff', '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>'],
+    fog: ['#ac8e68', '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/>'],
+    ai: ['#bf5af2', '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>']
+  };
+  function impLargo() { return window.matchMedia && matchMedia('(min-width:744px) and (min-height:600px)').matches; }
+  function impTitolo() { var t = TABS.filter(function (x) { return x[0] === 'imp'; })[0]; return t ? t[2] : 'Impostazioni'; }
+  function impAnim(nodo, dir) { try { if (nodo && nodo.animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) nodo.animate([{ transform: 'translate3d(' + (dir * 36) + 'px,0,0)', opacity: 0 }, { transform: 'translate3d(0,0,0)', opacity: 1 }], { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }); } catch (e) { /* ok */ } if (window.haptic) window.haptic('tic'); }
+  function loadImp(anima) {
     var box = $('imp'); clearTimeout(impTimer);
-    api('GET', 'api/arricchimento').then(function (s) {
+    var sicuro = function (path) { return api('GET', path).catch(function () { return null; }); };
+    Promise.all([sicuro('api/arricchimento'), sicuro('api/revisione'), sicuro('api/avvisi'), sicuro('api/regole'), sicuro('api/ai/uso'), sicuro('api/off')]).then(function (r) {
+      var arr = r[0], rev = r[1], avv = r[2], reg = r[3], uso = r[4], off = r[5];
+      if (!arr) { box.textContent = 'Non riesco a leggere lo stato.'; return; }
+      var largo = impLargo(); if (largo && !impVista) impVista = 'arr';
+      var oggiDM = (function () { var d = new Date(); return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); })();
+      var SCHERMATE = {
+        arr: { nome: 'Arricchimento dati', somm: arr.in_corso ? 'In corso…' : (arr.attivo ? 'Acceso' : 'Spento'), build: function (d) { cardArricchimento(d, arr); } },
+        rev: { nome: 'Revisione a tappeto', somm: rev ? (rev.in_corso ? 'In corso…' : (rev.dovuta ? 'Da fare' : 'A posto')) : '', build: loadRev },
+        reg: { nome: 'Regole della casa', somm: reg ? String(reg.length) : '', build: loadRegole },
+        avv: { nome: 'Avviso scadenze', somm: avv ? (avv.servizio ? avv.ora : 'Non impostato') : '', build: loadAvvisi },
+        off: { nome: 'Open Food Facts', somm: off ? (off.configurato ? 'Collegato' : 'Account mancante') : '', build: function (d) { cardOff(d, off); } },
+        asp: { nome: 'Aspetto e vibrazione', somm: window.hapticAttivo ? (window.hapticAttivo() ? 'Vibrazione attiva' : 'Vibrazione spenta') : '', build: function (d) { if (window.cardAspetto) window.cardAspetto(d); } },
+        fog: { nome: 'Riordino del foglio', somm: '', build: loadFoglio },
+        ai: { nome: 'Uso dell\'AI', somm: uso ? uso.oggi + ' oggi' : '', build: loadAiUso }
+      };
+      var GRUPPI = [['Automatico', ['arr', 'rev']], ['La mia casa', ['reg', 'avv']], ['Condivisione', ['off']], ['App', ['asp']], ['Manutenzione', ['fog']], ['Diagnostica', ['ai']]];
       box.textContent = '';
-      var c = el('div', 'card'); c.appendChild(el('h2', '', 'Arricchimento dati'));
-      c.appendChild(el('p', 'm', 'Cerca online i dati mancanti dei prodotti (nome, marca, immagine, dettagli) e traduce i testi in italiano. È lo stesso lavoro del passaggio notturno.'));
-      var r = s.rapporto || {};
-      var righe = [['Ultimo giro', s.ultimo || 'mai'], ['Stato', s.in_corso ? 'in corso…' : 'fermo'], ['Notturno', s.attivo ? 'acceso' : 'spento']];
-      if (r.cercati !== undefined) righe.push(['Ultimo esito', r.cercati + ' cercati · ' + r.completati + ' completati · ' + r.non_trovati + ' non trovati · ' + r.campi_scritti + ' campi scritti · ' + r.tradotti + ' tradotti']);
-      righe.forEach(function (x) { var p = el('p', 'm'); p.appendChild(el('b', '', x[0] + ': ')); p.appendChild(document.createTextNode(x[1])); c.appendChild(p); });
-      var b = el('button', 'btn primary', s.in_corso ? 'In corso…' : 'Avvia ora'); b.type = 'button'; b.disabled = !!s.in_corso || !!s.sola_lettura;
-      if (s.sola_lettura) c.appendChild(el('p', 'm', 'Sola lettura attiva: spegnila nelle opzioni dell\'app per scrivere sul foglio.'));
-      b.addEventListener('click', function () {
-        b.disabled = true;
-        api('POST', 'api/arricchimento/avvia').then(function () { toast('Arricchimento avviato.'); setTimeout(loadImp, 1500); })
-          .catch(function (e) { toast('Non avviato: ' + e.message, true); b.disabled = false; });
+      var split = el('div', 'imp-split' + (impVista ? ' dettaglio' : '')), lista = el('div', 'imp-list'), det = el('div', 'imp-det');
+      // stato in breve
+      var guasti = uso ? Object.keys(uso.ultimo_errore || {}).filter(function (k) { return String(uso.ultimo_errore[k].quando || '').indexOf(oggiDM) === 0; }) : [];
+      var sc = el('div', 'imp-stato ' + (guasti.length ? 'att' : 'ok'));
+      sc.appendChild(el('b', '', guasti.length ? 'Attenzione' : 'Tutto a posto'));
+      sc.appendChild(el('div', 'm', guasti.length ? 'Oggi l\'AI ha avuto problemi: ' + guasti.join(', ') + '. Apri «Uso dell\'AI» per i dettagli.' : 'Ultimo giro notturno: ' + (arr.ultimo || 'mai') + (st.ro ? ' · sola lettura attiva' : '')));
+      lista.appendChild(sc);
+      var righe = {};
+      GRUPPI.forEach(function (g) {
+        var gr = el('div', 'imp-grp');
+        g[1].forEach(function (id) {
+          var S = SCHERMATE[id], ic = ICO[id];
+          var b = el('button', 'imp-row'); b.type = 'button'; b.setAttribute('aria-current', String(impVista === id));
+          var sp = el('span', 'imp-ico'); sp.style.background = ic[0]; sp.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ic[1] + '</svg>';
+          b.appendChild(sp); b.appendChild(el('span', 'imp-t', S.nome)); if (S.somm) b.appendChild(el('span', 'imp-s', S.somm)); b.appendChild(el('span', 'imp-ch', '›'));
+          b.addEventListener('click', function () { impVista = id; loadImp(true); });
+          gr.appendChild(b); righe[id] = b;
+        });
+        lista.appendChild(gr);
       });
-      c.appendChild(b); box.appendChild(c);
-      loadAvvisi(box);
-      loadRegole(box);
-      loadAiUso(box);
-      loadFoglio(box);
-      loadRev(box);
-      if (s.in_corso && st.tab === 'imp') impTimer = setTimeout(loadImp, 6000);
-    }).catch(function (e) { box.textContent = 'Non riesco a leggere lo stato: ' + e.message; });
+      split.appendChild(lista); split.appendChild(det); box.appendChild(split);
+      var tit = impTitolo();
+      if (impVista && SCHERMATE[impVista]) {
+        var V = SCHERMATE[impVista];
+        var back = el('button', 'imp-back', '‹ ' + tit); back.type = 'button'; back.addEventListener('click', function () { impVista = ''; loadImp('indietro'); });
+        det.appendChild(back); V.build(det);
+        if (!largo) $('title').textContent = V.nome;
+        if (anima === true && !largo) impAnim(det, 1);
+      } else {
+        impVista = ''; $('title').textContent = tit;
+        if (anima === 'indietro' && !largo) impAnim(lista, -1);
+      }
+      if (largo && impVista) $('title').textContent = tit;
+      if (arr.in_corso && st.tab === 'imp') impTimer = setTimeout(loadImp, 6000);
+    });
   }
   function loadRev(box) {
     api('GET', 'api/revisione').then(function (s) {
@@ -326,7 +396,8 @@
     }).catch(function () { /* resta senza la scheda */ });
   }
   function show(tab) {
-    st.tab = tab;
+    var prima = st.tab; st.tab = tab;
+    if (tab === 'imp' && prima !== 'imp' && !impLargo()) impVista = '';   // dal telefono si riparte sempre dall'elenco
     TABS.forEach(function (t) {
       $('v-' + t[0]).hidden = t[0] !== tab;
       if (t[0] === tab) $('title').textContent = t[2];

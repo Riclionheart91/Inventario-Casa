@@ -131,16 +131,15 @@
   if ($('off')) new MutationObserver(aggiornaIndice).observe($('off'), { subtree: true, attributes: true, attributeFilter: ['hidden'] });
   aggiornaIndice(); barraSotto();
 
-  /* ---------- «Aspetto» in Impostazioni ---------- */
-  function cardAspetto() {
-    var imp = $('imp'); if (!imp || imp.querySelector('.aspetto')) return;
+  /* ---------- «Aspetto e vibrazione»: schermata nelle Impostazioni ---------- */
+  window.cardAspetto = function (dove) {
+    if (!dove) return;
     var c = document.createElement('div'); c.className = 'card aspetto';
     var h = document.createElement('h2'); h.textContent = 'Aspetto e vibrazione'; c.appendChild(h);
     var p = document.createElement('p'); p.className = 'm'; p.textContent = 'La vibrazione leggera accompagna i cambi di scheda, l\'indice A-Z e i gesti. Su iPhone funziona da iOS 17.4; se non la senti, il tuo sistema non la permette.'; c.appendChild(p);
     var b = document.createElement('button'); b.type = 'button'; b.className = 'btn';
     function testo() { b.textContent = 'Vibrazione: ' + (hapOn ? 'attiva' : 'spenta'); }
     b.addEventListener('click', function () { window.hapticAttivo(!hapOn); testo(); haptic('ok'); }); testo();
-    c.appendChild(b); imp.insertBefore(c, imp.firstChild);
-  }
-  if ($('imp')) new MutationObserver(cardAspetto).observe($('imp'), { childList: true });
+    c.appendChild(b); dove.appendChild(c);
+  };
 })();

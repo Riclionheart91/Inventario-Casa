@@ -160,3 +160,28 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 @media (min-width:744px) and (min-height:600px){
   .top{padding-top:calc(12px + var(--si))}
 }
+
+/* Impostazioni come su iPhone */
+.imp-list{display:flex;flex-direction:column;gap:20px}
+.imp-stato{border-radius:12px;padding:12px 14px;background:var(--s1);border-left:4px solid var(--ok)}
+.imp-stato.att{border-left-color:var(--warn);background:rgba(255,159,10,.12)}
+.imp-stato b{display:block;font-size:15px}.imp-stato .m{margin-top:2px}
+.imp-grp{background:var(--s1);border-radius:12px;overflow:hidden}
+.imp-row{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;padding:8px 12px 8px 14px;background:transparent;border:0;color:var(--tx);text-align:left;font-size:15px;position:relative;cursor:pointer}
+.imp-row+.imp-row::before{content:"";position:absolute;top:0;left:56px;right:0;border-top:.5px solid var(--sep)}
+.imp-row:active{background:var(--s3)}
+.imp-ico{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.imp-t{flex:1;min-width:0}.imp-s{color:var(--mut);font-size:14px;white-space:nowrap}.imp-ch{color:#636366;font-size:22px;line-height:1}
+.imp-det{display:none}
+.imp-split.dettaglio .imp-det{display:block}.imp-split.dettaglio .imp-list{display:none}
+.imp-back{background:none;border:0;color:var(--acc);font-size:16px;padding:2px 0 12px;cursor:pointer;display:block}
+.imp-det .card>h2:first-child{display:none}
+.imp-det .card{margin-bottom:12px}
+@media (min-width:744px) and (min-height:600px){
+  #v-imp{max-width:none}
+  .imp-split{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start}
+  .imp-split .imp-list,.imp-split .imp-det{display:flex!important;flex-direction:column}
+  .imp-det{display:block!important}
+  .imp-back{display:none}
+  .imp-row[aria-current=true]{background:rgba(250,45,72,.16)}.imp-row[aria-current=true] .imp-t{color:var(--acc)}
+}

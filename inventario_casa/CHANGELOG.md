@@ -3,6 +3,12 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.23.0
+- Impostazioni ripensate come su iPhone: un elenco a gruppi (Automatico, La mia casa, Condivisione, App, Manutenzione, Diagnostica) con icone colorate e il riepilogo a destra; ogni riga apre la sua schermata con «‹ Impostazioni» per tornare, con scorrimento da lato e vibrazione.
+- In cima una scheda «Tutto a posto» che diventa «Attenzione» se oggi l'AI ha avuto problemi.
+- Su iPad e Mac: elenco a sinistra e dettaglio a destra.
+- Nuova schermata «Open Food Facts» (account, inviati, messi da parte) e «Aspetto e vibrazione» è ora una riga a sé.
+
 ## 0.22.6
 - Statistiche AI: quando Gemini risponde ma non trova niente (es. punteggi o riciclo di un prodotto poco noto) non si conta più come errore, ma come «senza risultato».
 - La stessa ricerca andata a vuoto non si ripete per una settimana (prima veniva rifatta a ogni passaggio notturno, consumando quota). I veri guasti (quota, rete, chiave) restano contati come errori e si riprovano.
