@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.24.1
+- Corretto un errore della 0.24.0 che impediva all'app di avviarsi: la funzione della sola lettura richiamava se stessa all'infinito.
+
 ## 0.24.0
 - Nuove impostazioni, tutte modificabili dall'app (interruttori, scelte, numeri):
   - **AI:** «Sospendi l'AI» e limite giornaliero di chiamate.

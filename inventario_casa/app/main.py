@@ -230,7 +230,7 @@ READ_ONLY = os.environ.get("READ_ONLY", "true").lower() != "false"
 
 def solo_lettura() -> bool:
     """Vera se l'opzione dell'add-on la impone, oppure se l'hai forzata dalle Impostazioni (non puo mai sbloccare l'opzione)."""
-    if solo_lettura():
+    if READ_ONLY:
         return True
     try:
         return bool(_impost.imp().get("sola_lettura_forza"))
