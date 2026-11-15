@@ -259,6 +259,8 @@ def codice_da_cercare(barcode) -> str:
     bc = re.sub(r"\D", "", str(barcode))
     if len(bc) == 16 and bc.startswith("01"):
         bc = bc[2:]
+    if len(bc) == 13 and bc.startswith("2999"):   # i miei codici interni: nessun archivio li conosce
+        return ""
     return bc.lstrip("0") if 0 < len(bc) <= 14 else ""
 
 
@@ -271,7 +273,7 @@ def cerca(barcode: str, fetch: Callable = fetch_http, providers=PROVIDERS, timeo
         return None
     if len(bc) == 16 and bc.startswith("01"):   # GS1: identificativo 01 + GTIN-14 (es. QR dei prodotti sportivi)
         bc = bc[2:]
-    if len(bc) > 14:   # oltre un GTIN: nessun archivio lo conosce, inutile interrogare la rete
+    if len(bc) > 14 or (len(bc) == 13 and bc.startswith("2999")):   # oltre un GTIN o un mio codice interno: nessun archivio lo conosce
         return None
     risultati: Dict[int, Optional[dict]] = {}
     chiavi = {k: v for k, v in (chiavi or {}).items() if v}

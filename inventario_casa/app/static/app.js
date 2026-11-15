@@ -73,6 +73,9 @@
     if (path.indexOf('api/off/confronti/applica') === 0) return { ok: true, avviato: 1 };
     if (path === 'api/impostazioni' && method === 'GET') return { schema: [{ k: 'tema', tipo: 'scelta', default: 'auto', opzioni: [['auto', 'Automatico'], ['scuro', 'Scuro'], ['chiaro', 'Chiaro']], sch: 'asp', et: 'Tema', desc: '' }, { k: 'ai_sospesa', tipo: 'bool', default: false, sch: 'ai', et: 'Sospendi l\'AI', desc: 'Ferma le chiamate a Gemini.' }, { k: 'scad_giorni', tipo: 'numero', default: 0, min: 0, max: 60, sch: 'avv', et: 'Giorni di anticipo', desc: '' }], valori: { tema: 'auto', ai_sospesa: false, scad_giorni: 0, testo: 'normale' } };
     if (path === 'api/impostazioni') return { valori: { tema: (body && body.valori && body.valori.tema) || 'auto', testo: 'normale' } };
+    if (path === 'api/codici' && method === 'GET') return [{ codice: '2999738560932', nome: 'Marmellata della nonna', creato: '2026-11-15 20:50', prodotto: '', nel_catalogo: false, alias_di: '', usato: false }];
+    if (path === 'api/codici/nuovo') return { codice: '2999477121869', nome: (body && body.nome) || '', creato: '2026-11-15 20:51' };
+    if (path.indexOf('api/codici/') === 0) return { ok: true };
     if (path === 'api/off/rimanda') return { ok: true, rimandati: 1 };
     if (path === 'api/off/nascosti') return [{ barcode: '8001111111111', nome: 'Pasta integrale', stato: 'ignorato', quando: '2026-11-01T10:00:00', progetto_nome: 'Open Food Facts', tipo: 'invio' }];
     if (path === 'api/off/ripristina') return { ok: true, ripristinati: 1 };
@@ -378,6 +381,7 @@
     fog: ['#ac8e68', '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/>'],
     mov: ['#ff9500', '<path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="4"/>'],
     sic: ['#8e8e93', '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>'],
+    cod: ['#ff2d55', '<path d="M4 5v14M8 5v14M12 5v14M15 5v14M19 5v14"/>'],
     cop: ['#32ade6', '<path d="M12 4v10M8 10l4 4 4-4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/>'],
     ai: ['#bf5af2', '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>']
   };
@@ -403,9 +407,10 @@
         ai: { nome: 'Uso dell\'AI', somm: uso ? (IMPST && IMPST.valori.ai_sospesa ? 'Sospesa' : uso.oggi + ' oggi') : '', build: loadAiUso },
         mov: { nome: 'Movimento ed elenchi', somm: '', build: function () { /* solo impostazioni */ } },
         sic: { nome: 'Accessi e sicurezza', somm: IMPST && IMPST.valori.sola_lettura_forza ? 'Sola lettura' : '', build: function () { /* contenuto dal modulo accessi */ } },
+        cod: { nome: 'I miei codici', somm: '', build: function () { /* contenuto dal modulo codici */ } },
         cop: { nome: 'Copia ed esporta', somm: '', build: function () { /* contenuto dal modulo copia */ } }
       };
-      var GRUPPI = [['Automatico', ['arr', 'rev']], ['La mia casa', ['reg', 'avv']], ['Condivisione', ['off']], ['App', ['mov', 'asp']], ['Manutenzione', ['fog', 'cop']], ['Diagnostica', ['ai', 'sic']]];
+      var GRUPPI = [['Automatico', ['arr', 'rev']], ['La mia casa', ['reg', 'avv']], ['Condivisione', ['off']], ['App', ['mov', 'cod', 'asp']], ['Manutenzione', ['fog', 'cop']], ['Diagnostica', ['ai', 'sic']]];
       box.textContent = '';
       var split = el('div', 'imp-split' + (impVista ? ' dettaglio' : '')), lista = el('div', 'imp-list'), det = el('div', 'imp-det');
       // stato in breve
@@ -2016,6 +2021,14 @@
     $('imp-btn').addEventListener('click', function () { show('imp'); });
     $('bc').addEventListener('input', function () { clearTimeout(dbt); setKnown(null); if (/^\d{8,24}$/.test($('bc').value.trim())) dbt = setTimeout(lookup, 450); });
     $('bc').addEventListener('change', lookup);
+    $('mio-cod').addEventListener('click', function () {   // un codice interno nuovo (2999…): va nel campo, l'etichetta si può salvare subito
+      var b = $('mio-cod'), nome = $('pr').value.trim(); b.disabled = true;
+      api('POST', 'api/codici/nuovo', { nome: nome }).then(function (v) {
+        $('bc').value = v.codice; setKnown(null); lookup();
+        toast('Codice creato: ' + v.codice);
+        if (window.mostraEtichetta) window.mostraEtichetta(v.codice, v.nome || nome);
+      }).catch(function (e) { toast('Codice non creato: ' + e.message, true); }).then(function () { b.disabled = false; });
+    });
     $('file').addEventListener('change', function () {
       var f = $('file').files[0]; if (!f) return;
       resizeImage(f).then(function (b) { st.fotoBlob = b; var p = $('prev'); p.src = URL.createObjectURL(b); p.hidden = false; aggiornaFotoBtn(); });

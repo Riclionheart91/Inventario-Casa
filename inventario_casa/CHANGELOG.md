@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.25.0
+- I miei codici a barre: in Movimento il pulsante «Crea un mio codice» genera un EAN-13 interno che inizia per 2999 (cifra di controllo corretta), diverso da ogni codice già nel foglio, mai ripetuto e mai cercato online né inviato a Open Food Facts.
+- Etichetta del codice con il nome sotto, da salvare come immagine o condividere/stampare; la fotocamera dell'app la legge come un codice normale.
+- Impostazioni → «I miei codici»: elenco dei codici creati (nome modificabile, stato, etichetta) e «Collega a un prodotto» per farlo valere come alias di un prodotto già nel catalogo.
+
 ## 0.24.1
 - Corretto un errore della 0.24.0 che impediva all'app di avviarsi: la funzione della sola lettura richiamava se stessa all'infinito.
 
