@@ -2,7 +2,9 @@
 import base64
 import re
 
+from .codici import MieiCodici, e_mio
 from .etichetta import etichetta_png
+from .service import nbc
 
 TESTA = 96        # punti della testina (rotolo 12 mm a 203 DPI)
 LUNGHEZZA = 280   # punti stampabili lungo l'etichetta da 40 mm
@@ -20,13 +22,17 @@ def posizione(giacenze) -> str:
 def registra(app, ctx) -> None:
     from fastapi import Header, HTTPException
 
+    mc = MieiCodici()
+
     @app.get("/api/etichetta/{barcode}")
     def etichetta(barcode: str, x_code: str = Header(None)):
         """L'etichetta del prodotto come PNG (in base64): da salvare/condividere o da mandare alla stampante."""
         ctx.check(x_code)
         sch = ctx.inv().scheda(barcode)
-        if not sch:
+        nome_mio = next((v["nome"] for v in mc.elenco() if nbc(v["codice"]) == nbc(barcode)), None) if e_mio(barcode) else None
+        if not sch and nome_mio is None:
             raise HTTPException(404, "Prodotto non trovato")
+        sch = sch or {"barcode": barcode, "nome": nome_mio, "giacenze": []}   # un mio codice non ancora usato ha solo il nome dato alla creazione
         cifre = re.sub(r"\D", "", str(sch["barcode"]))
         if not 1 <= len(cifre) <= 41:
             raise HTTPException(400, "Codice non adatto a un QR")

@@ -837,10 +837,6 @@
         var sb = el('button', 'btn ghost mio-cod', 'Etichetta per la stampante'); sb.type = 'button';
         sb.addEventListener('click', function () { window.mostraEtichettaStampante(String(p.barcode), api, toast); }); t.appendChild(sb);
       }
-      if (window.eanValido && /^2999\d{9}$/.test(String(p.barcode)) && window.eanValido(String(p.barcode))) {   // codice mio: si può ristampare l'etichetta
-        var eb = el('button', 'btn ghost mio-cod', 'Stampa di nuovo l\'etichetta'); eb.type = 'button';
-        eb.addEventListener('click', function () { window.mostraEtichetta(String(p.barcode), p.nome || ''); }); t.appendChild(eb);
-      }
       head.appendChild(im); head.appendChild(t); box.appendChild(head);
       /* percorso: categoria › sottocategoria, tipo */
       var pills = el('div', 'pills');
@@ -2035,7 +2031,7 @@
       api('POST', 'api/codici/nuovo', { nome: nome }).then(function (v) {
         $('bc').value = v.codice; setKnown(null); lookup();
         toast('Codice creato: ' + v.codice);
-        if (window.mostraEtichetta) window.mostraEtichetta(v.codice, v.nome || nome);
+        if (window.mostraEtichettaStampante) window.mostraEtichettaStampante(v.codice, api, toast);
       }).catch(function (e) { toast('Codice non creato: ' + e.message, true); }).then(function () { b.disabled = false; });
     });
     $('file').addEventListener('change', function () {

@@ -125,7 +125,7 @@
             if (!armato) { armato = true; el_.textContent = 'Tocca ancora per eliminare'; r.appendChild(el('p', 'm cod-avviso', 'Il codice sparisce dall\'elenco e non verrà mai riusato: le etichette già stampate non varranno più.')); setTimeout(function () { armato = false; el_.textContent = 'Elimina'; var w = r.querySelector('.cod-avviso'); if (w) w.remove(); }, 6000); return; }
             el_.disabled = true; api('POST', 'api/codici/elimina', { codice: v.codice }).then(function () { toast('Codice eliminato.'); carica(); }).catch(function (e) { toast('Non eliminato: ' + e.message, true); el_.disabled = false; armato = false; el_.textContent = 'Elimina'; });
           });
-          et.addEventListener('click', function () { window.mostraEtichetta(v.codice, nm.value.trim()); });
+          et.addEventListener('click', function () { window.mostraEtichettaStampante(v.codice, api, toast); });
           var area = el('div', 'cod-coll'); area.hidden = true; r.appendChild(area);
           co.addEventListener('click', function () {
             area.hidden = !area.hidden; if (area.hidden) return; area.textContent = '';
@@ -143,7 +143,7 @@
     }
     nuovo.addEventListener('click', function () {
       nuovo.disabled = true;
-      api('POST', 'api/codici/nuovo', { nome: nome.value.trim() }).then(function (v) { nome.value = ''; toast('Codice creato.'); carica(); window.mostraEtichetta(v.codice, v.nome); })
+      api('POST', 'api/codici/nuovo', { nome: nome.value.trim() }).then(function (v) { nome.value = ''; toast('Codice creato.'); carica(); window.mostraEtichettaStampante(v.codice, api, toast); })
         .catch(function (e) { toast('Non creato: ' + e.message, true); }).then(function () { nuovo.disabled = false; });
     });
     carica();
