@@ -1,3 +1,6 @@
+## 0.27.1
+- Pagina di configurazione riordinata in 8 sezioni numerate (Foglio e accesso, Stampante, Scadenze, Arricchimento, AI e voce, e le facoltative) con nomi chiari e descrizioni brevi in italiano. I nomi interni delle opzioni non cambiano: i valori già impostati restano.
+
 # Changelog
 
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.

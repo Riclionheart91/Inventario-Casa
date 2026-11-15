@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.27.0"
+version: "0.27.1"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
@@ -19,27 +19,29 @@ ports_description:
 boot: auto
 options:
   sheet_id: ""
-  crea_foglio: false
-  condividi_con: ""
-  drive_folder_id: ""
   service_account_json: ""
   shared_code: ""
   sola_lettura: true
   url_sicuro: ""
-  shortcut_spesa: "Spesa AppSheet"
-  arricchimento_notturno: false
-  arricchimento_ora: "03:00"
-  arricchimento_max: 60
-  traduzione_all_avvio: false
-  arricchimento_all_avvio: false
+  crea_foglio: false
+  condividi_con: ""
+  drive_folder_id: ""
+  stampante_url: ""
+  stampante_token: ""
   scadenza_notifica: ""
   scadenza_giorni: 7
   scadenza_ora: "08:00"
-  voce_token: ""
+  arricchimento_notturno: false
+  arricchimento_ora: "03:00"
+  arricchimento_max: 60
+  arricchimento_all_avvio: false
+  traduzione_all_avvio: false
   gemini_api_key: ""
   gemini_modello: ""
   gemini_modello_riserva: ""
   gemini_modello_potente: ""
+  voce_token: ""
+  shortcut_spesa: "Spesa AppSheet"
   brave_search_key: ""
   serper_key: ""
   tavily_key: ""
@@ -48,42 +50,42 @@ options:
   barcodelookup_key: ""
   upcdatabase_key: ""
   goupc_token: ""
-  spoonacular_key: ""
-  nutritionix_app_id: ""
-  nutritionix_app_key: ""
-  edamam_app_id: ""
-  edamam_app_key: ""
   icecat_shop: ""
   icecat_api_token: ""
   gs1_api_url: ""
   gs1_api_key: ""
   google_books_key: ""
   openfda_key: ""
-  stampante_url: ""
-  stampante_token: ""
+  spoonacular_key: ""
+  nutritionix_app_id: ""
+  nutritionix_app_key: ""
+  edamam_app_id: ""
+  edamam_app_key: ""
 schema:
   sheet_id: str?
-  crea_foglio: bool?
-  condividi_con: str?
-  drive_folder_id: str?
   service_account_json: password
   shared_code: password?
   sola_lettura: bool
   url_sicuro: str?
-  shortcut_spesa: str?
-  arricchimento_notturno: bool
-  arricchimento_ora: str?
-  arricchimento_max: int?
-  traduzione_all_avvio: bool?
-  arricchimento_all_avvio: bool?
+  crea_foglio: bool?
+  condividi_con: str?
+  drive_folder_id: str?
+  stampante_url: str?
+  stampante_token: password?
   scadenza_notifica: str?
   scadenza_giorni: int?
   scadenza_ora: str?
-  voce_token: password?
+  arricchimento_notturno: bool
+  arricchimento_ora: str?
+  arricchimento_max: int?
+  arricchimento_all_avvio: bool?
+  traduzione_all_avvio: bool?
   gemini_api_key: password?
   gemini_modello: str?
   gemini_modello_riserva: str?
   gemini_modello_potente: str?
+  voce_token: password?
+  shortcut_spesa: str?
   brave_search_key: password?
   serper_key: password?
   tavily_key: password?
@@ -92,16 +94,14 @@ schema:
   barcodelookup_key: password?
   upcdatabase_key: password?
   goupc_token: password?
-  spoonacular_key: password?
-  nutritionix_app_id: str?
-  nutritionix_app_key: password?
-  edamam_app_id: str?
-  edamam_app_key: password?
   icecat_shop: str?
   icecat_api_token: password?
   gs1_api_url: str?
   gs1_api_key: password?
   google_books_key: password?
   openfda_key: password?
-  stampante_url: str?
-  stampante_token: password?
+  spoonacular_key: password?
+  nutritionix_app_id: str?
+  nutritionix_app_key: password?
+  edamam_app_id: str?
+  edamam_app_key: password?

@@ -1,0 +1,19 @@
+configuration:
+  mac:
+    name: "Indirizzo Bluetooth della X1"
+    description: "Es. 03:03:9D:6F:D9:AC."
+  token:
+    name: "Codice condiviso"
+    description: "Almeno 8 caratteri: lo stesso va in Inventario Casa → «Codice della stampante»."
+  porta:
+    name: "Porta del servizio"
+    description: "Predefinita 8770."
+  offset:
+    name: "Posizione di stampa"
+    description: "Punti (1 ≈ 0,125 mm). Predefinito 9: cambialo solo se l'etichetta è spostata."
+  modo:
+    name: "Modo"
+    description: "servizio = uso normale. Gli altri due sono solo prove."
+  canale:
+    name: "Canale Bluetooth"
+    description: "Di solito 1."

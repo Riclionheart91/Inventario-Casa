@@ -3,6 +3,10 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+
+## 0.27.1
+- Pagina di configurazione riordinata in 8 sezioni numerate (Foglio e accesso, Stampante, Scadenze, Arricchimento, AI e voce, e le facoltative) con nomi chiari e descrizioni brevi in italiano. I nomi interni delle opzioni non cambiano: i valori già impostati restano.
+
 ## 0.27.0
 - Stampa diretta dell'etichetta sulla ORGBRO X1: nella schermata «Etichetta per la stampante» compare «Stampa con la X1» (se la stampante è configurata). L'add-on compone l'etichetta (QR + nome + posizione) e la manda al nuovo add-on «Stampa Etichette» di Home Assistant.
 - Nuove opzioni `stampante_url` (di solito `http://homeassistant:8770`) e `stampante_token` (lo stesso codice impostato in «Stampa Etichette»).

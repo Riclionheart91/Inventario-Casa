@@ -1,0 +1,112 @@
+configuration:
+  sheet_id:
+    name: "1 · Foglio e accesso — ID del foglio Google"
+    description: "Lascia vuoto se fai creare il foglio all'app (vedi «Crea il foglio»)."
+  service_account_json:
+    name: "Chiave del service account"
+    description: "Il JSON del service account Google che legge e scrive il foglio."
+  shared_code:
+    name: "Codice di accesso famiglia"
+    description: "Serve per l'accesso diretto (porta 8099) dai telefoni di casa."
+  sola_lettura:
+    name: "Sola lettura"
+    description: "Acceso: l'app non scrive nulla sul foglio. Spegnilo solo per registrare movimenti."
+  url_sicuro:
+    name: "Indirizzo sicuro (https)"
+    description: "Serve alla fotocamera per leggere i codici a barre fuori da Home Assistant."
+  crea_foglio:
+    name: "Crea il foglio"
+    description: "Acceso e senza ID: all'avvio crea «Inventario Casa» su Drive. Poi copia l'ID e spegnilo."
+  condividi_con:
+    name: "Condividi il foglio con"
+    description: "Il tuo indirizzo Google: lo vede e lo modifica come editor."
+  drive_folder_id:
+    name: "Cartella Drive del foglio"
+    description: "Facoltativo: cartella dove creare il foglio."
+  stampante_url:
+    name: "2 · Stampante X1 — Indirizzo della stampante"
+    description: "Di solito http://homeassistant:8770 (add-on «Stampa Etichette»). Vuoto = stampa disattivata."
+  stampante_token:
+    name: "Codice della stampante"
+    description: "Lo stesso codice impostato in «Stampa Etichette» (almeno 8 caratteri)."
+  scadenza_notifica:
+    name: "3 · Scadenze — Notifica scadenze: servizio"
+    description: "Servizio notify del telefono, es. mobile_app_il_mio_telefono. Vuoto = nessuna notifica."
+  scadenza_giorni:
+    name: "Avvisa quanti giorni prima"
+    description: "Giorni di anticipo (predefinito 7)."
+  scadenza_ora:
+    name: "Ora dell'avviso"
+    description: "Formato 08:00 (ora italiana)."
+  arricchimento_notturno:
+    name: "4 · Arricchimento prodotti — Arricchimento notturno"
+    description: "Riempie i campi vuoti dei prodotti (foto, categoria, dati) di notte. Richiede sola lettura spenta."
+  arricchimento_ora:
+    name: "Ora dell'arricchimento"
+    description: "Formato 03:00."
+  arricchimento_max:
+    name: "Prodotti per notte"
+    description: "Massimo di prodotti elaborati ogni notte (predefinito 60)."
+  arricchimento_all_avvio:
+    name: "Arricchisci all'avvio"
+    description: "Lancia l'arricchimento a ogni avvio dell'add-on."
+  traduzione_all_avvio:
+    name: "Traduci all'avvio"
+    description: "Traduce in italiano i nomi dei prodotti a ogni avvio."
+  gemini_api_key:
+    name: "5 · AI e voce — Chiave Gemini"
+    description: "Accende l'intelligenza artificiale. Vuota = AI spenta."
+  gemini_modello:
+    name: "Gemini: modello leggero"
+    description: "Vuoto = quello predefinito."
+  gemini_modello_riserva:
+    name: "Gemini: modello di riserva"
+    description: "Vuoto = quello predefinito."
+  gemini_modello_potente:
+    name: "Gemini: modello potente"
+    description: "Facoltativo: per ricerche sul web e compiti più complessi."
+  voce_token:
+    name: "Parola d'ordine per la voce"
+    description: "Accende le risposte per l'assistente vocale (/voce/...)."
+  shortcut_spesa:
+    name: "Comando rapido «Spesa»"
+    description: "Nome del comando rapido iOS da avviare (predefinito «Spesa AppSheet»)."
+  brave_search_key:
+    name: "6 · Ricerca sul web (facoltativa) — Brave Search: chiave"
+  serper_key:
+    name: "Serper: chiave"
+  tavily_key:
+    name: "Tavily: chiave"
+  off_utente:
+    name: "7 · Banche dati prodotti (facoltative) — Open Food Facts: utente"
+  off_password:
+    name: "Open Food Facts: password"
+    description: "Resta solo sul server, mai nell'app."
+  barcodelookup_key:
+    name: "Barcode Lookup: chiave"
+  upcdatabase_key:
+    name: "UPC Database: chiave"
+  goupc_token:
+    name: "Go-UPC: token"
+  icecat_shop:
+    name: "Icecat: nome negozio"
+  icecat_api_token:
+    name: "Icecat: token"
+  gs1_api_url:
+    name: "GS1: indirizzo API"
+  gs1_api_key:
+    name: "GS1: chiave"
+  google_books_key:
+    name: "Google Libri: chiave"
+  openfda_key:
+    name: "openFDA: chiave"
+  spoonacular_key:
+    name: "8 · Ricette e nutrizione (facoltative) — Spoonacular: chiave"
+  nutritionix_app_id:
+    name: "Nutritionix: ID app"
+  nutritionix_app_key:
+    name: "Nutritionix: chiave"
+  edamam_app_id:
+    name: "Edamam: ID app"
+  edamam_app_key:
+    name: "Edamam: chiave"

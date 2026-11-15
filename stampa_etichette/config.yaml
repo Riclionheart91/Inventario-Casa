@@ -1,5 +1,5 @@
 name: "Stampa Etichette"
-version: "0.3.0"
+version: "0.3.1"
 image: "ghcr.io/riclionheart91/{arch}-addon-stampa-etichette"
 slug: stampa_etichette
 description: "Stampa le etichette dell'inventario sulla ORGBRO X1 via Bluetooth (servizio locale)"
@@ -10,15 +10,15 @@ boot: auto
 host_network: true
 options:
   mac: "03:03:9D:6F:D9:AC"
-  canale: 1
-  modo: "servizio"
-  porta: 8770
   token: ""
+  porta: 8770
   offset: 9
+  modo: "servizio"
+  canale: 1
 schema:
   mac: str
-  canale: int
-  modo: list(servizio|connessione|stampa_prova)
-  porta: port
   token: password
+  porta: port
   offset: int(0,64)
+  modo: list(servizio|connessione|stampa_prova)
+  canale: int

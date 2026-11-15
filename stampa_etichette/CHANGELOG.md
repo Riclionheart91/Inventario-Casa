@@ -1,3 +1,6 @@
+## 0.3.1
+- Opzioni riordinate con nomi e descrizioni in italiano.
+
 ## 0.3.0
 - Nuovo modo `servizio` (predefinito): resta attivo e stampa le etichette PNG 280 x 96 che gli arrivano dalla rete locale, con codice condiviso (`token`) e una stampa alla volta.
 - Parte da solo all'avvio di Home Assistant.
