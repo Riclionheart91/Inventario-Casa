@@ -46,17 +46,17 @@
   function formatta(c) { return c ? c[0] + ' ' + c.slice(1, 7) + ' ' + c.slice(7) : ''; }
 
   /* foglio con l'etichetta: anteprima, salva immagine, condividi */
-  window.mostraEtichetta = function (codice, nome) {
-    if (!valido(String(codice))) return;
+  function foglioEtichetta(codice, titolo, testo, alt, sorgente) {   // sorgente: canvas oppure Blob PNG già pronto
     var old = document.getElementById('etichetta'); if (old) old.remove();
     var ov = el('div'); ov.id = 'etichetta'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
-    var bar = el('div', 'sc-bar'), x = el('button', 'sq', '←'); x.type = 'button'; x.setAttribute('aria-label', 'Chiudi'); bar.appendChild(x); bar.appendChild(el('b', '', 'Etichetta del codice'));
+    var bar = el('div', 'sc-bar'), x = el('button', 'sq', '←'); x.type = 'button'; x.setAttribute('aria-label', 'Chiudi'); bar.appendChild(x); bar.appendChild(el('b', '', titolo));
     var corpo = el('div', 'sc-body etic-corpo'), foot = el('div', 'sc-foot');
     ov.appendChild(bar); ov.appendChild(corpo); ov.appendChild(foot); document.body.appendChild(ov);
-    var cv = disegna(String(codice), nome || ''), img = el('img', 'etic-img'); img.alt = 'Codice a barre ' + codice;
-    corpo.appendChild(img); corpo.appendChild(el('p', 'm', 'Codice ' + formatta(String(codice)) + '. Stampala o attaccala sul prodotto: la fotocamera dell\'app la legge come un codice normale.'));
+    var img = el('img', 'etic-img'); img.alt = alt;
+    corpo.appendChild(img); corpo.appendChild(el('p', 'm', testo));
     var nomeFile = 'etichetta-' + codice + '.png', blob = null;
-    cv.toBlob(function (b) { blob = b; if (b) img.src = URL.createObjectURL(b); }, 'image/png');
+    if (sorgente.toBlob) sorgente.toBlob(function (b) { blob = b; if (b) img.src = URL.createObjectURL(b); }, 'image/png');
+    else { blob = sorgente; img.src = URL.createObjectURL(sorgente); }
     var salva = el('button', 'btn primary', 'Salva immagine'), cond = el('button', 'btn', 'Condividi / Stampa');
     [salva, cond].forEach(function (b) { b.type = 'button'; foot.appendChild(b); });
     var esito = el('p', 'm', ''); corpo.appendChild(esito);
@@ -84,6 +84,19 @@
     });
     cond.addEventListener('click', function () { if (blob) copia(); });
     x.addEventListener('click', function () { ov.remove(); });
+  }
+  window.mostraEtichetta = function (codice, nome) {
+    if (!valido(String(codice))) return;
+    foglioEtichetta(codice, 'Etichetta del codice', 'Codice ' + formatta(String(codice)) + '. Stampala o attaccala sul prodotto: la fotocamera dell\'app la legge come un codice normale.', 'Codice a barre ' + codice, disegna(String(codice), nome || ''));
+  };
+
+  /* etichetta per la stampante termica (12 x 40 mm): la compone il server (QR + nome + posizione) */
+  window.mostraEtichettaStampante = function (barcode, api, toast) {
+    api('GET', 'api/etichetta/' + encodeURIComponent(barcode)).then(function (r) {
+      var bin = atob(r.png), a = new Uint8Array(bin.length), i; for (i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+      var blob = new Blob([a], { type: 'image/png' });
+      foglioEtichetta(r.barcode, 'Etichetta per la stampante', 'Per il rotolo da 12 × 40 mm (203 DPI). Il QR contiene il codice ' + r.barcode + ': l\'app lo legge con la fotocamera. Salvala in Foto e importala in XeasyLabel.', 'Etichetta di ' + (r.nome || r.barcode), blob);
+    }).catch(function (e) { toast('Etichetta non creata: ' + e.message, true); });
   };
 
   /* schermata «I miei codici» nelle Impostazioni */

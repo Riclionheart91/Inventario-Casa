@@ -227,3 +227,4 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 .cod-coll{display:flex;flex-direction:column;gap:8px;margin-top:4px}
 .btn.danger{color:#ff453a}
 .sc-tit .mio-cod{margin-top:8px}
+.etic-img{image-rendering:pixelated}

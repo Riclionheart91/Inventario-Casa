@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.26.0
+- Etichetta per la stampante termica (rotolo pretagliato 12 × 40 mm, 203 DPI): dalla scheda di ogni prodotto, pulsante «Etichetta per la stampante». L'immagine ha un QR con il codice a barre del prodotto (si legge con la fotocamera dell'app), il nome e la posizione. Si salva o si condivide, poi si importa in XeasyLabel.
+- Il QR è generato dall'add-on (nessuna libreria in più per il QR); l'immagine usa Pillow e un font, aggiunti all'immagine dell'add-on.
+- Nuovo endpoint `/api/etichetta/<codice>`: base per una futura stampa diretta via Bluetooth.
+
 ## 0.25.2
 - I miei codici: pulsante «Elimina» (due tocchi per confermare). Il codice sparisce dall'elenco e non viene mai riusato; se un prodotto lo usa, prima va collegato a un altro o tolto dal catalogo.
 - Scheda prodotto con codice personale (2999…): pulsante «Stampa di nuovo l'etichetta».

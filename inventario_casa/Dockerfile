@@ -1,6 +1,6 @@
 ARG BUILD_FROM=ghcr.io/home-assistant/base:latest
 FROM ${BUILD_FROM}
-RUN apk add --no-cache python3 py3-pip
+RUN apk add --no-cache python3 py3-pip py3-pillow font-dejavu
 WORKDIR /srv
 COPY requirements.txt .
 RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
