@@ -67,6 +67,18 @@ def registra(app, ctx) -> None:
             raise HTTPException(404, "Codice non trovato")
         return {"ok": True}
 
+    @app.post("/api/codici/elimina")
+    def codici_elimina(m: Nome, x_code: str = Header(None)):
+        """Toglie il codice dall'elenco (mai riusato). Se c'e un prodotto con questo codice non si puo: prima va tolto o unito."""
+        ctx.check(x_code)
+        if not e_mio(m.codice):
+            raise HTTPException(404, "Codice non trovato")
+        if ctx.inv().prodotto(m.codice) is not None:
+            raise HTTPException(409, "Questo codice è usato da un prodotto: collegalo a un altro prodotto o eliminalo prima dal catalogo.")
+        if not mc.elimina(m.codice):
+            raise HTTPException(404, "Codice non trovato")
+        return {"ok": True}
+
     @app.post("/api/codici/collega")
     def codici_collega(m: Collega, x_code: str = Header(None)):
         """Il mio codice diventa un alias di un prodotto che esiste gia: scansionandolo si apre quel prodotto."""

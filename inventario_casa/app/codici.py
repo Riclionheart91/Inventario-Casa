@@ -83,6 +83,17 @@ class MieiCodici:
             self._salva(d)
             return voce
 
+    def elimina(self, codice: str) -> bool:
+        """Toglie il codice dall'elenco. Il contatore NON torna indietro: lo stesso codice non verra mai ricreato."""
+        with self._lock:
+            d = self._carica()
+            resto = [x for x in d.get("codici", []) if x["codice"] != codice]
+            if len(resto) == len(d.get("codici", [])):
+                return False
+            d["codici"] = resto
+            self._salva(d)
+            return True
+
     def rinomina(self, codice: str, nome: str) -> bool:
         with self._lock:
             d = self._carica()

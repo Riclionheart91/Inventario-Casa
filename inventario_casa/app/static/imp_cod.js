@@ -105,8 +105,13 @@
           r.appendChild(nm);
           r.appendChild(el('div', 'cod-num', formatta(v.codice)));
           r.appendChild(el('div', 'm', v.alias_di ? 'Vale lo stesso prodotto del codice ' + v.alias_di : v.nel_catalogo ? 'In uso: ' + (v.prodotto || 'prodotto') : 'Non ancora usato in Movimento'));
-          var bt = el('div', 'btns'), et = el('button', 'btn primary', 'Etichetta'), co = el('button', 'btn', 'Collega a un prodotto');
-          [et, co].forEach(function (b) { b.type = 'button'; bt.appendChild(b); }); r.appendChild(bt);
+          var bt = el('div', 'btns'), et = el('button', 'btn primary', 'Etichetta'), co = el('button', 'btn', 'Collega a un prodotto'), el_ = el('button', 'btn danger', 'Elimina');
+          [et, co, el_].forEach(function (b) { b.type = 'button'; bt.appendChild(b); }); r.appendChild(bt);
+          var armato = false;   // due tocchi invece di una finestra di conferma (che alcune app non mostrano)
+          el_.addEventListener('click', function () {
+            if (!armato) { armato = true; el_.textContent = 'Tocca ancora per eliminare'; r.appendChild(el('p', 'm cod-avviso', 'Il codice sparisce dall\'elenco e non verrà mai riusato: le etichette già stampate non varranno più.')); setTimeout(function () { armato = false; el_.textContent = 'Elimina'; var w = r.querySelector('.cod-avviso'); if (w) w.remove(); }, 6000); return; }
+            el_.disabled = true; api('POST', 'api/codici/elimina', { codice: v.codice }).then(function () { toast('Codice eliminato.'); carica(); }).catch(function (e) { toast('Non eliminato: ' + e.message, true); el_.disabled = false; armato = false; el_.textContent = 'Elimina'; });
+          });
           et.addEventListener('click', function () { window.mostraEtichetta(v.codice, nm.value.trim()); });
           var area = el('div', 'cod-coll'); area.hidden = true; r.appendChild(area);
           co.addEventListener('click', function () {

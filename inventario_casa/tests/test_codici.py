@@ -41,3 +41,14 @@ class TCodici(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestElimina(unittest.TestCase):
+    def test_elimina_non_riusa(self):
+        with tempfile.TemporaryDirectory() as d:
+            m = C.MieiCodici(os.path.join(d, "m.json"))
+            a = m.nuovo("A")["codice"]
+            self.assertTrue(m.elimina(a))
+            self.assertFalse(m.elimina(a))
+            self.assertEqual(m.elenco(), [])
+            self.assertNotEqual(m.nuovo("B")["codice"], a)

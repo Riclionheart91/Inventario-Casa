@@ -832,6 +832,10 @@
       t.appendChild(h2);
       var m = [p.marca, p.confezione].filter(Boolean).join(' · '); if (m) t.appendChild(el('div', 'sc-marca', m));
       t.appendChild(el('div', 'sc-cod', 'Codice ' + p.barcode));
+      if (window.eanValido && /^2999\d{9}$/.test(String(p.barcode)) && window.eanValido(String(p.barcode))) {   // codice mio: si può ristampare l'etichetta
+        var eb = el('button', 'btn ghost mio-cod', 'Stampa di nuovo l\'etichetta'); eb.type = 'button';
+        eb.addEventListener('click', function () { window.mostraEtichetta(String(p.barcode), p.nome || ''); }); t.appendChild(eb);
+      }
       head.appendChild(im); head.appendChild(t); box.appendChild(head);
       /* percorso: categoria › sottocategoria, tipo */
       var pills = el('div', 'pills');

@@ -225,3 +225,5 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 .cod-voce{display:flex;flex-direction:column;gap:6px}
 .cod-num{font-family:ui-monospace,Menlo,monospace;font-size:17px;letter-spacing:.5px}
 .cod-coll{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.btn.danger{color:#ff453a}
+.sc-tit .mio-cod{margin-top:8px}

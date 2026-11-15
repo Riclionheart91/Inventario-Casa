@@ -3,6 +3,10 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.25.2
+- I miei codici: pulsante «Elimina» (due tocchi per confermare). Il codice sparisce dall'elenco e non viene mai riusato; se un prodotto lo usa, prima va collegato a un altro o tolto dal catalogo.
+- Scheda prodotto con codice personale (2999…): pulsante «Stampa di nuovo l'etichetta».
+
 ## 0.25.1
 - Etichetta dei miei codici: «Salva / Condividi» apre la condivisione di sistema (Salva immagine, AirDrop, Stampa) invece di un download che l'app Mac bloccava; aggiunto «Copia immagine».
 
