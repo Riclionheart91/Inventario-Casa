@@ -107,4 +107,7 @@ def main():
 
 
 if __name__ == "__main__":
+    if MODO == "servizio":
+        from .servizio import main as servizio
+        sys.exit(servizio())
     sys.exit(main())

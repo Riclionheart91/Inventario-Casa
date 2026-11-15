@@ -3,6 +3,11 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.27.0
+- Stampa diretta dell'etichetta sulla ORGBRO X1: nella schermata «Etichetta per la stampante» compare «Stampa con la X1» (se la stampante è configurata). L'add-on compone l'etichetta (QR + nome + posizione) e la manda al nuovo add-on «Stampa Etichette» di Home Assistant.
+- Nuove opzioni `stampante_url` (di solito `http://homeassistant:8770`) e `stampante_token` (lo stesso codice impostato in «Stampa Etichette»).
+- Nuovo endpoint `POST /api/stampa/<codice>`; l'etichetta dei miei codici passa dallo stesso percorso.
+
 ## 0.26.1
 - I miei codici (2999…) usano la stessa etichetta con QR dei prodotti, anche se il codice non è ancora un prodotto (il nome è quello dato alla creazione). Tolto il pulsante doppione sulla scheda.
 

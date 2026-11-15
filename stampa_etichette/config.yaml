@@ -1,20 +1,24 @@
 name: "Stampa Etichette"
-version: "0.2.1"
+version: "0.3.0"
 image: "ghcr.io/riclionheart91/{arch}-addon-stampa-etichette"
 slug: stampa_etichette
-description: "Prove di connessione e di stampa Bluetooth Classic per la stampante di etichette ORGBRO X1"
+description: "Stampa le etichette dell'inventario sulla ORGBRO X1 via Bluetooth (servizio locale)"
 arch: [amd64, aarch64]
 init: false
-startup: once
-boot: manual
+startup: application
+boot: auto
 host_network: true
 options:
   mac: "03:03:9D:6F:D9:AC"
   canale: 1
-  modo: "connessione"
+  modo: "servizio"
+  porta: 8770
+  token: ""
   offset: 9
 schema:
   mac: str
   canale: int
-  modo: list(connessione|stampa_prova)
+  modo: list(servizio|connessione|stampa_prova)
+  porta: port
+  token: password
   offset: int(0,64)

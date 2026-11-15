@@ -1,3 +1,7 @@
+## 0.3.0
+- Nuovo modo `servizio` (predefinito): resta attivo e stampa le etichette PNG 280 x 96 che gli arrivano dalla rete locale, con codice condiviso (`token`) e una stampa alla volta.
+- Parte da solo all'avvio di Home Assistant.
+
 ## 0.2.1
 - Nel registro compaiono tutte le risposte della stampante (in esadecimale), dopo ogni blocco di dati e dopo l'invio.
 - Dopo l'invio resta collegata per 8 secondi invece di chiudere subito.

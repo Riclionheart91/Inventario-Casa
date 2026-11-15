@@ -19,15 +19,34 @@ def posizione(giacenze) -> str:
     return ", ".join(luoghi[:2]) + ("…" if len(luoghi) > 2 else "")
 
 
+def manda_a_stampante(png: bytes, url: str, token: str, timeout: float = 70.0) -> None:
+    """Spedisce l'etichetta al servizio «Stampa Etichette» (rete locale). Solleva RuntimeError con un messaggio leggibile."""
+    import json
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(url.rstrip("/") + "/stampa", data=png, method="POST",
+                                 headers={"X-Token": token, "Content-Type": "image/png"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            r.read()
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.loads(e.read()).get("errore", "")
+        except Exception:
+            msg = ""
+        raise RuntimeError(msg or "Il servizio di stampa ha risposto con l'errore %s" % e.code)
+    except (urllib.error.URLError, OSError) as e:
+        raise RuntimeError("Il servizio di stampa non è raggiungibile (%s): controlla che «Stampa Etichette» sia avviato e l'indirizzo nelle opzioni." % getattr(e, "reason", e))
+
+
 def registra(app, ctx) -> None:
+    import os
     from fastapi import Header, HTTPException
 
     mc = MieiCodici()
 
-    @app.get("/api/etichetta/{barcode}")
-    def etichetta(barcode: str, x_code: str = Header(None)):
-        """L'etichetta del prodotto come PNG (in base64): da salvare/condividere o da mandare alla stampante."""
-        ctx.check(x_code)
+    def componi(barcode):
+        """(png, cifre, nome, posizione) dell'etichetta di un prodotto o di un mio codice."""
         sch = ctx.inv().scheda(barcode)
         nome_mio = next((v["nome"] for v in mc.elenco() if nbc(v["codice"]) == nbc(barcode)), None) if e_mio(barcode) else None
         if not sch and nome_mio is None:
@@ -41,5 +60,30 @@ def registra(app, ctx) -> None:
             png = etichetta_png(cifre, sch.get("nome") or cifre, pos, TESTA, LUNGHEZZA)
         except ImportError:
             raise HTTPException(503, "Manca la libreria di disegno (Pillow) nell'add-on: aggiornalo all'ultima versione.")
-        return {"png": base64.b64encode(png).decode("ascii"), "barcode": cifre, "nome": sch.get("nome") or "",
-                "posizione": pos, "testa": TESTA, "lunghezza": LUNGHEZZA}
+        return png, cifre, sch.get("nome") or "", pos
+
+    def stampante():
+        return os.environ.get("STAMPANTE_URL", "").strip(), os.environ.get("STAMPANTE_TOKEN", "")
+
+    @app.get("/api/etichetta/{barcode}")
+    def etichetta(barcode: str, x_code: str = Header(None)):
+        """L'etichetta del prodotto come PNG (in base64): da salvare/condividere o da mandare alla stampante."""
+        ctx.check(x_code)
+        png, cifre, nome, pos = componi(barcode)
+        url, tok = stampante()
+        return {"png": base64.b64encode(png).decode("ascii"), "barcode": cifre, "nome": nome,
+                "posizione": pos, "testa": TESTA, "lunghezza": LUNGHEZZA, "stampante": bool(url and tok)}
+
+    @app.post("/api/stampa/{barcode}")
+    def stampa(barcode: str, x_code: str = Header(None)):
+        """Stampa l'etichetta sulla X1 tramite il servizio «Stampa Etichette» di Home Assistant."""
+        ctx.check(x_code)
+        url, tok = stampante()
+        if not (url and tok):
+            raise HTTPException(503, "Stampante non configurata: imposta stampante_url e stampante_token nelle opzioni dell'add-on.")
+        png, _cifre, _nome, _pos = componi(barcode)
+        try:
+            manda_a_stampante(png, url, tok)
+        except RuntimeError as e:
+            raise HTTPException(502, str(e))
+        return {"ok": True}

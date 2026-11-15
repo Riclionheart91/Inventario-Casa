@@ -73,7 +73,8 @@
     if (path.indexOf('api/off/confronti/applica') === 0) return { ok: true, avviato: 1 };
     if (path === 'api/impostazioni' && method === 'GET') return { schema: [{ k: 'tema', tipo: 'scelta', default: 'auto', opzioni: [['auto', 'Automatico'], ['scuro', 'Scuro'], ['chiaro', 'Chiaro']], sch: 'asp', et: 'Tema', desc: '' }, { k: 'ai_sospesa', tipo: 'bool', default: false, sch: 'ai', et: 'Sospendi l\'AI', desc: 'Ferma le chiamate a Gemini.' }, { k: 'scad_giorni', tipo: 'numero', default: 0, min: 0, max: 60, sch: 'avv', et: 'Giorni di anticipo', desc: '' }], valori: { tema: 'auto', ai_sospesa: false, scad_giorni: 0, testo: 'normale' } };
     if (path === 'api/impostazioni') return { valori: { tema: (body && body.valori && body.valori.tema) || 'auto', testo: 'normale' } };
-    if (/^api\/etichetta\//.test(path)) { var cvm = window.eanEtichetta ? window.eanEtichetta('2999738560932', 'Latte fresco intero') : null; return { png: cvm ? cvm.toDataURL('image/png').split(',')[1] : '', barcode: '2999738560932', nome: 'Latte fresco intero', posizione: 'Cantina', testa: 96, lunghezza: 280 }; }
+    if (/^api\/etichetta\//.test(path)) { var cvm = window.eanEtichetta ? window.eanEtichetta('2999738560932', 'Latte fresco intero') : null; return { png: cvm ? cvm.toDataURL('image/png').split(',')[1] : '', barcode: '2999738560932', nome: 'Latte fresco intero', posizione: 'Cantina', testa: 96, lunghezza: 280, stampante: true }; }
+    if (/^api\/stampa\//.test(path)) return { ok: true };
     if (path === 'api/codici' && method === 'GET') return [{ codice: '2999738560932', nome: 'Marmellata della nonna', creato: '2026-11-15 20:50', prodotto: '', nel_catalogo: false, alias_di: '', usato: false }];
     if (path === 'api/codici/nuovo') return { codice: '2999477121869', nome: (body && body.nome) || '', creato: '2026-11-15 20:51' };
     if (path.indexOf('api/codici/') === 0) return { ok: true };

@@ -46,7 +46,7 @@
   function formatta(c) { return c ? c[0] + ' ' + c.slice(1, 7) + ' ' + c.slice(7) : ''; }
 
   /* foglio con l'etichetta: anteprima, salva immagine, condividi */
-  function foglioEtichetta(codice, titolo, testo, alt, sorgente) {   // sorgente: canvas oppure Blob PNG già pronto
+  function foglioEtichetta(codice, titolo, testo, alt, sorgente, stampa) {   // stampa: funzione(bottone) che manda l'etichetta alla X1, oppure null   // sorgente: canvas oppure Blob PNG già pronto
     var old = document.getElementById('etichetta'); if (old) old.remove();
     var ov = el('div'); ov.id = 'etichetta'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
     var bar = el('div', 'sc-bar'), x = el('button', 'sq', '←'); x.type = 'button'; x.setAttribute('aria-label', 'Chiudi'); bar.appendChild(x); bar.appendChild(el('b', '', titolo));
@@ -57,7 +57,11 @@
     var nomeFile = 'etichetta-' + codice + '.png', blob = null;
     if (sorgente.toBlob) sorgente.toBlob(function (b) { blob = b; if (b) img.src = URL.createObjectURL(b); }, 'image/png');
     else { blob = sorgente; img.src = URL.createObjectURL(sorgente); }
-    var salva = el('button', 'btn primary', 'Salva immagine'), cond = el('button', 'btn', 'Condividi / Stampa');
+    var salva = el('button', 'btn', 'Salva immagine'), cond = el('button', 'btn', 'Condividi / Stampa');
+    if (stampa) {   // stampa diretta sulla X1 tramite il servizio di Home Assistant
+      var st = el('button', 'btn primary etic-stampa', 'Stampa con la X1'); st.type = 'button'; foot.appendChild(st);
+      st.addEventListener('click', function () { stampa(st); });
+    } else salva.className = 'btn primary';
     [salva, cond].forEach(function (b) { b.type = 'button'; foot.appendChild(b); });
     var esito = el('p', 'm', ''); corpo.appendChild(esito);
     function dì(t) { esito.textContent = t; }
@@ -95,7 +99,13 @@
     api('GET', 'api/etichetta/' + encodeURIComponent(barcode)).then(function (r) {
       var bin = atob(r.png), a = new Uint8Array(bin.length), i; for (i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
       var blob = new Blob([a], { type: 'image/png' });
-      foglioEtichetta(r.barcode, 'Etichetta per la stampante', 'Per il rotolo da 12 × 40 mm (203 DPI). Il QR contiene il codice ' + r.barcode + ': l\'app lo legge con la fotocamera. Salvala in Foto e importala in XeasyLabel.', 'Etichetta di ' + (r.nome || r.barcode), blob);
+      var stampa = !r.stampante ? null : function (b) {
+        b.disabled = true; var t0 = b.textContent; b.textContent = 'Stampo…';
+        api('POST', 'api/stampa/' + encodeURIComponent(barcode)).then(function () { toast('Etichetta inviata alla stampante.'); })
+          .catch(function (e) { toast('Non stampata: ' + e.message, true); })
+          .then(function () { b.disabled = false; b.textContent = t0; });
+      };
+      foglioEtichetta(r.barcode, 'Etichetta per la stampante', 'Per il rotolo da 12 × 40 mm (203 DPI). Il QR contiene il codice ' + r.barcode + ': l\'app lo legge con la fotocamera.' + (r.stampante ? ' «Stampa con la X1» la manda alla stampante collegata a Home Assistant (accesa e vicina al Raspberry).' : ' Salvala in Foto e importala in XeasyLabel, oppure collega la stampante nelle opzioni dell\'add-on.'), 'Etichetta di ' + (r.nome || r.barcode), blob, stampa);
     }).catch(function (e) { toast('Etichetta non creata: ' + e.message, true); });
   };
 

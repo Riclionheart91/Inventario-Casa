@@ -1,5 +1,5 @@
 name: "Inventario Casa"
-version: "0.26.1"
+version: "0.27.0"
 image: "ghcr.io/riclionheart91/{arch}-addon-inventario-casa"
 slug: inventario_casa
 description: "Interfaccia inventario dietro Home Assistant (foglio Google)"
@@ -59,6 +59,8 @@ options:
   gs1_api_key: ""
   google_books_key: ""
   openfda_key: ""
+  stampante_url: ""
+  stampante_token: ""
 schema:
   sheet_id: str?
   crea_foglio: bool?
@@ -101,3 +103,5 @@ schema:
   gs1_api_key: password?
   google_books_key: password?
   openfda_key: password?
+  stampante_url: str?
+  stampante_token: password?
