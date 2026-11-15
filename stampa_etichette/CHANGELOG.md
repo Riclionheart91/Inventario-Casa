@@ -1,3 +1,8 @@
+## 0.2.0
+- Nuovo modo `stampa_prova`: stampa una etichetta di prova (QR + testo) con il protocollo della X1. Il modo predefinito resta `connessione` (nessun dato inviato).
+- Opzione `offset` per la posizione di stampa. Aggiunti Pillow e un font all'immagine.
+- Test automatici del protocollo (`tests/`).
+
 ## 0.1.2
 - La prova ritenta per circa 40 secondi (fino a 8 giri), così non dipende dal momento in cui la stampante si sveglia.
 
