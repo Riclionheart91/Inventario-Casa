@@ -3,6 +3,9 @@
 Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
+## 0.25.1
+- Etichetta dei miei codici: «Salva / Condividi» apre la condivisione di sistema (Salva immagine, AirDrop, Stampa) invece di un download che l'app Mac bloccava; aggiunto «Copia immagine».
+
 ## 0.25.0
 - I miei codici a barre: in Movimento il pulsante «Crea un mio codice» genera un EAN-13 interno che inizia per 2999 (cifra di controllo corretta), diverso da ogni codice già nel foglio, mai ripetuto e mai cercato online né inviato a Open Food Facts.
 - Etichetta del codice con il nome sotto, da salvare come immagine o condividere/stampare; la fotocamera dell'app la legge come un codice normale.

@@ -59,15 +59,30 @@
     cv.toBlob(function (b) { blob = b; if (b) img.src = URL.createObjectURL(b); }, 'image/png');
     var salva = el('button', 'btn primary', 'Salva immagine'), cond = el('button', 'btn', 'Condividi / Stampa');
     [salva, cond].forEach(function (b) { b.type = 'button'; foot.appendChild(b); });
-    salva.addEventListener('click', function () { if (!blob) return; var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nomeFile; document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 500); });
-    cond.addEventListener('click', function () {
-      if (!blob) return;
+    var esito = el('p', 'm', ''); corpo.appendChild(esito);
+    function dì(t) { esito.textContent = t; }
+    function condividi() {   // foglio di condivisione di sistema (da lì: Salva immagine, AirDrop, Stampa…)
       try {
         var f = new File([blob], nomeFile, { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f], title: 'Etichetta ' + codice }).catch(function () { /* annullato */ }); return; }
+        if (navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f], title: 'Etichetta ' + codice }).catch(function () { /* annullato */ }); return true; }
       } catch (e) { /* ok */ }
-      var w = window.open(img.src, '_blank'); if (!w) salva.click();   // senza condivisione: apre l'immagine (da lì si stampa) o la scarica
+      return false;
+    }
+    function copia() {
+      try {
+        if (navigator.clipboard && window.ClipboardItem) { navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(function () { dì('Immagine copiata: incollala dove vuoi (Pagine, Anteprima, Note) e stampa.'); }, function () { dì('Copia non riuscita: tieni premuta l\'immagine (o clic destro) e scegli «Salva immagine».'); }); return; }
+      } catch (e) { /* ok */ }
+      dì('Tieni premuta l\'immagine (o clic destro) e scegli «Salva immagine».');
+    }
+    salva.textContent = 'Salva / Condividi'; cond.textContent = 'Copia immagine';
+    salva.addEventListener('click', function () {
+      if (!blob) return;
+      if (condividi()) return;
+      // senza condivisione di sistema (es. alcuni browser desktop): scarico; nelle app che bloccano il download resta la copia
+      var a = document.createElement('a'); a.href = img.src; a.download = nomeFile; document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 500);
+      dì('Se il download non parte, usa «Copia immagine» oppure clic destro sull\'immagine → «Salva immagine».');
     });
+    cond.addEventListener('click', function () { if (blob) copia(); });
     x.addEventListener('click', function () { ov.remove(); });
   };
 
