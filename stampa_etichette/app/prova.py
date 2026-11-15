@@ -54,19 +54,28 @@ def main():
         return 0
     ordine = [CANALE] + [c for c in range(1, 9) if c != CANALE]
     ok = []
-    for c in ordine:
-        t0 = time.time()
-        try:
-            tenta(c)
-            print("Canale %d: CONNESSO (%.1f s)" % (c, time.time() - t0), flush=True)
-            ok.append(c)
-            break                       # basta il primo che risponde; si richiude subito
-        except OSError as e:
-            print("Canale %d: %s (%.1f s)" % (c, descrivi(e), time.time() - t0), flush=True)
-            if e.errno in (errno.EHOSTDOWN, errno.EHOSTUNREACH, errno.ETIMEDOUT, errno.EBUSY, errno.EAFNOSUPPORT):
-                print("Mi fermo: provare altri canali non cambierebbe l'esito", flush=True)
-                break
-        time.sleep(0.5)
+    transitori = (errno.EHOSTDOWN, errno.EHOSTUNREACH, errno.ETIMEDOUT, errno.EBUSY)
+    print("Se la stampante e spenta o in riposo, accendila ora: ritento per circa 40 secondi", flush=True)
+    for giro in range(1, 9):               # fino a 8 giri (circa 40 s): la stampante potrebbe svegliarsi a meta
+        fermo = False
+        for c in ordine:
+            t0 = time.time()
+            try:
+                tenta(c)
+                print("Giro %d, canale %d: CONNESSO (%.1f s)" % (giro, c, time.time() - t0), flush=True)
+                ok.append(c)
+                break                       # basta il primo che risponde; si richiude subito
+            except OSError as e:
+                print("Giro %d, canale %d: %s (%.1f s)" % (giro, c, descrivi(e), time.time() - t0), flush=True)
+                if e.errno == errno.EAFNOSUPPORT:
+                    fermo = True
+                    break
+                if e.errno in transitori:   # non risponde: inutile provare altri canali in questo giro
+                    break
+            time.sleep(0.3)
+        if ok or fermo:
+            break
+        time.sleep(3)
     print("RISULTATO: " + ("connessione riuscita sul canale %d" % ok[0] if ok else "nessuna connessione riuscita"), flush=True)
     return 0        # l'esito sta nel registro: un codice di errore farebbe segnalare un guasto al Supervisor
 
