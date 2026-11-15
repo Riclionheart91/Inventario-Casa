@@ -199,29 +199,59 @@ def _righe(d, testo, font, largh, max_righe):
     return righe if len(righe) <= max_righe and all(d.textlength(x, font=font) <= largh for x in righe) else None
 
 
-def etichetta_png(codice: str, nome: str, posizione: str = "", testa: int = 96, lunghezza: int = 280) -> bytes:
-    """PNG a 1 bit, orizzontale (lunghezza x testa punti a 203 DPI): QR a sinistra, nome e posizione a destra.
+ICONE = {"freddo": "\u2744", "dolce": "\u2665", "frutta": "\u273f", "bevanda": "\u2615", "speciale": "\u2605"}   # ❄ ♥ ✿ ☕ ★ (nel font DejaVu)
+
+
+def etichetta_png(codice: str, nome: str, posizione: str = "", testa: int = 96, lunghezza: int = 280,
+                  data_txt: str = "", lotto: str = "", mostra_codice: bool = False, icona: str = "") -> bytes:
+    """PNG a 1 bit, orizzontale (lunghezza x testa punti a 203 DPI): QR a sinistra (con il numero sotto, se richiesto),
+    a destra il nome e, sotto, le righe facoltative (posizione, data, lotto); in alto a destra un'icona.
     Per il rotolo 12 x 40 mm: testa = 96 punti, lunghezza = 280 punti (area stampabile)."""
     from PIL import Image, ImageDraw
-    mod = qr_moduli(re.sub(r"\D", "", str(codice)))
-    px = max(2, min(4, (testa - 12) // _N))
+    cifre = re.sub(r"\D", "", str(codice))
+    mod = qr_moduli(cifre)
+    px = 3 if mostra_codice else max(2, min(4, (testa - 12) // _N))
     lato = _N * px
     im = Image.new("L", (lunghezza, testa), 255)
     d = ImageDraw.Draw(im)
-    x0, y0 = 6, (testa - lato) // 2
+    x0, y0 = 6, (4 if mostra_codice else (testa - lato) // 2)
     for y, riga in enumerate(mod):
         for x, v in enumerate(riga):
             if v:
                 d.rectangle([x0 + x * px, y0 + y * px, x0 + (x + 1) * px - 1, y0 + (y + 1) * px - 1], fill=0)
-    tx = x0 + lato + 10
-    largh = lunghezza - tx - 4
-    pos = str(posizione or "").strip()
-    alto_pos = 20 if pos else 0
+    col = lato
+    if mostra_codice:                               # il numero sotto il QR, per digitarlo se il QR si rovina
+        fc = _font(_FONT_NORMALE, 10)
+        while d.textlength(cifre, font=fc) > 86 and fc.size > 7:
+            fc = _font(_FONT_NORMALE, fc.size - 1)
+        col = max(lato, int(d.textlength(cifre, font=fc)))
+        d.text((x0 + (col - d.textlength(cifre, font=fc)) // 2, y0 + lato + 3), cifre, font=fc, fill=0)
+    tx = x0 + col + 10
+    ic = ICONE.get(icona, "")
+    largh = lunghezza - tx - 4 - (26 if ic else 0)
+    if ic:
+        fi = _font(_FONT_NORMALE, 22)
+        d.text((lunghezza - 28, 2), ic, font=fi, fill=0)
+    # righe facoltative sotto il nome: si affiancano finche stanno in una riga
+    voci = [v for v in (str(posizione or "").strip(), str(data_txt or "").strip(), ("Lotto " + str(lotto).strip()) if str(lotto or "").strip() else "") if v]
+    fp = _font(_FONT_NORMALE, 15)
+    righe_f = []
+    for v in voci:
+        if righe_f and d.textlength(righe_f[-1] + "  ·  " + v, font=fp) <= largh:
+            righe_f[-1] += "  ·  " + v
+        else:
+            righe_f.append(v)
+    while len(righe_f) > 2 and fp.size > 11 or any(d.textlength(r, font=fp) > largh for r in righe_f) and fp.size > 10:
+        fp = _font(_FONT_NORMALE, fp.size - 1)
+    h_f = fp.size + 4
+    alto_f = len(righe_f) * h_f
+    disp = testa - 6 - alto_f                       # altezza rimasta per il nome
     nome_righe, fn = None, None
-    for dim in (24, 22, 20, 18, 16, 14, 12):     # il nome prende la dimensione piu grande che sta in due righe (tre se piccolo)
+    for dim in (24, 22, 20, 18, 16, 14, 12, 10):
         fn = _font(_FONT_GRASSETTO, dim)
-        nome_righe = _righe(d, nome or "", fn, largh, 2 if dim >= 18 else 3)
-        if nome_righe is not None:
+        nr = _righe(d, nome or "", fn, largh, 2 if dim >= 18 else 3)
+        if nr is not None and len(nr) * (dim + 3) <= disp:
+            nome_righe = nr
             break
     if nome_righe is None:                          # troppo lungo anche piccolo: si taglia
         t = str(nome)
@@ -229,16 +259,13 @@ def etichetta_png(codice: str, nome: str, posizione: str = "", testa: int = 96, 
             t = t[:-1]
         nome_righe = [t + "…"]
     h_riga = fn.size + 3
-    blocco = len(nome_righe) * h_riga + alto_pos
-    y = max(2, (testa - blocco) // 2)
+    y = max(2, (testa - len(nome_righe) * h_riga - alto_f) // 2)
     for r in nome_righe:
         d.text((tx, y), r, font=fn, fill=0)
         y += h_riga
-    if pos:
-        fp = _font(_FONT_NORMALE, 16)
-        while d.textlength(pos, font=fp) > largh and fp.size > 10:
-            fp = _font(_FONT_NORMALE, fp.size - 1)
-        d.text((tx, y + 2), pos, font=fp, fill=0)
+    for r in righe_f:
+        d.text((tx, y + 2), r, font=fp, fill=0)
+        y += h_f
     buf = io.BytesIO()
     im.point(lambda v: 0 if v < 128 else 255).convert("1").save(buf, "PNG")
     return buf.getvalue()

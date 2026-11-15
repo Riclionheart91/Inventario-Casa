@@ -229,3 +229,6 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 .sc-tit .mio-cod{margin-top:8px}
 .etic-img{image-rendering:pixelated}
 #etichetta .sc-foot{flex-wrap:wrap}#etichetta .sc-foot .etic-stampa{flex-basis:100%}
+.etic-opz{margin:0 0 12px}.etic-opz .m{margin:2px 0 6px}.etic-riga{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:36px}
+.etic-flag{display:flex;align-items:center;gap:8px;flex:1 1 55%;cursor:pointer}.etic-flag input{width:20px;height:20px;flex:none}
+.etic-extra{display:flex;gap:6px;flex:1 1 40%}.etic-extra input,.etic-extra select{min-width:0;flex:1;font-size:16px}

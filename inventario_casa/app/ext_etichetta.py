@@ -3,7 +3,7 @@ import base64
 import re
 
 from .codici import MieiCodici, e_mio
-from .etichetta import etichetta_png
+from .etichetta import ICONE, etichetta_png
 from .service import nbc
 
 TESTA = 96        # punti della testina (rotolo 12 mm a 203 DPI)
@@ -45,7 +45,7 @@ def registra(app, ctx) -> None:
 
     mc = MieiCodici()
 
-    def componi(barcode):
+    def componi(barcode, posiz=1, data="", tipo_data="scad", lotto="", codice=0, icona=""):
         """(png, cifre, nome, posizione) dell'etichetta di un prodotto o di un mio codice."""
         if not e_mio(barcode):
             raise HTTPException(403, "L'etichetta si crea solo per i tuoi codici personali (quelli che iniziano con 2999).")
@@ -57,9 +57,19 @@ def registra(app, ctx) -> None:
         cifre = re.sub(r"\D", "", str(sch["barcode"]))
         if not 1 <= len(cifre) <= 41:
             raise HTTPException(400, "Codice non adatto a un QR")
-        pos = posizione(sch.get("giacenze"))
+        pos = posizione(sch.get("giacenze")) if posiz else ""
+        data_txt = ""
+        if data:
+            import datetime
+            try:
+                d = datetime.date.fromisoformat(data)
+            except ValueError:
+                raise HTTPException(400, "Data non valida")
+            data_txt = ("Prod. " if tipo_data == "prod" else "Scad. ") + d.strftime("%d/%m/%y")
+        if icona and icona not in ICONE:
+            raise HTTPException(400, "Icona sconosciuta")
         try:
-            png = etichetta_png(cifre, sch.get("nome") or cifre, pos, TESTA, LUNGHEZZA)
+            png = etichetta_png(cifre, sch.get("nome") or cifre, pos, TESTA, LUNGHEZZA, data_txt, lotto.strip()[:12], bool(codice), icona)
         except ImportError:
             raise HTTPException(503, "Manca la libreria di disegno (Pillow) nell'add-on: aggiornalo all'ultima versione.")
         return png, cifre, sch.get("nome") or "", pos
@@ -68,22 +78,24 @@ def registra(app, ctx) -> None:
         return os.environ.get("STAMPANTE_URL", "").strip(), os.environ.get("STAMPANTE_TOKEN", "")
 
     @app.get("/api/etichetta/{barcode}")
-    def etichetta(barcode: str, x_code: str = Header(None)):
+    def etichetta(barcode: str, posiz: int = 1, data: str = "", tipo_data: str = "scad", lotto: str = "", codice: int = 0,
+                  icona: str = "", x_code: str = Header(None)):
         """L'etichetta del prodotto come PNG (in base64): da salvare/condividere o da mandare alla stampante."""
         ctx.check(x_code)
-        png, cifre, nome, pos = componi(barcode)
+        png, cifre, nome, pos = componi(barcode, posiz, data, tipo_data, lotto, codice, icona)
         url, tok = stampante()
         return {"png": base64.b64encode(png).decode("ascii"), "barcode": cifre, "nome": nome,
                 "posizione": pos, "testa": TESTA, "lunghezza": LUNGHEZZA, "stampante": bool(url and tok)}
 
     @app.post("/api/stampa/{barcode}")
-    def stampa(barcode: str, x_code: str = Header(None)):
+    def stampa(barcode: str, posiz: int = 1, data: str = "", tipo_data: str = "scad", lotto: str = "", codice: int = 0,
+               icona: str = "", x_code: str = Header(None)):
         """Stampa l'etichetta sulla X1 tramite il servizio «Stampa Etichette» di Home Assistant."""
         ctx.check(x_code)
         url, tok = stampante()
         if not (url and tok):
             raise HTTPException(503, "Stampante non configurata: imposta stampante_url e stampante_token nelle opzioni dell'add-on.")
-        png, _cifre, _nome, _pos = componi(barcode)
+        png, _cifre, _nome, _pos = componi(barcode, posiz, data, tipo_data, lotto, codice, icona)
         try:
             manda_a_stampante(png, url, tok)
         except RuntimeError as e:

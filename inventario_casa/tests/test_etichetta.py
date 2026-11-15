@@ -52,6 +52,16 @@ class TestEtichetta(unittest.TestCase):
         E.etichetta_png("8002795002995", "x " * 200, "Dispensa, Cantina, Garage")
         E.etichetta_png("8002795002995", "", "")
 
+    def test_opzioni_complete(self):
+        from PIL import Image
+        base = E.etichetta_png("2999738560932", "Marmellata", "Cantina")
+        for k in E.ICONE:
+            png = E.etichetta_png("2999738560932", "Marmellata di albicocche della nonna", "Cantina, Dispensa", 96, 280, "Scad. 20/11/27", "3", True, k)
+            im = Image.open(io.BytesIO(png))
+            self.assertEqual(im.size, (280, 96))
+            self.assertNotEqual(png, base)
+        E.etichetta_png("2999738560932", "x " * 100, "a " * 40, 96, 280, "Prod. 01/01/26", "12345678", True, "freddo")   # tutto al massimo: non deve andare in errore
+
     def test_posizione(self):
         g = [{"luogo": "Casa", "qta": 2}, {"luogo": "Casa", "qta": 1}, {"luogo": "Cantina", "qta": 0}, {"luogo": "Garage", "qta": 1}]
         self.assertEqual(posizione(g), "Casa, Garage")

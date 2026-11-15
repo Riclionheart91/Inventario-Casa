@@ -46,15 +46,16 @@
   function formatta(c) { return c ? c[0] + ' ' + c.slice(1, 7) + ' ' + c.slice(7) : ''; }
 
   /* foglio con l'etichetta: anteprima, salva immagine, condividi */
-  function foglioEtichetta(codice, titolo, testo, alt, sorgente, stampa) {   // stampa: funzione(bottone) che manda l'etichetta alla X1, oppure null   // sorgente: canvas oppure Blob PNG già pronto
+  function foglioEtichetta(codice, titolo, testo, alt, sorgente, stampa, extra) {   // extra: function(corpo, imposta) per i controlli sopra l'anteprima (imposta(blob) cambia l'immagine)   // stampa: funzione(bottone) che manda l'etichetta alla X1, oppure null   // sorgente: canvas oppure Blob PNG già pronto
     var old = document.getElementById('etichetta'); if (old) old.remove();
     var ov = el('div'); ov.id = 'etichetta'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
     var bar = el('div', 'sc-bar'), x = el('button', 'sq', '←'); x.type = 'button'; x.setAttribute('aria-label', 'Chiudi'); bar.appendChild(x); bar.appendChild(el('b', '', titolo));
     var corpo = el('div', 'sc-body etic-corpo'), foot = el('div', 'sc-foot');
     ov.appendChild(bar); ov.appendChild(corpo); ov.appendChild(foot); document.body.appendChild(ov);
-    var img = el('img', 'etic-img'); img.alt = alt;
+    var img = el('img', 'etic-img'); img.alt = alt; var blob = null;
+    if (extra) extra(corpo, function (b) { blob = b; if (b) img.src = URL.createObjectURL(b); });
     corpo.appendChild(img); corpo.appendChild(el('p', 'm', testo));
-    var nomeFile = 'etichetta-' + codice + '.png', blob = null;
+    var nomeFile = 'etichetta-' + codice + '.png';
     if (sorgente.toBlob) sorgente.toBlob(function (b) { blob = b; if (b) img.src = URL.createObjectURL(b); }, 'image/png');
     else { blob = sorgente; img.src = URL.createObjectURL(sorgente); }
     var salva = el('button', 'btn', 'Salva immagine'), cond = el('button', 'btn', 'Condividi / Stampa');
@@ -96,16 +97,61 @@
 
   /* etichetta per la stampante termica (12 x 40 mm): la compone il server (QR + nome + posizione) */
   window.mostraEtichettaStampante = function (barcode, api, toast) {
-    api('GET', 'api/etichetta/' + encodeURIComponent(barcode)).then(function (r) {
-      var bin = atob(r.png), a = new Uint8Array(bin.length), i; for (i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
-      var blob = new Blob([a], { type: 'image/png' });
+    var memo = {}; try { memo = JSON.parse(localStorage.getItem('etichetta_opz') || '{}'); } catch (e) { /* ok */ }
+    var o = { posiz: memo.posiz !== false, codice: !!memo.codice, usadata: !!memo.usadata, tipo: memo.tipo === 'prod' ? 'prod' : 'scad', usalotto: !!memo.usalotto, usaicona: !!memo.usaicona, icona: memo.icona || 'dolce', data: '', lotto: '' };
+    function salvaOpz() { try { localStorage.setItem('etichetta_opz', JSON.stringify({ posiz: o.posiz, codice: o.codice, usadata: o.usadata, tipo: o.tipo, usalotto: o.usalotto, usaicona: o.usaicona, icona: o.icona })); } catch (e) { /* ok */ } }
+    function query() {
+      var q = ['posiz=' + (o.posiz ? 1 : 0), 'codice=' + (o.codice ? 1 : 0)];
+      if (o.usadata && o.data) q.push('data=' + encodeURIComponent(o.data), 'tipo_data=' + o.tipo);
+      if (o.usalotto && o.lotto.trim()) q.push('lotto=' + encodeURIComponent(o.lotto.trim()));
+      if (o.usaicona) q.push('icona=' + o.icona);
+      return '?' + q.join('&');
+    }
+    function png(r) { var bin = atob(r.png), a = new Uint8Array(bin.length), i; for (i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type: 'image/png' }); }
+    api('GET', 'api/etichetta/' + encodeURIComponent(barcode) + query()).then(function (r) {
+      var imposta = null, tempo = null;
+      function rigenera() {   // ridisegna l'anteprima dopo ogni scelta (con una breve attesa mentre si scrive)
+        clearTimeout(tempo);
+        tempo = setTimeout(function () {
+          api('GET', 'api/etichetta/' + encodeURIComponent(barcode) + query()).then(function (n) { if (imposta) imposta(png(n)); })
+            .catch(function (e) { toast('Etichetta non aggiornata: ' + e.message, true); });
+        }, 250);
+      }
+      function flag(box, testo, chiave, extraEl) {
+        var riga = el('div', 'etic-riga'), lab = el('label', 'etic-flag'), c = document.createElement('input');
+        c.type = 'checkbox'; c.checked = !!o[chiave]; lab.appendChild(c); lab.appendChild(el('span', '', testo)); riga.appendChild(lab);
+        if (extraEl) { riga.appendChild(extraEl); extraEl.style.display = c.checked ? '' : 'none'; }
+        c.addEventListener('change', function () { o[chiave] = c.checked; if (extraEl) extraEl.style.display = c.checked ? '' : 'none'; salvaOpz(); rigenera(); });
+        box.appendChild(riga);
+      }
+      function controlli(corpo, imp) {
+        imposta = imp;
+        var box = el('div', 'card etic-opz'); box.appendChild(el('b', '', 'Cosa stampare'));
+        box.appendChild(el('div', 'm', 'Nome e QR ci sono sempre.'));
+        flag(box, 'Posizione', 'posiz');
+        flag(box, 'Numero del codice sotto il QR', 'codice');
+        var dv = el('span', 'etic-extra'), sel = document.createElement('select'), di = document.createElement('input');
+        [['scad', 'Scade il'], ['prod', 'Prodotto il']].forEach(function (t) { var op = el('option', '', t[1]); op.value = t[0]; sel.appendChild(op); }); sel.value = o.tipo;
+        di.type = 'date'; di.setAttribute('aria-label', 'Data'); o.data = new Date().toISOString().slice(0, 10); di.value = o.data;
+        sel.addEventListener('change', function () { o.tipo = sel.value; salvaOpz(); rigenera(); });
+        di.addEventListener('input', function () { o.data = di.value; rigenera(); });
+        dv.appendChild(sel); dv.appendChild(di); flag(box, 'Data', 'usadata', dv);
+        var lv = el('span', 'etic-extra'), li = document.createElement('input');
+        li.type = 'text'; li.maxLength = 12; li.placeholder = 'es. 3'; li.setAttribute('aria-label', 'Lotto'); li.addEventListener('input', function () { o.lotto = li.value; rigenera(); });
+        lv.appendChild(li); flag(box, 'Lotto', 'usalotto', lv);
+        var iv = el('span', 'etic-extra'), isel = document.createElement('select');
+        [['dolce', '♥ Dolce'], ['freddo', '❄ Surgelato'], ['frutta', '✿ Frutta/verdura'], ['bevanda', '☕ Bevanda'], ['speciale', '★ Speciale']].forEach(function (t) { var op = el('option', '', t[1]); op.value = t[0]; isel.appendChild(op); }); isel.value = o.icona;
+        isel.addEventListener('change', function () { o.icona = isel.value; salvaOpz(); rigenera(); });
+        iv.appendChild(isel); flag(box, 'Icona', 'usaicona', iv);
+        corpo.appendChild(box);
+      }
       var stampa = !r.stampante ? null : function (b) {
         b.disabled = true; var t0 = b.textContent; b.textContent = 'Stampo…';
-        api('POST', 'api/stampa/' + encodeURIComponent(barcode)).then(function () { toast('Etichetta inviata alla stampante.'); })
+        api('POST', 'api/stampa/' + encodeURIComponent(barcode) + query()).then(function () { toast('Etichetta inviata alla stampante.'); })
           .catch(function (e) { toast('Non stampata: ' + e.message, true); })
           .then(function () { b.disabled = false; b.textContent = t0; });
       };
-      foglioEtichetta(r.barcode, 'Etichetta per la stampante', 'Per il rotolo da 12 × 40 mm (203 DPI). Il QR contiene il codice ' + r.barcode + ': l\'app lo legge con la fotocamera.' + (r.stampante ? ' «Stampa con la X1» la manda alla stampante collegata a Home Assistant (accesa e vicina al Raspberry).' : ' Salvala in Foto e importala in XeasyLabel, oppure collega la stampante nelle opzioni dell\'add-on.'), 'Etichetta di ' + (r.nome || r.barcode), blob, stampa);
+      foglioEtichetta(r.barcode, 'Etichetta per la stampante', 'Rotolo da 12 × 40 mm (203 DPI). Il QR contiene il codice ' + r.barcode + ': l\'app lo legge con la fotocamera.' + (r.stampante ? ' «Stampa con la X1» la manda alla stampante collegata a Home Assistant (accesa e vicina al Raspberry).' : ' Salvala in Foto e importala in XeasyLabel, oppure collega la stampante nelle opzioni dell\'add-on.'), 'Etichetta di ' + (r.nome || r.barcode), png(r), stampa, controlli);
     }).catch(function (e) { toast('Etichetta non creata: ' + e.message, true); });
   };
 

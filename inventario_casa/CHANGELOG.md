@@ -4,6 +4,9 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.28.0
+- Etichetta per la stampante con scelte prima della stampa: posizione, numero del codice sotto il QR, data (scade il / prodotto il), lotto e un'icona (♥ dolce, ❄ surgelato, ✿ frutta/verdura, ☕ bevanda, ★ speciale). L'anteprima si aggiorna a ogni scelta e le caselle spuntate restano ricordate.
+
 ## 0.27.2
 - L'etichetta per la stampante (e la stampa con la X1) è disponibile solo per i tuoi codici personali (2999…); i prodotti con codice commerciale non mostrano più il pulsante.
 
