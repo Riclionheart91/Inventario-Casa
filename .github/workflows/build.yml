@@ -18,11 +18,18 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        addon: [inventario_casa, stampa_etichette]
         include:
-          - arch: aarch64
+          - addon: inventario_casa
+            arch: aarch64
             platform: linux/arm64
-          - arch: amd64
+          - addon: inventario_casa
+            arch: amd64
+            platform: linux/amd64
+          - addon: stampa_etichette
+            arch: aarch64
+            platform: linux/arm64
+          - addon: stampa_etichette
+            arch: amd64
             platform: linux/amd64
     steps:
       - uses: actions/checkout@v4
