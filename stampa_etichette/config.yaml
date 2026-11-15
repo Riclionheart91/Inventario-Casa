@@ -1,0 +1,16 @@
+name: "Stampa Etichette"
+version: "0.1.0"
+image: "ghcr.io/riclionheart91/{arch}-addon-stampa-etichette"
+slug: stampa_etichette
+description: "Prova di connessione Bluetooth Classic alla stampante di etichette ORGBRO X1 (non invia dati)"
+arch: [amd64, aarch64]
+init: false
+startup: once
+boot: manual
+host_network: true
+options:
+  mac: "03:03:9D:6F:D9:AC"
+  canale: 1
+schema:
+  mac: str
+  canale: int

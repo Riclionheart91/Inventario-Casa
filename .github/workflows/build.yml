@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "inventario_casa/**"
+      - "stampa_etichette/**"
       - ".github/workflows/build.yml"
   workflow_dispatch:
 
@@ -17,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        addon: [inventario_casa, stampa_etichette]
         include:
           - arch: aarch64
             platform: linux/arm64
@@ -34,13 +36,15 @@ jobs:
       - name: Calcola nome e versione
         id: v
         run: |
-          version=$(awk '/^version:/ {gsub(/"/, "", $2); print $2}' inventario_casa/config.yaml)
+          version=$(awk '/^version:/ {gsub(/"/, "", $2); print $2}' ${{ matrix.addon }}/config.yaml)
+          nome=$(echo "${{ matrix.addon }}" | tr '_' '-')
+          echo "nome=${nome}" >> "$GITHUB_OUTPUT"
           owner=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "owner=${owner}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
-          context: inventario_casa
+          context: ${{ matrix.addon }}
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ghcr.io/${{ steps.v.outputs.owner }}/${{ matrix.arch }}-addon-inventario-casa:${{ steps.v.outputs.version }}
+          tags: ghcr.io/${{ steps.v.outputs.owner }}/${{ matrix.arch }}-addon-${{ steps.v.outputs.nome }}:${{ steps.v.outputs.version }}
