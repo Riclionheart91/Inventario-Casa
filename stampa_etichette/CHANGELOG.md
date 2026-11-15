@@ -1,3 +1,7 @@
+## 0.2.1
+- Nel registro compaiono tutte le risposte della stampante (in esadecimale), dopo ogni blocco di dati e dopo l'invio.
+- Dopo l'invio resta collegata per 8 secondi invece di chiudere subito.
+
 ## 0.2.0
 - Nuovo modo `stampa_prova`: stampa una etichetta di prova (QR + testo) con il protocollo della X1. Il modo predefinito resta `connessione` (nessun dato inviato).
 - Opzione `offset` per la posizione di stampa. Aggiunti Pillow e un font all'immagine.

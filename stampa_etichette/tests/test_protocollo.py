@@ -59,11 +59,12 @@ class TestProtocollo(unittest.TestCase):
         a, b = socket.socketpair()
         b.sendall(bytes.fromhex("64 12 01 02 00 aa bb 00 00 00 00 9b"))   # la stampante si presenta
         log = []
-        P.invia(a, Image.new("L", (280, 96), 255), 9, log=log.append, pausa=lambda t: None)
+        P.invia(a, Image.new("L", (280, 96), 255), 9, log=log.append, pausa=lambda t: None, attesa_finale=0)
         a.close()
         saluto, prep, job = P.lavoro(Image.new("L", (280, 96), 255), 9)
         self.assertEqual(tutto(b), saluto + prep + job)
-        self.assertTrue(log[0].startswith("Risposta al saluto: 12 byte"))
+        self.assertTrue(log[0].startswith("Risposta al saluto: 12 byte: 64 12 01"))
+        self.assertTrue(any(r.startswith("Lavoro inviato: 3540 byte") for r in log))
         b.close()
 
     def test_invia_senza_risposta_non_stampa(self):

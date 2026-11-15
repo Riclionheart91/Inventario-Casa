@@ -68,22 +68,29 @@ def _svuota(s, attesa=0.05) -> bytes:
         out += d
 
 
-def invia(s, img, offset: int = OFFSET_PREDEFINITO, log=print, pausa=time.sleep):
-    """Stampa l'immagine su una connessione RFCOMM aperta. Si ferma prima di stampare se la stampante non risponde al saluto."""
+def _mostra(log, etichetta, dati):
+    if dati:
+        log("%s: %d byte: %s" % (etichetta, len(dati), dati[:64].hex(" ")))
+
+
+def invia(s, img, offset: int = OFFSET_PREDEFINITO, log=print, pausa=time.sleep, attesa_finale: float = 8.0):
+    """Stampa l'immagine su una connessione RFCOMM aperta. Si ferma prima di stampare se la stampante non risponde al saluto.
+    Ogni risposta della stampante viene scritta nel registro (in esadecimale): servono a capire cosa succede se non stampa."""
     saluto, prep, job = lavoro(img, offset)
     s.sendall(saluto)
     pausa(1.05)                                   # la stampante ha bisogno di tempo per presentarsi: comandi troppo presto = avanzamenti a vuoto
     ident = _svuota(s)
-    log("Risposta al saluto: %d byte %s" % (len(ident), ident[:48].hex(" ")))
+    _mostra(log, "Risposta al saluto", ident)
     if not ident:
         raise RuntimeError("la stampante non risponde al saluto: non invio nulla")
     s.sendall(prep)
     pausa(1.05)
-    log("Risposta alla preparazione: %d byte" % len(_svuota(s)))
-    for i in range(0, len(job), 255):             # blocchi da 255 byte, breve pausa e lettura dello stato dopo ciascuno
+    _mostra(log, "Risposta alla preparazione", _svuota(s))
+    for n, i in enumerate(range(0, len(job), 255), 1):   # blocchi da 255 byte, breve pausa e lettura dello stato dopo ciascuno
         s.sendall(job[i:i + 255])
         pausa(0.03)
-        _svuota(s)
-    pausa(1.2)
-    fine = _svuota(s)
-    log("Lavoro inviato: %d byte (%d pacchetti di immagine). Ultima risposta: %d byte" % (len(job), 12, len(fine)))
+        _mostra(log, "Dopo il blocco %d" % n, _svuota(s))
+    log("Lavoro inviato: %d byte. Attendo la stampante (non chiudo subito)" % len(job))
+    fine = time.monotonic() + attesa_finale
+    while time.monotonic() < fine:                 # la stampa puo iniziare solo dopo: si resta collegati e si registra ogni stato
+        _mostra(log, "Stato", _svuota(s, 0.3))

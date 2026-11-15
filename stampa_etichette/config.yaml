@@ -1,5 +1,5 @@
 name: "Stampa Etichette"
-version: "0.2.0"
+version: "0.2.1"
 image: "ghcr.io/riclionheart91/{arch}-addon-stampa-etichette"
 slug: stampa_etichette
 description: "Prove di connessione e di stampa Bluetooth Classic per la stampante di etichette ORGBRO X1"
