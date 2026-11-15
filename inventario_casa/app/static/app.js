@@ -834,7 +834,7 @@
       t.appendChild(h2);
       var m = [p.marca, p.confezione].filter(Boolean).join(' · '); if (m) t.appendChild(el('div', 'sc-marca', m));
       t.appendChild(el('div', 'sc-cod', 'Codice ' + p.barcode));
-      if (window.mostraEtichettaStampante) {   // etichetta con QR per la stampante termica: per ogni prodotto
+      if (window.mostraEtichettaStampante && /^2999\d{9}$/.test(String(p.barcode))) {   // etichetta con QR per la stampante termica: solo per i miei codici (2999…)
         var sb = el('button', 'btn ghost mio-cod', 'Etichetta per la stampante'); sb.type = 'button';
         sb.addEventListener('click', function () { window.mostraEtichettaStampante(String(p.barcode), api, toast); }); t.appendChild(sb);
       }

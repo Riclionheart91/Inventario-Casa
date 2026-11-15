@@ -4,6 +4,9 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.27.2
+- L'etichetta per la stampante (e la stampa con la X1) è disponibile solo per i tuoi codici personali (2999…); i prodotti con codice commerciale non mostrano più il pulsante.
+
 ## 0.27.1
 - Pagina di configurazione riordinata in 8 sezioni numerate (Foglio e accesso, Stampante, Scadenze, Arricchimento, AI e voce, e le facoltative) con nomi chiari e descrizioni brevi in italiano. I nomi interni delle opzioni non cambiano: i valori già impostati restano.
 

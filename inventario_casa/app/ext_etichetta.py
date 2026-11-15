@@ -47,6 +47,8 @@ def registra(app, ctx) -> None:
 
     def componi(barcode):
         """(png, cifre, nome, posizione) dell'etichetta di un prodotto o di un mio codice."""
+        if not e_mio(barcode):
+            raise HTTPException(403, "L'etichetta si crea solo per i tuoi codici personali (quelli che iniziano con 2999).")
         sch = ctx.inv().scheda(barcode)
         nome_mio = next((v["nome"] for v in mc.elenco() if nbc(v["codice"]) == nbc(barcode)), None) if e_mio(barcode) else None
         if not sch and nome_mio is None:
