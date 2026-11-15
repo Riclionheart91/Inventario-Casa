@@ -42,7 +42,7 @@ def main():
     print("== Prova di connessione alla stampante (nessun dato viene inviato) ==", flush=True)
     if not re.fullmatch(r"([0-9A-F]{2}:){5}[0-9A-F]{2}", MAC):
         print("RISULTATO: indirizzo non valido: %r (formato AA:BB:CC:DD:EE:FF)" % MAC, flush=True)
-        return 2
+        return 0
     print("Indirizzo: %s, canale iniziale: %d" % (MAC, CANALE), flush=True)
     print("Adattatori Bluetooth visibili: %s" % (sorted(os.listdir("/sys/class/bluetooth")) if os.path.isdir("/sys/class/bluetooth") else "nessuno (cartella assente)"), flush=True)
     try:
@@ -51,7 +51,7 @@ def main():
     except (OSError, AttributeError) as e:
         print("Socket Bluetooth RFCOMM: NON creato -> %s" % descrivi(e), flush=True)
         print("RISULTATO: il componente non puo aprire socket Bluetooth", flush=True)
-        return 1
+        return 0
     ordine = [CANALE] + [c for c in range(1, 9) if c != CANALE]
     ok = []
     for c in ordine:
@@ -68,7 +68,7 @@ def main():
                 break
         time.sleep(0.5)
     print("RISULTATO: " + ("connessione riuscita sul canale %d" % ok[0] if ok else "nessuna connessione riuscita"), flush=True)
-    return 0 if ok else 1
+    return 0        # l'esito sta nel registro: un codice di errore farebbe segnalare un guasto al Supervisor
 
 
 if __name__ == "__main__":
