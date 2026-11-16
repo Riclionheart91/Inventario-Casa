@@ -1,7 +1,7 @@
 """Endpoint dei miei codici (PERS + 9 cifre; i vecchi EAN-13 2999… restano validi). Vedi codici.py."""
 from datetime import datetime
 
-from .codici import MieiCodici, e_mio
+from .codici import MieiCodici, e_mio, e_pers
 from .service import ApiError, bco, nbc
 
 
@@ -78,6 +78,20 @@ def registra(app, ctx) -> None:
         if not mc.elimina(m.codice):
             raise HTTPException(404, "Codice non trovato")
         return {"ok": True}
+
+    @app.delete("/api/prodotto/{barcode}")
+    def prodotto_elimina(barcode: str, x_code: str = Header(None)):
+        """Elimina un prodotto dal catalogo con i suoi movimenti. Se era un mio codice, sparisce anche dall'elenco (e non verra mai riusato)."""
+        ctx.check(x_code)
+        ctx.writable()
+        try:
+            r = ctx.inv().elimina_prodotto(barcode)
+        except ApiError as e:
+            raise HTTPException(getattr(e, "status", 400), str(e))
+        if e_mio(barcode):
+            mc.elimina(nbc(barcode) if e_pers(barcode) else barcode)
+            mc.elimina(str(barcode).strip().upper())
+        return r
 
     @app.post("/api/codici/collega")
     def codici_collega(m: Collega, x_code: str = Header(None)):

@@ -4,6 +4,9 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.30.1
+- Si può eliminare un prodotto dal catalogo: nella scheda, «✎ Modifica classificazione e scorta» › «🗑 Elimina il prodotto» (due tocchi). Toglie la scheda, i suoi movimenti e gli alias collegati. Se era un mio codice sparisce anche dall'elenco «I miei codici» e il codice non viene più riusato. Non si può annullare.
+
 ## 0.30.0
 - Prodotti fatti in casa (codici PERS): nella scheda il pulsante «🤖 Chiedi all'AI (stime indicative)» apre una chat con il primo messaggio già scritto con i dati della scheda: premi solo Invia. L'AI stima ingredienti, allergeni, valori per 100 g, conservazione e durata; se la risposta contiene i dati, compare «Salva nella scheda» e scrivi solo se confermi. Il messaggio si può modificare o copiare per un'altra app di AI.
 - Ingredienti, valori per 100 g e note si possono scrivere a mano: alla creazione del prodotto (campi Ingredienti e Note) e dopo, in «✎ Ingredienti, valori e note».

@@ -75,6 +75,7 @@
     if (path === 'api/impostazioni') return { valori: { tema: (body && body.valori && body.valori.tema) || 'auto', testo: 'normale' } };
     if (/^api\/etichetta\//.test(path)) { var cvm = window.eanEtichetta ? window.eanEtichetta('2999738560932', 'Latte fresco intero') : null; return { png: cvm ? cvm.toDataURL('image/png').split(',')[1] : '', barcode: 'PERS482915307', nome: 'Latte fresco intero', posizione: 'Cantina', testa: 96, lunghezza: 280, stampante: true }; }
     if (/^api\/stampa\//.test(path)) return { ok: true };
+    if (method === 'DELETE' && /^api\/prodotto\//.test(path)) return { ok: true, prodotti: 1, movimenti: 2, alias: 0 };
     if (/^api\/ai\/casa\//.test(path)) return { prompt: 'Ho preparato in casa questo prodotto…\nNome: Marmellata della nonna', ai: true };
     if (path === 'api/ai/casa') return { testo: 'Ecco le stime.\n```json\n{}\n```', scheda: { composizione: '🧪 Ingredienti: albicocche, zucchero', nutrizione: '🔥 250 kcal  |  🍬 60 g zuccheri', dettagli: '🤖 Stime indicative dell\'AI  |  Durata: 12 mesi' } };
     if (/\/info$/.test(path)) return { ok: true };
@@ -936,6 +937,7 @@
       if (!st.ro) {
         var ed = el('details', 'sc-acc modifica'); ed.appendChild(el('summary', '', '✎ Modifica classificazione e scorta'));
         editSotto(ed, p); editTipo(ed, p); if (p.tipo) editScorta(ed, p); box.appendChild(ed);
+        eliminaProdotto(ed, p);
         if (window.editInfoCasa && /^(PERS|2999)\d{9}/.test(String(p.barcode))) {   // mio prodotto: ingredienti, valori e note a mano
           var ei = el('details', 'sc-acc modifica'); ei.appendChild(el('summary', '', '✎ Ingredienti, valori e note'));
           window.editInfoCasa(ei, p, api, toast, function () { azzeraCache(); openScheda(p.barcode); }); box.appendChild(ei);
@@ -984,6 +986,21 @@
     m.addEventListener('click', function () { inp.value = String(Math.max(0, val() - 1)); });
     pl.addEventListener('click', function () { inp.value = String(Math.min(999, val() + 1)); });
     w.appendChild(m); w.appendChild(inp); w.appendChild(pl); return w;
+  }
+  function eliminaProdotto(box, p) {   // elimina il prodotto dal catalogo (due tocchi: il secondo conferma)
+    var w = el('div', 'sc-sec edit'), b = el('button', 'btn danger', '🗑 Elimina il prodotto'); b.type = 'button'; w.appendChild(b);
+    var avviso = el('p', 'note warn', ''); avviso.hidden = true; w.appendChild(avviso); box.appendChild(w);
+    b.addEventListener('click', function () {
+      if (avviso.hidden) {
+        avviso.hidden = false; b.textContent = 'Sì, elimina definitivamente';
+        avviso.textContent = 'Verranno tolti dal foglio la scheda «' + (p.nome || p.barcode) + '», tutti i suoi movimenti (giacenza ' + (p.totale || 0) + ') e i codici collegati. Non si può annullare.';
+        setTimeout(function () { if (b.isConnected && !b.disabled) { avviso.hidden = true; b.textContent = '🗑 Elimina il prodotto'; } }, 8000);
+        return;
+      }
+      b.disabled = true;
+      api('DELETE', 'api/prodotto/' + encodeURIComponent(p.barcode)).then(function () { toast('Prodotto eliminato.'); azzeraCache(); closeScheda(); try { loadStock(); } catch (e) { /* ok */ } })
+        .catch(function (e) { toast('Non eliminato: ' + e.message, true); b.disabled = false; avviso.hidden = true; b.textContent = '🗑 Elimina il prodotto'; });
+    });
   }
   function editScorta(box, p) {   // la scorta minima e del TIPO: vale per tutti i prodotti di quel tipo
     var s = el('div', 'sc-sec'); s.appendChild(el('h3', '', 'Scorta minima del tipo «' + p.tipo + '»'));

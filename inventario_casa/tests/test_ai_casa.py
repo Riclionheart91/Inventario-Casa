@@ -51,3 +51,18 @@ class TestAiCasa(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestElimina(unittest.TestCase):
+    def test_elimina_prodotto(self):
+        st = MemoryStore({"prodotti": [["Barcode", "Prodotto"], ["PERS482915307", "Sbagliato"], [8002795002995, "Latte"]],
+                          "movimenti": [["Barcode", "Tipo", "Location", "Quantità", "Prodotto"], ["PERS482915307", "Carico", "Casa", 1, "Sbagliato"],
+                                        [8002795002995, "Carico", "Casa", 2, "Latte"], ["PERS482915307", "Scarico", "Casa", 1, "Sbagliato"]],
+                          "alias": [["Alias", "Principale", "Creato", "Nome"], ["PERS482915307", "8002795002995", "", ""]]})
+        inv = Inventory(st, ttl=20)
+        r = inv.elimina_prodotto("pers482915307")
+        self.assertEqual((r["prodotti"], r["movimenti"], r["alias"]), (1, 2, 1))
+        self.assertEqual([x[0] for x in st.sheets["prodotti"][1:]], [8002795002995])
+        self.assertEqual(len(st.sheets["movimenti"]), 2); self.assertEqual(len(st.sheets["alias"]), 1)
+        with self.assertRaises(ApiError):
+            inv.elimina_prodotto("PERS482915307")

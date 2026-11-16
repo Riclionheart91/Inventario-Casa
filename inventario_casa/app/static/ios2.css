@@ -239,3 +239,4 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 .chat-foot{padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid rgba(128,128,128,.25);background:var(--bg)}
 .chat-foot textarea{width:100%;box-sizing:border-box;font-size:16px;max-height:30vh}.chat-btn{display:flex;gap:10px;margin-top:8px}.chat-btn .btn{flex:1}.chat-btn .primary{flex:2}
 @media (min-width:744px) and (min-height:600px){#chat-ai{top:40px;bottom:40px;left:0;right:0;margin:0 auto;width:min(620px,92vw);border-radius:16px;box-shadow:0 0 0 100vmax rgba(0,0,0,.5);overflow:hidden}}
+.btn.danger{background:rgba(220,38,38,.12);color:#c62828;width:100%}

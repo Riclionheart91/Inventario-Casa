@@ -233,6 +233,31 @@ class Inventory:
             out["movimento"] = True
         return out
 
+    def elimina_prodotto(self, barcode) -> dict:
+        """Toglie dal foglio il prodotto: la sua scheda, i suoi movimenti e gli alias che lo riguardano. Non si annulla."""
+        k = nbc(barcode)
+        if not k:
+            raise ApiError(400, "Codice non valido")
+        n = {"prodotti": 0, "movimenti": 0, "alias": 0}
+        h, rows = self._rows(SH_PROD, True)
+        if "Barcode" not in h:
+            raise ApiError(500, "Il foglio prodotti non ha le colonne attese")
+        ib = h.index("Barcode")
+        if not any(len(r) > ib and nbc(r[ib]) == k for r in rows):
+            raise ApiError(404, "Prodotto non trovato")
+        for foglio, cols, chiave in ((SH_PROD, ("Barcode",), "prodotti"), (SH_MOV, ("Barcode",), "movimenti"), ("alias", ("Alias", "Principale"), "alias")):
+            try:
+                hh, rr = self._rows(foglio, True)
+            except Exception:
+                continue
+            idx = [hh.index(c) for c in cols if c in hh]
+            righe = [i for i, r in enumerate(rr) if any(len(r) > j and nbc(r[j]) == k for j in idx)]
+            for i in reversed(righe):           # dal basso: i numeri di riga sopra non cambiano
+                self.store.elimina_riga(foglio, i + 2)
+            n[chiave] = len(righe)
+        self._drop(SH_PROD, SH_MOV, "alias")
+        return dict(n, ok=True)
+
     def imposta_info(self, barcode, composizione=None, nutrizione=None, dettagli=None) -> dict:
         """Scrive a mano (o dalle stime dell'AI) ingredienti, valori per 100 g e note di un prodotto. I campi None non si toccano; vuoto = cancella."""
         k = nbc(barcode)
