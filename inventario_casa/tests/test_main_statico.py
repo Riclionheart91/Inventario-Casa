@@ -20,6 +20,10 @@ class TMainStatico(unittest.TestCase):
         righe = [r for r in open(MAIN, encoding="utf-8").read().splitlines() if r.strip()]
         self.assertTrue(righe[-1].startswith('app.mount("/"'))
 
+    def test_statici_con_no_cache(self):
+        t = open(MAIN, encoding="utf-8").read()
+        self.assertIn('r.headers["Cache-Control"] = "no-cache"', t)
+
 
 if __name__ == "__main__":
     unittest.main()

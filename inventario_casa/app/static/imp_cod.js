@@ -254,7 +254,7 @@
             var pr = el('input'); pr.type = 'text'; pr.inputMode = 'numeric'; pr.placeholder = 'Codice del prodotto'; pr.setAttribute('aria-label', 'Codice del prodotto');
             var ok = el('button', 'btn', 'Collega'); ok.type = 'button'; area.appendChild(pr); area.appendChild(ok);
             ok.addEventListener('click', function () {
-              var p = pr.value.replace(/\D/g, ''); if (!p) return; ok.disabled = true;
+              var p = /^pers\d{9}$/i.test(pr.value.trim()) ? pr.value.trim().toUpperCase() : pr.value.replace(/\D/g, ''); if (!p) return; ok.disabled = true;
               api('POST', 'api/codici/collega', { codice: v.codice, principale: p }).then(function () { toast('Collegato.'); carica(); }).catch(function (e) { toast('Non collegato: ' + e.message, true); ok.disabled = false; });
             });
           });

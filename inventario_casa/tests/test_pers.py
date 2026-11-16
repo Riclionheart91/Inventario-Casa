@@ -30,3 +30,10 @@ class TestPers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNbcAi(unittest.TestCase):
+    def test_nbc_ai_conserva_pers(self):
+        from app import ai
+        self.assertEqual(ai.nbc_("pers482915307"), "PERS482915307")
+        self.assertEqual(ai.nbc_("0012345"), "12345")

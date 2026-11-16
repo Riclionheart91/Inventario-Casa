@@ -4,6 +4,10 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.30.2
+- Correzione dell'aggiornamento: pagina e script dell'app vengono ricontrollati a ogni apertura, così il telefono non resta più sulla versione vecchia (era il motivo per cui un codice PERS veniva ancora rifiutato con «solo cifre»).
+- I codici PERS restano interi anche nei controlli dell'AI e nel collegamento di un mio codice a un altro prodotto.
+
 ## 0.30.1
 - Si può eliminare un prodotto dal catalogo: nella scheda, «✎ Modifica classificazione e scorta» › «🗑 Elimina il prodotto» (due tocchi). Toglie la scheda, i suoi movimenti e gli alias collegati. Se era un mio codice sparisce anche dall'elenco «I miei codici» e il codice non viene più riusato. Non si può annullare.
 

@@ -328,7 +328,10 @@ def controlla_categorie(prodotti: List[dict], categorie: List[dict], chiave: str
 
 
 def nbc_(x) -> str:
-    return re.sub(r"\D", "", str(x if x is not None else "")).lstrip("0")
+    t = str(x if x is not None else "").strip().upper()
+    if re.fullmatch(r"PERS\d{9}", t):      # i miei codici restano interi
+        return t
+    return re.sub(r"\D", "", t).lstrip("0")
 
 
 def tipi_generici(prodotti: List[dict], tipi: List[str], chiave: str, modello: str = "", riserva: str = "",

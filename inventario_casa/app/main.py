@@ -23,6 +23,16 @@ app = FastAPI(title="Inventario Casa", docs_url=None, redoc_url=None)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
+@app.middleware("http")
+async def _senza_cache_vecchia(request, call_next):
+    """Pagina e script dell'app si rivalidano a ogni apertura (ETag): senza questo il telefono puo tenere per ore l'index.html
+    di prima e quindi gli script vecchi (?v=...) anche dopo l'aggiornamento dell'add-on."""
+    r = await call_next(request)
+    if not request.url.path.startswith("/api") and "cache-control" not in r.headers:
+        r.headers["Cache-Control"] = "no-cache"
+    return r
+
+
 def _tieni_fresco():
     """Rilegge i fogli ogni 20 secondi in background: cosi Stock e Prodotti rispondono dalla memoria."""
     while True:

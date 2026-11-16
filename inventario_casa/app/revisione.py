@@ -107,7 +107,6 @@ class Revisione:
         for p in prodotti:
             k = nbc(p.get("Barcode"))
             nome = str(p.get("Prodotto", "") or "").strip() or "(senza nome)"
-            raw = re.sub(r"\D", "", str(p.get("Barcode", "")))
             if not k or len(k) < 6:
                 non_validi.append("%s (%s)" % (nome, str(p.get("Barcode", "")) or "vuoto"))
                 continue
