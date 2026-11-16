@@ -43,7 +43,7 @@
   window.eanEtichetta = disegna;
 
   function el(t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; }
-  function formatta(c) { return c ? c[0] + ' ' + c.slice(1, 7) + ' ' + c.slice(7) : ''; }
+  function formatta(c) { return !c ? '' : (/^PERS/.test(c) ? c : c[0] + ' ' + c.slice(1, 7) + ' ' + c.slice(7)); }
 
   /* foglio con l'etichetta: anteprima, salva immagine, condividi */
   function foglioEtichetta(codice, titolo, testo, alt, sorgente, stampa, extra) {   // extra: function(corpo, imposta) per i controlli sopra l'anteprima (imposta(blob) cambia l'immagine)   // stampa: funzione(bottone) che manda l'etichetta alla X1, oppure null   // sorgente: canvas oppure Blob PNG già pronto
@@ -159,7 +159,7 @@
   window.IMP_EXTRA = window.IMP_EXTRA || {};
   window.IMP_EXTRA.cod = function (det, ctx) {
     var api = ctx.api, toast = ctx.toast;
-    var c = el('div', 'card'); c.appendChild(el('p', 'm', 'Codici tuoi per prodotti senza codice a barre (fatti in casa, sfusi, freschi). Iniziano per 2999, non possono coincidere con quelli dei prodotti comprati e non si ripetono mai, nemmeno se togli il prodotto.'));
+    var c = el('div', 'card'); c.appendChild(el('p', 'm', 'Codici tuoi per prodotti senza codice a barre (fatti in casa, sfusi, freschi). Sono nel formato PERS + 9 cifre casuali: non esistono in nessun archivio e non vengono mai cercati online, quindi la scheda prodotto la compili tu a mano. Non si ripetono mai, nemmeno se togli il prodotto.'));
     var nome = el('input'); nome.type = 'text'; nome.placeholder = 'Nome del prodotto (facoltativo)'; nome.maxLength = 80; nome.setAttribute('aria-label', 'Nome del nuovo codice');
     var nuovo = el('button', 'btn primary', 'Crea un nuovo codice'); nuovo.type = 'button';
     c.appendChild(nome); c.appendChild(nuovo); det.appendChild(c);

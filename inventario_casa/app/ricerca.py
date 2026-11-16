@@ -105,7 +105,7 @@ def estratto(html: str, barcode: str = "", n: int = 1500) -> str:
     """Testo leggibile di una pagina; se riporta il codice a barre si tiene la parte attorno al codice."""
     t = re.sub(r"(?is)<(script|style|noscript|svg|head)\b.*?</\1>", " ", html or "")
     t = _testo(t)
-    bc = re.sub(r"\D", "", str(barcode)).lstrip("0")
+    bc = "" if str(barcode or "").strip().upper().startswith("PERS") else re.sub(r"\D", "", str(barcode)).lstrip("0")
     if bc:
         m = re.search(r"[\s\-]*".join(bc), t)   # il codice puo comparire con spazi o trattini
         if m:

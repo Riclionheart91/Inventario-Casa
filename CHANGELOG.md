@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.29.0
+- I miei codici cambiano formato: «PERS» + 9 cifre casuali (es. PERS482915307), non più un EAN-13 che poteva comparire in Open Food Facts. Ogni codice emesso non torna mai, nemmeno se lo togli. I vecchi codici 2999… già creati continuano a funzionare.
+- I codici PERS non vengono mai cercati online (né banche dati, né Open Food Facts, né ricerca web): la scheda prodotto si compila a mano, la foto del fronte non serve.
+- L'AI per categoria e tipo resta disponibile ma solo dopo, a richiesta (pulsante «Suggerisci categoria e tipo con l'AI», quando il nome c'è già).
+- L'etichetta stampata usa un QR con il codice PERS; la scansione lo legge per intero.
+
 ## 0.28.0
 - Etichetta per la stampante con scelte prima della stampa: posizione, numero del codice sotto il QR, data (scade il / prodotto il), lotto e un'icona (♥ dolce, ❄ surgelato, ✿ frutta/verdura, ☕ bevanda, ★ speciale). L'anteprima si aggiorna a ogni scelta e le caselle spuntate restano ricordate.
 

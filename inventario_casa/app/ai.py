@@ -227,7 +227,7 @@ def cerca_web(barcode: str, chiave: str, modello: str = "", riserva: str = "", p
     """Per i codici che nessun archivio conosce: Gemini cerca su Google (strumento google_search) il prodotto e indica le pagine dove compare.
     Ritorna {nome, marca, confezione, urls} oppure None. Non fornisce mai un'immagine inventata: l'immagine si prende dalla pagina (vedi pagina.py)."""
     ULTIMO_ERRORE[0] = ""
-    bc = re.sub(r"\D", "", str(barcode))
+    bc = "" if str(barcode or "").strip().upper().startswith("PERS") else re.sub(r"\D", "", str(barcode))   # i codici PERS non si cercano sul web
     if not chiave or not bc:
         return None
     prompt = ("Cerca su Google il prodotto con codice a barre (EAN/GTIN) %s. Rispondi SOLO con un oggetto JSON "
@@ -405,7 +405,7 @@ def integra_scheda(barcode: str, nome: str, marca: str, confezione: str, chiave:
     """Per un prodotto senza punteggi o senza dati di riciclo: Gemini con la ricerca Google cerca Nutri-Score, NOVA, Eco-Score e i materiali
     della confezione. Valori solo se trovati o ben desumibili (mai inventati). Ritorna {punteggi, smaltimento} nel formato del foglio, oppure None."""
     ULTIMO_ERRORE[0] = ""
-    bc = re.sub(r"\D", "", str(barcode))
+    bc = "" if str(barcode or "").strip().upper().startswith("PERS") else re.sub(r"\D", "", str(barcode))   # i codici PERS non si cercano sul web
     if not chiave or not bc:
         return None
     prompt = ("Cerca su Google il prodotto con codice a barre %s (%s %s %s). Rispondi SOLO con JSON "
@@ -461,7 +461,7 @@ def scheda_off(barcode: str, nome: str, marca: str, confezione: str, contesto: s
     """Legge i risultati della ricerca per codice a barre (testo preso dal web) e compila la scheda da mandare a Open Food Facts:
     nome esatto, marca, confezione, ingredienti, valori nutrizionali per 100 g/ml e il resto, SOLO se compaiono nei risultati. Senza testo non fa nulla."""
     ULTIMO_ERRORE[0] = ""
-    bc = re.sub(r"\D", "", str(barcode))
+    bc = "" if str(barcode or "").strip().upper().startswith("PERS") else re.sub(r"\D", "", str(barcode))   # i codici PERS non si cercano sul web
     if not chiave or not bc or not (contesto or "").strip():
         return None
     prompt = ("Leggi i risultati di ricerca qui sotto sul prodotto con codice a barre (EAN/GTIN) %s (nome attuale: %s; marca: %s; confezione: %s). "

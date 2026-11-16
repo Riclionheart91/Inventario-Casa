@@ -2,7 +2,7 @@
 import base64
 import re
 
-from .codici import MieiCodici, e_mio
+from .codici import MieiCodici, e_mio, e_pers
 from .etichetta import ICONE, etichetta_png
 from .service import nbc
 
@@ -48,13 +48,13 @@ def registra(app, ctx) -> None:
     def componi(barcode, posiz=1, data="", tipo_data="scad", lotto="", codice=0, icona=""):
         """(png, cifre, nome, posizione) dell'etichetta di un prodotto o di un mio codice."""
         if not e_mio(barcode):
-            raise HTTPException(403, "L'etichetta si crea solo per i tuoi codici personali (quelli che iniziano con 2999).")
+            raise HTTPException(403, "L'etichetta si crea solo per i tuoi codici personali (quelli PERS…).")
         sch = ctx.inv().scheda(barcode)
         nome_mio = next((v["nome"] for v in mc.elenco() if nbc(v["codice"]) == nbc(barcode)), None) if e_mio(barcode) else None
         if not sch and nome_mio is None:
             raise HTTPException(404, "Prodotto non trovato")
         sch = sch or {"barcode": barcode, "nome": nome_mio, "giacenze": []}   # un mio codice non ancora usato ha solo il nome dato alla creazione
-        cifre = re.sub(r"\D", "", str(sch["barcode"]))
+        cifre = nbc(sch["barcode"]) if e_pers(barcode) else re.sub(r"\D", "", str(sch["barcode"]))   # PERS + cifre, oppure le sole cifre del vecchio EAN
         if not 1 <= len(cifre) <= 41:
             raise HTTPException(400, "Codice non adatto a un QR")
         pos = posizione(sch.get("giacenze")) if posiz else ""

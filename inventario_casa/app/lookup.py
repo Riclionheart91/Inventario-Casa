@@ -256,6 +256,8 @@ CON_CHIAVE = (((), _foodrepo), ((), _opengtindb), ((), _datakick), ((), _openbee
 
 def codice_da_cercare(barcode) -> str:
     """Codice da usare nelle ricerche online: GS1 (01 + GTIN-14) estratto, niente per i codici oltre 14 cifre."""
+    if str(barcode or "").strip().upper().startswith("PERS"):   # i miei codici PERS...: mai cercati online
+        return ""
     bc = re.sub(r"\D", "", str(barcode))
     if len(bc) == 16 and bc.startswith("01"):
         bc = bc[2:]
@@ -268,6 +270,8 @@ def cerca(barcode: str, fetch: Callable = fetch_http, providers=PROVIDERS, timeo
           chiavi: Optional[Dict[str, str]] = None) -> Optional[dict]:
     """Interroga tutti i provider insieme e restituisce il primo risultato utile, rispettando l'ordine di priorita
     se piu provider rispondono entro il tempo massimo."""
+    if str(barcode or "").strip().upper().startswith("PERS"):   # mai online
+        return None
     bc = re.sub(r"\D", "", str(barcode))
     if not bc:
         return None

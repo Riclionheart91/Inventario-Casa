@@ -43,7 +43,7 @@ def _chiavi_ricerca():
 def _web_dati(bc, solo_con_immagine=False):
     """Ricerca web: prima l'app cerca sul web (senza AI) e passa i risultati a Gemini da leggere; se non trova niente prova lo strumento di ricerca di Gemini.
     Nome, marca, confezione e, se una pagina che riporta davvero il codice ce l'ha, l'immagine."""
-    if not _env("GEMINI_API_KEY"):
+    if not _env("GEMINI_API_KEY") or str(bc).strip().upper().startswith("PERS"):   # i miei codici PERS non si cercano sul web
         return None
     testo, urls = ricerca.contesto([str(bc), "%s codice a barre prodotto" % bc], bc, _chiavi_ricerca())
     r = ai.cerca_web(bc, _env("GEMINI_API_KEY"), _env("GEMINI_MODELLO"), _env("GEMINI_MODELLO_RISERVA"), contesto=testo) if testo else None

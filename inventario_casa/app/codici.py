@@ -1,10 +1,13 @@
-"""I miei codici a barre: EAN-13 interni per prodotti senza codice (fatti in casa, sfusi, freschi).
-- Intervallo riservato: iniziano per 2999 (nel campo 2xx di GS1 riservato all'uso interno), quindi non sono mai codici di prodotti comprati.
-- Non ripetibili: un contatore che solo cresce (mai riusato, anche se il prodotto viene tolto) e il controllo contro ogni codice gia nel foglio.
-- Le 8 cifre centrali sono il contatore rimescolato in modo reversibile (nessun doppione fino a 100 milioni di codici) per non sembrare una sequenza.
+"""I miei codici per prodotti senza codice a barre (fatti in casa, sfusi, freschi).
+- Formato: «PERS» + 9 cifre casuali (es. PERS482915307). Non sono codici a barre veri: nessun archivio (Open Food Facts e simili) li conosce
+  e l'app non li cerca mai online; la scheda prodotto si compila a mano.
+- Non ripetibili: ogni codice emesso resta registrato anche se poi viene tolto dall'elenco, e si controlla contro ogni codice gia nel foglio.
+- I vecchi codici EAN-13 che iniziano per 2999 (versioni fino alla 0.28) continuano a funzionare come «miei».
 Solo libreria standard; lo stato sta in /data/miei_codici.json."""
 import json
 import os
+import re
+import secrets
 import tempfile
 import threading
 from datetime import datetime
@@ -25,7 +28,18 @@ def ean13_valido(codice: str) -> bool:
     return len(c) == 13 and c.isdigit() and cifra_controllo(c[:12]) == c[12]
 
 
+_PERS = re.compile(r"PERS\d{9}")
+
+
+def e_pers(codice) -> bool:
+    """Codice nel formato PERS + 9 cifre."""
+    return bool(_PERS.fullmatch(str(codice or "").strip().upper()))
+
+
 def e_mio(codice) -> bool:
+    """Un mio codice: PERS + 9 cifre, oppure (vecchio formato) un EAN-13 interno che inizia per 2999."""
+    if e_pers(codice):
+        return True
     c = "".join(ch for ch in str(codice or "") if ch.isdigit())
     return len(c) == 13 and c.startswith(PREFISSO) and ean13_valido(c)
 
@@ -66,25 +80,24 @@ class MieiCodici:
 
     def nuovo(self, nome: str = "", usati: Iterable[str] = ()) -> dict:
         """Crea un codice mai usato: salta qualsiasi codice che compare gia (anche in forma senza zeri iniziali) tra `usati`."""
-        usati = {str(u).lstrip("0") for u in usati}
+        usati = {str(u).strip().upper().lstrip("0") for u in usati}
         with self._lock:
             d = self._carica()
-            n = int(d.get("contatore", 0))
-            while True:
-                n += 1
-                if n >= _MOD:
-                    raise ValueError("Codici esauriti")
-                c = da_contatore(n)
-                if c.lstrip("0") not in usati and not any(x["codice"] == c for x in d.get("codici", [])):
+            emessi = set(d.get("emessi", [])) | {x["codice"] for x in d.get("codici", [])}
+            for _ in range(1000):
+                c = "PERS%09d" % secrets.randbelow(10 ** 9)
+                if c not in emessi and c.lstrip("0") not in usati:
                     break
+            else:
+                raise ValueError("Codici esauriti")
             voce = {"codice": c, "nome": str(nome or "").strip()[:80], "creato": self.oggi().strftime("%Y-%m-%d %H:%M")}
-            d["contatore"] = n          # salvato comunque: anche se la voce sparisse, il numero non torna
+            d["emessi"] = sorted(emessi | {c})          # anche se la voce sparisse, il codice non torna
             d.setdefault("codici", []).append(voce)
             self._salva(d)
             return voce
 
     def elimina(self, codice: str) -> bool:
-        """Toglie il codice dall'elenco. Il contatore NON torna indietro: lo stesso codice non verra mai ricreato."""
+        """Toglie il codice dall'elenco. Resta tra gli emessi: lo stesso codice non verra mai ricreato."""
         with self._lock:
             d = self._carica()
             resto = [x for x in d.get("codici", []) if x["codice"] != codice]

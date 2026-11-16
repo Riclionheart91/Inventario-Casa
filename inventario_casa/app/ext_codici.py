@@ -1,4 +1,4 @@
-"""Endpoint dei miei codici a barre (EAN-13 interni che iniziano per 2999). Vedi codici.py."""
+"""Endpoint dei miei codici (PERS + 9 cifre; i vecchi EAN-13 2999… restano validi). Vedi codici.py."""
 from datetime import datetime
 
 from .codici import MieiCodici, e_mio

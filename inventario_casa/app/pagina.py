@@ -52,7 +52,7 @@ def _meta_immagine(html: str):
 
 def immagine_da_pagina(url: str, barcode: str, scarica_fn: Callable = scarica) -> Optional[str]:
     html = scarica_fn(url)
-    bc = re.sub(r"\D", "", str(barcode)).lstrip("0")
+    bc = "" if str(barcode or "").strip().upper().startswith("PERS") else re.sub(r"\D", "", str(barcode)).lstrip("0")
     if not html or not bc:
         return None
     if bc not in re.sub(r"[\s\-]", "", html):   # il codice deve comparire nella pagina

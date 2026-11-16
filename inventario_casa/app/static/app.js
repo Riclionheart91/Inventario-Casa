@@ -73,10 +73,10 @@
     if (path.indexOf('api/off/confronti/applica') === 0) return { ok: true, avviato: 1 };
     if (path === 'api/impostazioni' && method === 'GET') return { schema: [{ k: 'tema', tipo: 'scelta', default: 'auto', opzioni: [['auto', 'Automatico'], ['scuro', 'Scuro'], ['chiaro', 'Chiaro']], sch: 'asp', et: 'Tema', desc: '' }, { k: 'ai_sospesa', tipo: 'bool', default: false, sch: 'ai', et: 'Sospendi l\'AI', desc: 'Ferma le chiamate a Gemini.' }, { k: 'scad_giorni', tipo: 'numero', default: 0, min: 0, max: 60, sch: 'avv', et: 'Giorni di anticipo', desc: '' }], valori: { tema: 'auto', ai_sospesa: false, scad_giorni: 0, testo: 'normale' } };
     if (path === 'api/impostazioni') return { valori: { tema: (body && body.valori && body.valori.tema) || 'auto', testo: 'normale' } };
-    if (/^api\/etichetta\//.test(path)) { var cvm = window.eanEtichetta ? window.eanEtichetta('2999738560932', 'Latte fresco intero') : null; return { png: cvm ? cvm.toDataURL('image/png').split(',')[1] : '', barcode: '2999738560932', nome: 'Latte fresco intero', posizione: 'Cantina', testa: 96, lunghezza: 280, stampante: true }; }
+    if (/^api\/etichetta\//.test(path)) { var cvm = window.eanEtichetta ? window.eanEtichetta('2999738560932', 'Latte fresco intero') : null; return { png: cvm ? cvm.toDataURL('image/png').split(',')[1] : '', barcode: 'PERS482915307', nome: 'Latte fresco intero', posizione: 'Cantina', testa: 96, lunghezza: 280, stampante: true }; }
     if (/^api\/stampa\//.test(path)) return { ok: true };
-    if (path === 'api/codici' && method === 'GET') return [{ codice: '2999738560932', nome: 'Marmellata della nonna', creato: '2026-11-15 20:50', prodotto: '', nel_catalogo: false, alias_di: '', usato: false }];
-    if (path === 'api/codici/nuovo') return { codice: '2999477121869', nome: (body && body.nome) || '', creato: '2026-11-15 20:51' };
+    if (path === 'api/codici' && method === 'GET') return [{ codice: 'PERS482915307', nome: 'Marmellata della nonna', creato: '2026-11-15 20:50', prodotto: '', nel_catalogo: false, alias_di: '', usato: false }];
+    if (path === 'api/codici/nuovo') return { codice: 'PERS730419562', nome: (body && body.nome) || '', creato: '2026-11-15 20:51' };
     if (path.indexOf('api/codici/') === 0) return { ok: true };
     if (path === 'api/off/rimanda') return { ok: true, rimandati: 1 };
     if (path === 'api/off/nascosti') return [{ barcode: '8001111111111', nome: 'Pasta integrale', stato: 'ignorato', quando: '2026-11-01T10:00:00', progetto_nome: 'Open Food Facts', tipo: 'invio' }];
@@ -514,7 +514,8 @@
   var lookupSeq = 0;
   function lookup() {
     var bc = $('bc').value.trim();
-    if (!/^\d{6,24}$/.test(bc)) { hideProp(); setKnown(null); note($('hint'), bc ? 'Il codice deve avere solo cifre (6-24).' : '', bc ? 'warn' : ''); return Promise.resolve(); }
+    if (/^pers/i.test(bc)) { bc = bc.toUpperCase(); $('bc').value = bc; }
+    if (!/^\d{6,24}$/.test(bc) && !isPers(bc)) { hideProp(); setKnown(null); note($('hint'), bc ? 'Il codice deve avere solo cifre (6-24) oppure essere un mio codice PERS + 9 cifre.' : '', bc ? 'warn' : ''); return Promise.resolve(); }
     var my = ++lookupSeq; hideProp();
     note($('hint'), 'Cerco il prodotto…');
     return api('GET', 'api/prodotto/' + encodeURIComponent(bc)).then(function (r) {
@@ -526,6 +527,7 @@
         loadGiac(bc);
       } else {
         setKnown(false); note($('cat'), ''); st.giac = []; renderRiga(); hideProp();
+        if (isPers(bc)) { cercaManuale(bc, my); return; }   // mio codice: nessuna ricerca online
         note($('hint'), 'Codice nuovo: cerco…', '');
         cercaNuovo(bc, my);
       }
@@ -534,6 +536,16 @@
   /* ---------- codice nuovo: proposta dai database ---------- */
   var NOTA_NUOVO = 'Scatta fronte e retro: l\'AI compila il prodotto.';
   function hideProp() { $('prop').hidden = true; $('prop').textContent = ''; st.prop = null; $('save').hidden = false; }
+  function cercaManuale(bc, my) {   // codice personale non ancora nel catalogo: scheda compilata a mano, foto non obbligatoria
+    var cats = st.cats ? Promise.resolve() : api('GET', 'api/categorie').then(function (c) { st.cats = c || []; }).catch(function () { st.cats = []; });
+    var tipi = st.tipi ? Promise.resolve() : api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; }).catch(function () { st.tipi = []; });
+    var nomi = api('GET', 'api/codici').then(function (l) { var v = (l || []).filter(function (x) { return x.codice === bc; })[0]; return v ? v.nome : ''; }).catch(function () { return ''; });
+    Promise.all([cats, tipi, nomi]).then(function (x) {
+      if (my !== lookupSeq) return;
+      showProp(bc, { nome: x[2] || '', fonte: 'Manuale', manuale: true });
+      note($('hint'), 'Codice personale: compila la scheda a mano (nessuna ricerca online, la foto non serve).', 'warn');
+    });
+  }
   function cercaNuovo(bc, my) {
     var cats = st.cats ? Promise.resolve() : api('GET', 'api/categorie').then(function (c) { st.cats = c || []; }).catch(function () { st.cats = []; });
     var tipi = st.tipi ? Promise.resolve() : api('GET', 'api/tipi').then(function (t) { st.tipi = t || []; }).catch(function () { st.tipi = []; });
@@ -549,7 +561,7 @@
   }
   function showProp(bc, r) {
     var box = $('prop'); box.textContent = ''; box.hidden = false; $('foto').hidden = true; $('save').hidden = true;
-    box.appendChild(el('h3', '', 'Proposta dai database'));
+    box.appendChild(el('h3', '', r.manuale ? 'Scheda del mio codice' : 'Proposta dai database'));
     var ph = el('div', 'ph'), th = el('div', 'th'), tt = el('div', '');
     if (r.immagine) thumb(th, r.immagine);
     ph.appendChild(th); tt.appendChild(el('div', 'm', [r.marca, r.confezione].filter(Boolean).join(' · ') || 'Marca e confezione non indicate')); ph.appendChild(tt); box.appendChild(ph);
@@ -563,7 +575,8 @@
     var tipo = el('input'); tipo.type = 'text'; tipo.placeholder = 'Tipo (facoltativo)'; tipo.setAttribute('list', 'tipi-dl'); tipo.setAttribute('aria-label', 'Tipo');
     var dl = $('tipi-dl') || el('datalist'); dl.id = 'tipi-dl'; dl.textContent = ''; (st.tipi || []).forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); box.appendChild(dl); box.appendChild(tipo);
     var toccato = false; [cat, sot, tipo].forEach(function (x) { x.addEventListener('input', function () { toccato = true; }); x.addEventListener('change', function () { toccato = true; }); });
-    {   // suggerimento AI: riempie i menu, l'utente rivede e corregge prima di salvare
+    function suggerisciAI() {   // suggerimento AI: riempie i menu, l'utente rivede e corregge prima di salvare
+      if (r.manuale && !nome.value.trim()) { toast('Scrivi prima il nome.', true); nome.focus(); return; }
       note(ainote, 'L\'AI sta suggerendo categoria e tipo…');
       api('POST', 'api/suggerisci', { nome: r.nome || '', marca: r.marca || '', confezione: r.confezione || '' }).then(function (a) {
         if ($('bc').value.trim() !== bc || box.hidden) return;
@@ -574,9 +587,12 @@
         note(ainote, 'Suggerito dall\'AI: controlla e correggi se serve.' + (a.tipo_nuovo ? ' Il tipo «' + a.tipo + '» è nuovo: finirà in Da fare per la scorta minima.' : ''), 'ok');
       }).catch(function (e) { note(ainote, 'Suggerimento AI non disponibile (' + e.message + '): scegli tu categoria e tipo.', 'warn'); });
     }
+    if (r.manuale) {   // mio codice: l'AI solo dopo, a richiesta, quando il nome c'e gia
+      var ba = el('button', 'btn ghost', 'Suggerisci categoria e tipo con l\'AI'); ba.type = 'button'; ba.addEventListener('click', function () { suggerisciAI(); }); box.appendChild(ba);
+    } else suggerisciAI();
     box.appendChild(el('div', 'm', 'Il prodotto viene creato e caricato con la quantità e la posizione scelte qui sotto.'));
     var ok = el('button', 'btn primary', 'Conferma e salva'); ok.type = 'button'; box.appendChild(ok);
-    var alt = el('button', 'alt', 'Non è questo prodotto: usa la foto'); alt.type = 'button'; box.appendChild(alt);
+    var alt = el('button', 'alt', 'Non è questo prodotto: usa la foto'); alt.type = 'button'; if (!r.manuale) box.appendChild(alt);
     if (st.ro) box.appendChild(el('div', 'note warn', 'L\'app è in sola lettura: il salvataggio è disattivato.'));
     alt.addEventListener('click', function () { hideProp(); setKnown(false); note($('hint'), NOTA_NUOVO, 'warn'); });
     ok.addEventListener('click', function () {
@@ -651,7 +667,7 @@
   function save(ev) {
     ev.preventDefault();
     var bc = $('bc').value.trim();
-    if (!/^\d{6,24}$/.test(bc)) { toast('Inserisci un barcode valido.', true); $('bc').focus(); return; }
+    if (!/^\d{6,24}$/.test(bc) && !isPers(bc)) { toast('Inserisci un barcode valido.', true); $('bc').focus(); return; }
     var btn = $('save'); btn.disabled = true;
     var go = st.known === null ? lookup() : Promise.resolve();
     go.then(function () {
@@ -710,7 +726,8 @@
     if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
     $('vid').srcObject = null; $('scanbox').hidden = true;
   }
-  function gotCode(txt) { $('bc').value = String(txt).replace(/\D/g, '') || txt; stopScan(); lookup(); }
+  function isPers(c) { return /^PERS\d{9}$/.test(String(c || '')); }   // i miei codici: mai cercati online, scheda a mano
+  function gotCode(txt) { var t = String(txt).trim().toUpperCase(); $('bc').value = isPers(t) ? t : (String(txt).replace(/\D/g, '') || txt); stopScan(); lookup(); }
   function startLive() {
     var useNative = 'BarcodeDetector' in window;
     var prep = useNative ? Promise.resolve(null) : loadZX();
@@ -834,7 +851,7 @@
       t.appendChild(h2);
       var m = [p.marca, p.confezione].filter(Boolean).join(' · '); if (m) t.appendChild(el('div', 'sc-marca', m));
       t.appendChild(el('div', 'sc-cod', 'Codice ' + p.barcode));
-      if (window.mostraEtichettaStampante && /^2999\d{9}$/.test(String(p.barcode))) {   // etichetta con QR per la stampante termica: solo per i miei codici (2999…)
+      if (window.mostraEtichettaStampante && /^(PERS|2999)\d{9}/.test(String(p.barcode))) {   // etichetta con QR per la stampante termica: solo per i miei codici (PERS…, o i vecchi 2999…)
         var sb = el('button', 'btn ghost mio-cod', 'Etichetta per la stampante'); sb.type = 'button';
         sb.addEventListener('click', function () { window.mostraEtichettaStampante(String(p.barcode), api, toast); }); t.appendChild(sb);
       }
@@ -2025,9 +2042,9 @@
     $('bc').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); lookup().then(function () { (st.known === false ? $('pr') : $('save')).focus(); }); } });
     $('prod-tipo').addEventListener('click', function () { prodTipo = ''; renderProd(); });
     $('imp-btn').addEventListener('click', function () { show('imp'); });
-    $('bc').addEventListener('input', function () { clearTimeout(dbt); setKnown(null); if (/^\d{8,24}$/.test($('bc').value.trim())) dbt = setTimeout(lookup, 450); });
+    $('bc').addEventListener('input', function () { clearTimeout(dbt); setKnown(null); if (/^\d{8,24}$/.test($('bc').value.trim()) || isPers($('bc').value.trim().toUpperCase())) dbt = setTimeout(lookup, 450); });
     $('bc').addEventListener('change', lookup);
-    $('mio-cod').addEventListener('click', function () {   // un codice interno nuovo (2999…): va nel campo, l'etichetta si può salvare subito
+    $('mio-cod').addEventListener('click', function () {   // un codice personale nuovo (PERS…): va nel campo, l'etichetta si può salvare subito
       var b = $('mio-cod'), nome = $('pr').value.trim(); b.disabled = true;
       api('POST', 'api/codici/nuovo', { nome: nome }).then(function (v) {
         $('bc').value = v.codice; setKnown(null); lookup();

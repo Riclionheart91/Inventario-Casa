@@ -47,11 +47,20 @@ def _correzione(dati, n=7):
     return resto[len(dati):]
 
 
+_ALFA = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"
+
+
 def _codeword(cifre):
-    bit = "0001" + format(len(cifre), "010b")
-    for i in range(0, len(cifre), 3):
-        g = cifre[i:i + 3]
-        bit += format(int(g), {3: "010b", 2: "07b", 1: "04b"}[len(g)])
+    if cifre.isdigit():                              # modo numerico
+        bit = "0001" + format(len(cifre), "010b")
+        for i in range(0, len(cifre), 3):
+            g = cifre[i:i + 3]
+            bit += format(int(g), {3: "010b", 2: "07b", 1: "04b"}[len(g)])
+    else:                                            # modo alfanumerico (lettere maiuscole e cifre): per i codici PERS...
+        bit = "0010" + format(len(cifre), "09b")
+        for i in range(0, len(cifre), 2):
+            g = cifre[i:i + 2]
+            bit += format(_ALFA.index(g[0]) * 45 + _ALFA.index(g[1]), "011b") if len(g) == 2 else format(_ALFA.index(g), "06b")
     bit += "0" * min(4, _CAP_DATI * 8 - len(bit))
     bit += "0" * (-len(bit) % 8)
     cw = [int(bit[i:i + 8], 2) for i in range(0, len(bit), 8)]
@@ -100,9 +109,9 @@ def _penalita(mod):
 
 
 def qr_moduli(cifre: str):
-    """Matrice 21x21 di booleani (True = modulo scuro) per una stringa di sole cifre."""
-    if not re.fullmatch(r"\d{1,41}", cifre or ""):
-        raise ValueError("il QR contiene solo cifre (da 1 a 41)")
+    """Matrice 21x21 di booleani (True = modulo scuro) per una stringa di sole cifre (fino a 41) o di maiuscole e cifre (fino a 25)."""
+    if not (re.fullmatch(r"\d{1,41}", cifre or "") or re.fullmatch(r"[0-9A-Z]{1,25}", cifre or "")):
+        raise ValueError("il QR contiene solo cifre (da 1 a 41) oppure maiuscole e cifre (fino a 25)")
     cw = _codeword(cifre)
     cw += _correzione(cw)
     bit = [(c >> (7 - i)) & 1 for c in cw for i in range(8)]
@@ -208,7 +217,7 @@ def etichetta_png(codice: str, nome: str, posizione: str = "", testa: int = 96, 
     a destra il nome e, sotto, le righe facoltative (posizione, data, lotto); in alto a destra un'icona.
     Per il rotolo 12 x 40 mm: testa = 96 punti, lunghezza = 280 punti (area stampabile)."""
     from PIL import Image, ImageDraw
-    cifre = re.sub(r"\D", "", str(codice))
+    cifre = str(codice).strip().upper() if re.fullmatch(r"PERS\d+", str(codice).strip().upper()) else re.sub(r"\D", "", str(codice))
     mod = qr_moduli(cifre)
     px = 3 if mostra_codice else max(2, min(4, (testa - 12) // _N))
     lato = _N * px

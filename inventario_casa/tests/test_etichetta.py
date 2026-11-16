@@ -42,6 +42,16 @@ class TestQr(unittest.TestCase):
         self.assertLessEqual(len(ko), 2, ko)               # il rilevatore sbaglia a volte da solo a certe scale
 
 
+    def test_si_legge_alfanumerico(self):
+        det = cv2.QRCodeDetector()
+        random.seed(7)
+        codici = ["PERS" + "".join(random.choice("0123456789") for _ in range(9)) for _ in range(40)]
+        ko = [c for c in codici if det.detectAndDecode(_img(E.qr_moduli(c)))[0] != c]
+        self.assertLessEqual(len(ko), 2, ko)
+        with self.assertRaises(ValueError):
+            E.qr_moduli("pers123")
+
+
 class TestEtichetta(unittest.TestCase):
     def test_png_a_un_bit(self):
         from PIL import Image

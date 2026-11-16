@@ -103,3 +103,6 @@ L'app segue lo stile delle app di iPhone (modello: Musica). Negli elenchi alfabe
 ## Differenze con Open Food Facts
 Per i prodotti già presenti su Open Food Facts, in «Da fare» compaiono schede «Open Food Facts · differenze»: scegli campo per campo se usare il valore di Open Food Facts nel tuo foglio, mandare il tuo a Open Food Facts (solo dove lì è vuoto) o lasciare com'è. Niente viene scritto prima della tua conferma.
 
+
+## I miei codici (PERS)
+Per prodotti senza codice a barre (fatti in casa, sfusi) crei un codice nel formato `PERS` + 9 cifre casuali. Non viene mai cercato su Open Food Facts o altre banche dati: la scheda si compila a mano e la foto del fronte non serve. L'AI può suggerire categoria e tipo solo dopo, con il pulsante dedicato. L'etichetta per la stampante riporta il codice in un QR.

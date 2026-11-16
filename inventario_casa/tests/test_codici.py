@@ -24,14 +24,29 @@ class TCodici(unittest.TestCase):
             visti.add(C.da_contatore(i))
         self.assertEqual(len(visti), 19999)
 
-    def test_nuovo_salta_i_codici_gia_usati_e_non_torna_indietro(self):
-        primo = self.c.nuovo("Marmellata")["codice"]
-        secondo_atteso = C.da_contatore(2)
-        v = self.c.nuovo("Pane", usati=[secondo_atteso.lstrip("0")])     # il 2 e gia nel foglio: si salta
-        self.assertEqual(v["codice"], C.da_contatore(3)); self.assertNotEqual(v["codice"], primo)
-        c2 = C.MieiCodici(self.c.percorso)                               # anche dopo un riavvio
-        self.assertEqual(c2.nuovo()["codice"], C.da_contatore(4))
-        self.assertEqual(len(c2.elenco()), 3)
+    def test_nuovo_formato_pers_casuale_e_mai_ripetuto(self):
+        import re
+        visti = set()
+        for _ in range(300):
+            c = self.c.nuovo("x")["codice"]
+            self.assertRegex(c, r"^PERS\d{9}$"); self.assertTrue(C.e_mio(c)); self.assertTrue(C.e_pers(c)); visti.add(c)
+        self.assertEqual(len(visti), 300)
+        # quelli gia nel foglio si saltano; quelli tolti dall'elenco non tornano
+        c2 = C.MieiCodici(self.c.percorso)
+        self.assertEqual(len(c2.elenco()), 300)
+        primo = c2.elenco()[0]["codice"]
+        self.assertTrue(c2.elimina(primo))
+        self.assertIn(primo, c2._carica()["emessi"])
+
+    def test_salta_i_codici_usati(self):
+        import unittest.mock as M
+        with M.patch("app.codici.secrets.randbelow", side_effect=[5, 5, 6]):
+            self.assertEqual(self.c.nuovo("a", usati=["PERS000000005"])["codice"], "PERS000000006")
+
+    def test_riconoscimento(self):
+        self.assertTrue(C.e_mio("pers123456789")); self.assertTrue(C.e_mio(C.da_contatore(1)))
+        for x in ("PERS12345678", "PERS1234567890", "8002795002995", "XPERS123456789", ""):
+            self.assertFalse(C.e_mio(x), x)
 
     def test_rinomina(self):
         v = self.c.nuovo("Sugo")

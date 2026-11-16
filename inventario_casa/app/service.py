@@ -27,7 +27,10 @@ class ApiError(Exception):
 
 
 def nbc(x) -> str:
-    """Barcode normalizzato: solo cifre, senza zeri iniziali."""
+    """Barcode normalizzato: solo cifre, senza zeri iniziali. I miei codici PERS + 9 cifre restano com'e (maiuscoli)."""
+    t = str(x if x is not None else "").strip().upper()
+    if re.fullmatch(r"PERS\d{9}", t):
+        return t
     s = re.sub(r"\D", "", str(x if x is not None else ""))
     return s.lstrip("0")
 
@@ -35,7 +38,7 @@ def nbc(x) -> str:
 def bco(k):
     """Barcode per l'uscita e per il foglio: numero fino a 15 cifre, testo oltre (precisione di Fogli e JSON)."""
     k = nbc(k)
-    return int(k) if len(k) <= 15 else k
+    return int(k) if k.isdigit() and len(k) <= 15 else k
 
 
 def desc_prodotto(p: dict) -> str:
@@ -681,7 +684,7 @@ class Inventory:
             voci.append({"tipo": g["tipo"], "categoria": g["cat"], "sottocategoria": g["sotto"], "giacenza": f(tot), "minima": f(minima),
                          "stato": "FINITO" if tot <= 0 else "STA_FINENDO",
                          "dettaglio": " · ".join("%s %s" % (l, f(q)) for l, q in sorted(g["per"].items())) + " (%d codici)" % len(g["bcs"]),
-                         "barcode": int(best), "prodotto": g["bcs"][best]["nome"], "immagine": g["bcs"][best]["img"]})
+                         "barcode": bco(best), "prodotto": g["bcs"][best]["nome"], "immagine": g["bcs"][best]["img"]})
         voci.sort(key=lambda v: (v["stato"] != "FINITO", str(v["categoria"]), str(v["sottocategoria"]), v["tipo"].lower()))
         return {"voci": voci, "finiti": sum(1 for v in voci if v["stato"] == "FINITO"), "in_esaurimento": sum(1 for v in voci if v["stato"] != "FINITO")}
 
