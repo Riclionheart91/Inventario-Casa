@@ -89,7 +89,6 @@ def registra(app, ctx) -> None:
         except ApiError as e:
             raise HTTPException(getattr(e, "status", 400), str(e))
         if e_mio(barcode):
-            mc.elimina(nbc(barcode) if e_pers(barcode) else barcode)
             mc.elimina(str(barcode).strip().upper())
         return r
 

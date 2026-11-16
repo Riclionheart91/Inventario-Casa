@@ -1,3 +1,6 @@
+## 0.3.2
+- Un codice con caratteri non validi risponde 401 invece di interrompere la connessione; una richiesta che si ferma a metà non blocca più il servizio.
+
 ## 0.3.1
 - Opzioni riordinate con nomi e descrizioni in italiano.
 

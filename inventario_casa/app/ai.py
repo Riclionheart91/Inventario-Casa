@@ -627,7 +627,7 @@ def chat_casa(messaggi: List[dict], chiave: str, modello: str = "", riserva: str
              "contents": [{"role": "user" if m.get("ruolo") == "utente" else "model", "parts": [{"text": str(m.get("testo", ""))}]} for m in messaggi],
              "generationConfig": {"temperature": 0.4}}
     for m in _modelli("potente", modello, riserva):
-        r = post(URL % m, chiave, corpo, 60.0)
+        r = post(URL % m, chiave, corpo, 40.0)
         try:
             t = "".join(p.get("text", "") for p in r["candidates"][0]["content"]["parts"]).strip()
         except Exception:
@@ -637,6 +637,9 @@ def chat_casa(messaggi: List[dict], chiave: str, modello: str = "", riserva: str
         if not ULTIMO_ERRORE[0]:
             ULTIMO_ERRORE[0] = "risposta vuota da " + m
     return None
+
+
+chat_casa = aiuso.registra("chat prodotti casalinghi", False, extra=_regole_txt)(chat_casa)   # conta nell'uso dell'AI e nel limite giornaliero
 
 
 def scheda_da_risposta(testo: str) -> Optional[dict]:

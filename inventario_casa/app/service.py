@@ -234,28 +234,33 @@ class Inventory:
         return out
 
     def elimina_prodotto(self, barcode) -> dict:
-        """Toglie dal foglio il prodotto: la sua scheda, i suoi movimenti e gli alias che lo riguardano. Non si annulla."""
+        """Toglie dal foglio il prodotto: movimenti, alias, proposte e bozze che lo riguardano e, per ultima, la sua scheda. Non si annulla.
+        Le righe si leggono di nuovo da Google (non dalla memoria) subito prima di cancellare, e ogni foglio si cancella con una sola richiesta."""
         k = nbc(barcode)
         if not k:
             raise ApiError(400, "Codice non valido")
-        n = {"prodotti": 0, "movimenti": 0, "alias": 0}
-        h, rows = self._rows(SH_PROD, True)
-        if "Barcode" not in h:
-            raise ApiError(500, "Il foglio prodotti non ha le colonne attese")
-        ib = h.index("Barcode")
-        if not any(len(r) > ib and nbc(r[ib]) == k for r in rows):
-            raise ApiError(404, "Prodotto non trovato")
-        for foglio, cols, chiave in ((SH_PROD, ("Barcode",), "prodotti"), (SH_MOV, ("Barcode",), "movimenti"), ("alias", ("Alias", "Principale"), "alias")):
-            try:
-                hh, rr = self._rows(foglio, True)
-            except Exception:
-                continue
-            idx = [hh.index(c) for c in cols if c in hh]
-            righe = [i for i, r in enumerate(rr) if any(len(r) > j and nbc(r[j]) == k for j in idx)]
-            for i in reversed(righe):           # dal basso: i numeri di riga sopra non cambiano
-                self.store.elimina_riga(foglio, i + 2)
-            n[chiave] = len(righe)
-        self._drop(SH_PROD, SH_MOV, "alias")
+        with self._lock:
+            h, rows = self.store.get_rows(SH_PROD)
+            if "Barcode" not in h:
+                raise ApiError(500, "Il foglio prodotti non ha le colonne attese")
+            if not any(nbc(r[h.index("Barcode")]) == k for r in rows if len(r) > h.index("Barcode")):
+                raise ApiError(404, "Prodotto non trovato")
+            n = {"prodotti": 0, "movimenti": 0, "alias": 0, "proposte": 0}
+            # la scheda per ultima: se qualcosa si interrompe a meta il prodotto resta visibile e si riprova
+            for foglio, cols, chiave in ((SH_MOV, ("Barcode",), "movimenti"), ("alias", ("Alias", "Principale"), "alias"),
+                                         (SH_AIP, ("Barcode",), "proposte"), ("bozze", ("Barcode",), "proposte"), (SH_PROD, ("Barcode",), "prodotti")):
+                try:
+                    hh, rr = self.store.get_rows(foglio)
+                except Exception:
+                    if foglio in (SH_MOV, SH_PROD):
+                        raise
+                    continue            # foglio facoltativo che non c'e
+                idx = [hh.index(c) for c in cols if c in hh]
+                righe = [i + 2 for i, r in enumerate(rr) if any(len(r) > j and nbc(r[j]) == k for j in idx)]
+                if righe:
+                    self.store.elimina_righe(foglio, righe)
+                    n[chiave] += len(righe)
+            self._drop(SH_PROD, SH_MOV, SH_AIP, "alias", "bozze")
         return dict(n, ok=True)
 
     def imposta_info(self, barcode, composizione=None, nutrizione=None, dettagli=None) -> dict:

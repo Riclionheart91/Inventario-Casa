@@ -1,5 +1,5 @@
 name: "Stampa Etichette"
-version: "0.3.1"
+version: "0.3.2"
 image: "ghcr.io/riclionheart91/{arch}-addon-stampa-etichette"
 slug: stampa_etichette
 description: "Stampa le etichette dell'inventario sulla ORGBRO X1 via Bluetooth (servizio locale)"

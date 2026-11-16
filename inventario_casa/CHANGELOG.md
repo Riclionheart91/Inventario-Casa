@@ -4,6 +4,11 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.30.3
+- Eliminazione prodotto più sicura e veloce: righe rilette da Google subito prima di cancellare, una sola richiesta per foglio, la scheda per ultima; tolte anche proposte e bozze del codice.
+- Chat AI per i prodotti fatti in casa: conta nell'uso dell'AI e nel limite giornaliero, regge conversazioni lunghe, «Salva nella scheda» conserva le note scritte a mano, errori senza bolle doppie.
+- Etichetta: le emoji nel nome non escono più come quadratini; attesa della stampante portata a 100 s.
+
 ## 0.30.2
 - Correzione dell'aggiornamento: pagina e script dell'app vengono ricontrollati a ogni apertura, così il telefono non resta più sulla versione vecchia (era il motivo per cui un codice PERS veniva ancora rifiutato con «solo cifre»).
 - I codici PERS restano interi anche nei controlli dell'AI e nel collegamento di un mio codice a un altro prodotto.

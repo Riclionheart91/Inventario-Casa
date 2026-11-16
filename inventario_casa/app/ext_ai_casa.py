@@ -21,6 +21,7 @@ def registra(app, ctx) -> None:
         composizione: Optional[str] = None
         nutrizione: Optional[str] = None
         dettagli: Optional[str] = None
+        tieni_note: bool = False
 
     def solo_mio(barcode):
         if not e_mio(barcode):
@@ -43,7 +44,11 @@ def registra(app, ctx) -> None:
         solo_mio(m.barcode)
         if not ctx.env("GEMINI_API_KEY"):
             raise HTTPException(503, "Manca la chiave Gemini nelle opzioni dell'app.")
-        msgs = [{"ruolo": x.ruolo, "testo": x.testo[:6000]} for x in m.messaggi][-20:]
+        msgs = [{"ruolo": x.ruolo, "testo": x.testo[:6000]} for x in m.messaggi]
+        if len(msgs) > 20:                      # si tiene il primo messaggio (il prompt) e gli ultimi 19, cosi Gemini vede sempre prima l'utente
+            msgs = msgs[:1] + msgs[-19:]
+            while len(msgs) > 1 and msgs[1]["ruolo"] != "ai":
+                del msgs[1]
         if not msgs or msgs[-1]["ruolo"] != "utente":
             raise HTTPException(400, "Manca il messaggio da inviare.")
         t = ai.chat_casa(msgs, ctx.env("GEMINI_API_KEY"), ctx.env("GEMINI_MODELLO"), ctx.env("GEMINI_MODELLO_RISERVA"))
@@ -57,4 +62,10 @@ def registra(app, ctx) -> None:
         ctx.check(x_code)
         ctx.writable()
         solo_mio(barcode)
-        return ctx.inv().imposta_info(barcode, m.composizione, m.nutrizione, m.dettagli)
+        dettagli = m.dettagli
+        if m.tieni_note and dettagli is not None:   # stime dell'AI: le note scritte a mano (non quelle del precedente giro dell'AI) restano in coda
+            sch = ctx.inv().scheda(barcode) or {}
+            mie = [v.strip() for v in str(sch.get("dettagli") or "").split("|") if v.strip() and not v.strip().startswith("🤖")]
+            ai_voci = [v.strip() for v in dettagli.split("|") if v.strip()]
+            dettagli = "  |  ".join(ai_voci + [v for v in mie if v not in ai_voci])
+        return ctx.inv().imposta_info(barcode, m.composizione, m.nutrizione, dettagli)

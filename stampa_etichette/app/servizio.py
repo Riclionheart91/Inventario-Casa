@@ -95,7 +95,7 @@ def fai_server(stampante, token, versione="", host="0.0.0.0", porta=8770):
             self.wfile.write(b)
 
         def _ok(self):
-            return hmac.compare_digest(self.headers.get("X-Token", ""), token)
+            return hmac.compare_digest(self.headers.get("X-Token", "").encode("utf-8", "replace"), token.encode("utf-8"))
 
         def do_GET(self):
             if self.path != "/stato":
@@ -105,6 +105,7 @@ def fai_server(stampante, token, versione="", host="0.0.0.0", porta=8770):
             self._r(200, {"ok": True, "versione": versione, "stampante": stampante.mac})
 
         def do_POST(self):
+            self.connection.settimeout(15)      # un client che si ferma a meta non tiene occupato il servizio
             if self.path != "/stampa":
                 return self._r(404, {"errore": "non trovato"})
             if not self._ok():

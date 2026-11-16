@@ -177,19 +177,19 @@
       var ok = el('button', 'btn primary', 'Salva nella scheda'); ok.type = 'button'; c.appendChild(ok); corpo.appendChild(c); c.scrollIntoView({ block: 'end' });
       ok.addEventListener('click', function () {
         ok.disabled = true;
-        api('PATCH', 'api/prodotto/' + encodeURIComponent(barcode) + '/info', { composizione: sc.composizione, nutrizione: sc.nutrizione, dettagli: sc.dettagli })
+        api('PATCH', 'api/prodotto/' + encodeURIComponent(barcode) + '/info', { composizione: sc.composizione, nutrizione: sc.nutrizione, dettagli: sc.dettagli, tieni_note: true })
           .then(function () { toast('Scheda aggiornata.'); ov.remove(); if (aggiorna) aggiorna(); })
           .catch(function (e) { toast('Non salvato: ' + e.message, true); ok.disabled = false; });
       });
     }
     invia.addEventListener('click', function () {
       var t = ta.value.trim(); if (!t || occupato) return;
-      occupato = true; invia.disabled = true; ta.value = ''; msgs.push({ ruolo: 'utente', testo: t }); bolla('io', t);
+      occupato = true; invia.disabled = true; ta.value = ''; msgs.push({ ruolo: 'utente', testo: t }); var mio = bolla('io', t);
       var att = bolla('ai', 'L\'AI sta scrivendo…');
       api('POST', 'api/ai/casa', { barcode: barcode, messaggi: msgs }).then(function (r) {
-        att.textContent = r.testo.replace(/```json[\s\S]*?```/g, '').trim() || r.testo; msgs.push({ ruolo: 'ai', testo: r.testo });
+        att.textContent = r.testo.replace(/```json[\s\S]*?(```|$)/g, '').trim() || r.testo; msgs.push({ ruolo: 'ai', testo: r.testo });
         if (r.scheda) proposta(r.scheda);
-      }).catch(function (e) { att.textContent = 'Non riuscito: ' + e.message; msgs.pop(); ta.value = t; })
+      }).catch(function (e) { mio.remove(); att.remove(); toast('Non riuscito: ' + e.message, true); msgs.pop(); ta.value = t; })
         .then(function () { occupato = false; invia.disabled = false; });
     });
     copia.addEventListener('click', function () {

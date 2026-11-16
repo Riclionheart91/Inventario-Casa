@@ -32,6 +32,11 @@ class SheetsStore:
         """Elimina la riga (numero come nel foglio, la 1 e l'intestazione)."""
         raise NotImplementedError
 
+    def elimina_righe(self, sheet: str, rows) -> None:
+        """Elimina piu righe (numeri come nel foglio). Si parte dal basso: i numeri delle righe sopra non cambiano."""
+        for r in sorted(set(rows), reverse=True):
+            self.elimina_riga(sheet, r)
+
     def upload_photo(self, name: str, data: bytes, mime: str) -> str:
         raise NotImplementedError
 
@@ -146,6 +151,16 @@ class GoogleStore(SheetsStore):
         sid = next(x["properties"]["sheetId"] for x in meta["sheets"] if x["properties"]["title"] == sheet)
         self.sheets.batchUpdate(spreadsheetId=self.sheet_id, body={"requests": [{"deleteDimension": {"range": {
             "sheetId": sid, "dimension": "ROWS", "startIndex": row - 1, "endIndex": row}}}]}).execute(num_retries=3)
+
+    def elimina_righe(self, sheet, rows):
+        """Una sola richiesta a Google per tutte le righe (dal basso verso l'alto)."""
+        rows = sorted(set(rows), reverse=True)
+        if not rows:
+            return
+        meta = self.sheets.get(spreadsheetId=self.sheet_id, fields="sheets.properties").execute(num_retries=3)
+        sid = next(x["properties"]["sheetId"] for x in meta["sheets"] if x["properties"]["title"] == sheet)
+        reqs = [{"deleteDimension": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": r - 1, "endIndex": r}}} for r in rows]
+        self.sheets.batchUpdate(spreadsheetId=self.sheet_id, body={"requests": reqs}).execute(num_retries=3)
 
     def update_cell(self, sheet, row, header, value):
         headers, _ = self.get_rows(sheet)

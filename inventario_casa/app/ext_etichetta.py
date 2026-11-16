@@ -19,7 +19,7 @@ def posizione(giacenze) -> str:
     return ", ".join(luoghi[:2]) + ("…" if len(luoghi) > 2 else "")
 
 
-def manda_a_stampante(png: bytes, url: str, token: str, timeout: float = 70.0) -> None:
+def manda_a_stampante(png: bytes, url: str, token: str, timeout: float = 100.0) -> None:
     """Spedisce l'etichetta al servizio «Stampa Etichette» (rete locale). Solleva RuntimeError con un messaggio leggibile."""
     import json
     import urllib.error

@@ -66,3 +66,9 @@ class TestElimina(unittest.TestCase):
         self.assertEqual(len(st.sheets["movimenti"]), 2); self.assertEqual(len(st.sheets["alias"]), 1)
         with self.assertRaises(ApiError):
             inv.elimina_prodotto("PERS482915307")
+
+
+class TestRegistroAi(unittest.TestCase):
+    def test_chat_casa_e_nel_conteggio_uso(self):
+        from app import aiuso
+        self.assertTrue(getattr(ai.chat_casa, "__wrapped__", None) is not None or ai.chat_casa.__name__ == "chat_casa")

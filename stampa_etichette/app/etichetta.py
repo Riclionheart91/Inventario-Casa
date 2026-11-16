@@ -217,6 +217,7 @@ def etichetta_png(codice: str, nome: str, posizione: str = "", testa: int = 96, 
     a destra il nome e, sotto, le righe facoltative (posizione, data, lotto); in alto a destra un'icona.
     Per il rotolo 12 x 40 mm: testa = 96 punti, lunghezza = 280 punti (area stampabile)."""
     from PIL import Image, ImageDraw
+    nome = re.sub(r"[\U0001F000-\U0001FFFF\u2600-\u27BF\uFE0F\u200D]", "", str(nome or "")).strip()   # le emoji nel nome uscirebbero come quadratini
     cifre = str(codice).strip().upper() if re.fullmatch(r"PERS\d+", str(codice).strip().upper()) else re.sub(r"\D", "", str(codice))
     mod = qr_moduli(cifre)
     px = 3 if mostra_codice else max(2, min(4, (testa - 12) // _N))
