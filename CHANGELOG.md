@@ -4,6 +4,11 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.30.0
+- Prodotti fatti in casa (codici PERS): nella scheda il pulsante «🤖 Chiedi all'AI (stime indicative)» apre una chat con il primo messaggio già scritto con i dati della scheda: premi solo Invia. L'AI stima ingredienti, allergeni, valori per 100 g, conservazione e durata; se la risposta contiene i dati, compare «Salva nella scheda» e scrivi solo se confermi. Il messaggio si può modificare o copiare per un'altra app di AI.
+- Ingredienti, valori per 100 g e note si possono scrivere a mano: alla creazione del prodotto (campi Ingredienti e Note) e dopo, in «✎ Ingredienti, valori e note».
+- Nuovi endpoint `GET/POST /api/ai/casa` e `PATCH /api/prodotto/<codice>/info`, solo per i miei codici.
+
 ## 0.29.0
 - I miei codici cambiano formato: «PERS» + 9 cifre casuali (es. PERS482915307), non più un EAN-13 che poteva comparire in Open Food Facts. Ogni codice emesso non torna mai, nemmeno se lo togli. I vecchi codici 2999… già creati continuano a funzionare.
 - I codici PERS non vengono mai cercati online (né banche dati, né Open Food Facts, né ricerca web): la scheda prodotto si compila a mano, la foto del fronte non serve.

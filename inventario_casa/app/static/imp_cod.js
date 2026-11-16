@@ -155,6 +155,71 @@
     }).catch(function (e) { toast('Etichetta non creata: ' + e.message, true); });
   };
 
+  /* prodotti fatti in casa: chat con l'AI (primo messaggio gia scritto: basta premere Invia) e salvataggio delle stime nella scheda */
+  window.chatAiCasa = function (barcode, api, toast, aggiorna) {
+    var old = document.getElementById('chat-ai'); if (old) old.remove();
+    var ov = el('div'); ov.id = 'chat-ai'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
+    var bar = el('div', 'sc-bar'), x = el('button', 'sq', '←'); x.type = 'button'; x.setAttribute('aria-label', 'Chiudi'); bar.appendChild(x); bar.appendChild(el('b', '', 'Chiedi all\'AI'));
+    var corpo = el('div', 'sc-body chat-corpo'), foot = el('div', 'chat-foot');
+    var ta = document.createElement('textarea'); ta.rows = 6; ta.setAttribute('aria-label', 'Messaggio per l\'AI'); ta.disabled = true; ta.value = 'Preparo il messaggio…';
+    var invia = el('button', 'btn primary', 'Invia'); invia.type = 'button'; invia.disabled = true;
+    var copia = el('button', 'btn', 'Copia'); copia.type = 'button'; copia.title = 'Copia il messaggio per usarlo in un\'altra app di AI';
+    var rig = el('div', 'chat-btn'); rig.appendChild(copia); rig.appendChild(invia);
+    foot.appendChild(ta); foot.appendChild(rig);
+    ov.appendChild(bar); ov.appendChild(corpo); ov.appendChild(foot); document.body.appendChild(ov);
+    corpo.appendChild(el('p', 'm', 'Stime indicative per un prodotto fatto in casa: ingredienti, valori per 100 g, conservazione. Il messaggio è già pronto (puoi modificarlo): premi Invia. Quello che l\'AI propone si salva nella scheda solo se lo confermi.'));
+    var msgs = [], occupato = false;
+    function bolla(chi, testo) { var b = el('div', 'chat-msg ' + chi); b.textContent = testo; corpo.appendChild(b); b.scrollIntoView({ block: 'end' }); return b; }
+    function proposta(sc) {   // cosa verrebbe scritto nella scheda: si vede e si conferma
+      var c = el('div', 'card chat-salva'); c.appendChild(el('b', '', 'Salvare nella scheda?'));
+      [['Ingredienti', sc.composizione], ['Valori per 100 g', sc.nutrizione], ['Note', sc.dettagli]].forEach(function (r) { if (r[1]) { var d = el('div', 'm'); d.textContent = r[0] + ': ' + r[1].replace(/^🧪 Ingredienti:\s*/, ''); c.appendChild(d); } });
+      c.appendChild(el('div', 'm', 'Sostituisce quello che c\'è ora in questi campi. Sono stime indicative.'));
+      var ok = el('button', 'btn primary', 'Salva nella scheda'); ok.type = 'button'; c.appendChild(ok); corpo.appendChild(c); c.scrollIntoView({ block: 'end' });
+      ok.addEventListener('click', function () {
+        ok.disabled = true;
+        api('PATCH', 'api/prodotto/' + encodeURIComponent(barcode) + '/info', { composizione: sc.composizione, nutrizione: sc.nutrizione, dettagli: sc.dettagli })
+          .then(function () { toast('Scheda aggiornata.'); ov.remove(); if (aggiorna) aggiorna(); })
+          .catch(function (e) { toast('Non salvato: ' + e.message, true); ok.disabled = false; });
+      });
+    }
+    invia.addEventListener('click', function () {
+      var t = ta.value.trim(); if (!t || occupato) return;
+      occupato = true; invia.disabled = true; ta.value = ''; msgs.push({ ruolo: 'utente', testo: t }); bolla('io', t);
+      var att = bolla('ai', 'L\'AI sta scrivendo…');
+      api('POST', 'api/ai/casa', { barcode: barcode, messaggi: msgs }).then(function (r) {
+        att.textContent = r.testo.replace(/```json[\s\S]*?```/g, '').trim() || r.testo; msgs.push({ ruolo: 'ai', testo: r.testo });
+        if (r.scheda) proposta(r.scheda);
+      }).catch(function (e) { att.textContent = 'Non riuscito: ' + e.message; msgs.pop(); ta.value = t; })
+        .then(function () { occupato = false; invia.disabled = false; });
+    });
+    copia.addEventListener('click', function () {
+      var t = ta.value; try { navigator.clipboard.writeText(t).then(function () { toast('Messaggio copiato.'); }, function () { ta.select(); toast('Selezionato: copia a mano.'); }); } catch (e) { ta.select(); }
+    });
+    x.addEventListener('click', function () { ov.remove(); });
+    api('GET', 'api/ai/casa/' + encodeURIComponent(barcode)).then(function (r) {
+      ta.value = r.prompt; ta.disabled = false; invia.disabled = !r.ai;
+      if (!r.ai) corpo.appendChild(el('p', 'note warn', 'L\'AI integrata è spenta (manca la chiave Gemini): puoi copiare il messaggio e usarlo in un\'altra app.'));
+    }).catch(function (e) { ta.value = ''; toast('Non posso preparare il messaggio: ' + e.message, true); });
+  };
+
+  /* modifica a mano di ingredienti, valori per 100 g e note di un mio prodotto */
+  window.editInfoCasa = function (box, p, api, toast, ricarica) {
+    var f = el('div', 'sc-sec edit'); f.appendChild(el('h3', '', 'Ingredienti, valori e note'));
+    function area(label, val, righe, hint) {
+      var w = el('label', 'fld'); w.appendChild(el('span', '', label)); var t = document.createElement('textarea'); t.rows = righe; t.value = val || ''; t.setAttribute('aria-label', label); w.appendChild(t);
+      if (hint) w.appendChild(el('small', 'm', hint)); f.appendChild(w); return t;
+    }
+    var ing = area('Ingredienti (e allergeni)', (p.composizione || '').replace(/^🧪\s*Ingredienti:\s*/i, ''), 3, 'Es.: albicocche, zucchero — ⚠️ Allergeni: nessuno');
+    var nut = area('Valori per 100 g', p.nutrizione, 2, 'Es.: 🔥 250 kcal  |  🫙 0.2 g grassi  |  🍬 60 g zuccheri  |  🧂 0 g sale');
+    var det = area('Note e dettagli', p.dettagli, 3, 'Separa le voci con | (conservazione, durata, data di preparazione…)');
+    var ok = el('button', 'btn primary', 'Salva'); ok.type = 'button'; f.appendChild(ok); box.appendChild(f);
+    ok.addEventListener('click', function () {
+      ok.disabled = true;
+      api('PATCH', 'api/prodotto/' + encodeURIComponent(p.barcode) + '/info', { composizione: ing.value, nutrizione: nut.value, dettagli: det.value })
+        .then(function () { toast('Salvato.'); if (ricarica) ricarica(); }).catch(function (e) { toast('Non salvato: ' + e.message, true); ok.disabled = false; });
+    });
+  };
+
   /* schermata «I miei codici» nelle Impostazioni */
   window.IMP_EXTRA = window.IMP_EXTRA || {};
   window.IMP_EXTRA.cod = function (det, ctx) {

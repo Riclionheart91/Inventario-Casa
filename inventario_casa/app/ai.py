@@ -586,3 +586,88 @@ def verifica_modelli(chiave: str, get: Callable = _get_json, post: Callable = po
         RICERCA_FERMA[0] = 0.0   # la ricerca risponde di nuovo: si riprende
     return {"modelli": res, "disponibili": len(nomi), "consigliati": {"leggero": leggeri[0]["nome"] if leggeri else "", "potente": forti[0]["nome"] if forti else ""},
             "ricerca_google": any(r["ricerca"] for r in res), "errore_ricerca": next((r["errore_ricerca"] for r in res if r["ok"] and not r["ricerca"] and r["errore_ricerca"]), "")}
+
+
+# ---------- prodotti fatti in casa: chat con l'AI per stime indicative ----------
+SISTEMA_CASA = ("Sei un'assistente di cucina e nutrizione. Aiuti a descrivere prodotti FATTI IN CASA (marmellate, conserve, sughi, dolci...). "
+                "Rispondi sempre in italiano, in modo chiaro e breve. Tutti i numeri sono STIME INDICATIVE: dillo, indica quando sei incerta e non inventare dati "
+                "precisi che non puoi sapere. Se mancano informazioni importanti (ingredienti, quantita, ricetta), chiedile prima di stimare.")
+
+
+def prompt_casa(sch: dict) -> str:
+    """Il primo messaggio della chat: i dati che ci sono gia nella scheda e cosa si chiede all'AI."""
+    righe = ["Ho preparato in casa questo prodotto e vorrei descriverlo nella mia scheda di inventario.", "", "Nome: %s" % (sch.get("nome") or "(da definire)")]
+    for etichetta, campo in (("Confezione", "confezione"), ("Categoria", "categoria"), ("Sottocategoria", "sottocategoria"), ("Tipo", "tipo")):
+        if str(sch.get(campo) or "").strip():
+            righe.append("%s: %s" % (etichetta, sch[campo]))
+    ing = str(sch.get("composizione") or "").replace("🧪 Ingredienti:", "").strip()
+    if ing:
+        righe.append("Ingredienti che ho indicato: %s" % ing)
+    if str(sch.get("dettagli") or "").strip():
+        righe.append("Mie note: %s" % str(sch["dettagli"]).replace("|", ";"))
+    righe += ["", "Aiutami a completare la scheda con informazioni INDICATIVE (so che non sono misurabili con precisione):",
+              "1. ingredienti probabili e allergeni;", "2. valori nutrizionali per 100 g (energia, grassi, zuccheri, sale, proteine, carboidrati, fibre);",
+              "3. come conservarlo e per quanto tempo (chiuso e dopo l'apertura);", "4. altre note utili (uso, porzione tipica, consigli).",
+              "Se ti manca qualcosa di importante (ricetta, quantita) chiedimelo prima.", "",
+              "Alla fine metti un blocco ```json con questo schema (numeri per 100 g, null se non stimabili; testi in italiano):",
+              '{"ingredienti": "", "allergeni": [], "energia_kcal": null, "grassi_g": null, "zuccheri_g": null, "sale_g": null, "proteine_g": null, '
+              '"carboidrati_g": null, "fibre_g": null, "conservazione": "", "durata": "", "note": ""}']
+    return "\n".join(righe)
+
+
+def chat_casa(messaggi: List[dict], chiave: str, modello: str = "", riserva: str = "", post: Callable = post_gemini) -> Optional[str]:
+    """messaggi = [{ruolo: 'utente'|'ai', testo}]. Ritorna la risposta, oppure None (senza chiave o se Gemini non risponde)."""
+    ULTIMO_ERRORE[0] = ""
+    if not chiave or not messaggi:
+        return None
+    corpo = {"systemInstruction": {"parts": [{"text": SISTEMA_CASA}]},
+             "contents": [{"role": "user" if m.get("ruolo") == "utente" else "model", "parts": [{"text": str(m.get("testo", ""))}]} for m in messaggi],
+             "generationConfig": {"temperature": 0.4}}
+    for m in _modelli("potente", modello, riserva):
+        r = post(URL % m, chiave, corpo, 60.0)
+        try:
+            t = "".join(p.get("text", "") for p in r["candidates"][0]["content"]["parts"]).strip()
+        except Exception:
+            t = ""
+        if t:
+            return t
+        if not ULTIMO_ERRORE[0]:
+            ULTIMO_ERRORE[0] = "risposta vuota da " + m
+    return None
+
+
+def scheda_da_risposta(testo: str) -> Optional[dict]:
+    """Estrae dal blocco ```json della risposta i campi da salvare nella scheda: {composizione, nutrizione, dettagli}. None se non c'e o non e valido."""
+    m = re.search(r"```json\s*(\{.*?\})\s*```", testo or "", re.S)
+    if not m:
+        return None
+    try:
+        d = json.loads(m.group(1))
+    except Exception:
+        return None
+    if not isinstance(d, dict):
+        return None
+
+    def num(k):
+        v = d.get(k)
+        return v if isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v < 10000 else None
+    nutri = []
+    for k, icona, unita in (("energia_kcal", "🔥", "kcal"), ("grassi_g", "🫙", "g grassi"), ("zuccheri_g", "🍬", "g zuccheri"), ("sale_g", "🧂", "g sale"),
+                            ("proteine_g", "🥩", "g proteine"), ("carboidrati_g", "🌾", "g carboidrati"), ("fibre_g", "🥦", "g fibre")):
+        v = num(k)
+        if v is not None:
+            nutri.append("%s %s %s" % (icona, ("%g" % round(v, 1)), unita))
+    txt = lambda k, n: re.sub(r"\s+", " ", str(d.get(k) or "")).replace("|", "/").strip()[:n]
+    comp = txt("ingredienti", 800)
+    if comp:
+        comp = "🧪 Ingredienti: " + comp
+        allerg = [re.sub(r"\s+", " ", str(a)).strip()[:40] for a in (d.get("allergeni") if isinstance(d.get("allergeni"), list) else []) if str(a).strip()][:10]
+        if allerg:
+            comp += " — ⚠️ Allergeni: " + ", ".join(allerg)
+    det = ["🤖 Stime indicative dell'AI (prodotto fatto in casa)"]
+    for etichetta, k in (("Conservazione", "conservazione"), ("Durata", "durata"), ("Note", "note")):
+        if txt(k, 300):
+            det.append("%s: %s" % (etichetta, txt(k, 300)))
+    if not comp and not nutri and len(det) == 1:
+        return None
+    return {"composizione": comp, "nutrizione": "  |  ".join(nutri), "dettagli": "  |  ".join(det)}

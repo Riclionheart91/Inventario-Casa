@@ -233,6 +233,32 @@ class Inventory:
             out["movimento"] = True
         return out
 
+    def imposta_info(self, barcode, composizione=None, nutrizione=None, dettagli=None) -> dict:
+        """Scrive a mano (o dalle stime dell'AI) ingredienti, valori per 100 g e note di un prodotto. I campi None non si toccano; vuoto = cancella."""
+        k = nbc(barcode)
+        h, rows = self._rows(SH_PROD, True)
+        if "Barcode" not in h:
+            raise ApiError(500, "Il foglio prodotti non ha le colonne attese")
+        ib = h.index("Barcode")
+        riga = next((i for i, r in enumerate(rows) if len(r) > ib and nbc(r[ib]) == k), None)
+        if riga is None:
+            raise ApiError(404, "Prodotto non trovato")
+        ups = []
+        for col, v, n in (("Composizione", composizione, 1500), ("Nutrizione (100g)", nutrizione, 500), ("Dettagli prodotto", dettagli, 1500)):
+            if v is None:
+                continue
+            if col not in h:
+                raise ApiError(500, "Nel foglio prodotti manca la colonna %s" % col)
+            v = re.sub(r"[ \t]+", " ", str(v)).strip()[:n]
+            if col == "Composizione" and v and not v.startswith("🧪"):
+                v = "🧪 Ingredienti: " + v
+            ups.append((riga + 2, col, v))
+        ups.append((riga + 2, "Aggiornato il", datetime.now().strftime("%d/%m/%Y"))) if "Aggiornato il" in h and ups else None
+        if ups:
+            self.store.update_cells(SH_PROD, ups)
+            self._drop(SH_PROD)
+        return {"ok": True}
+
     def modifica_dati(self, barcode, nome: str, marca: str = "", confezione: str = "") -> dict:
         """Corregge a mano nome, marca e confezione di un prodotto (anche sulle righe di movimento, che portano il nome)."""
         k = nbc(barcode)

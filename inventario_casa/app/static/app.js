@@ -75,6 +75,9 @@
     if (path === 'api/impostazioni') return { valori: { tema: (body && body.valori && body.valori.tema) || 'auto', testo: 'normale' } };
     if (/^api\/etichetta\//.test(path)) { var cvm = window.eanEtichetta ? window.eanEtichetta('2999738560932', 'Latte fresco intero') : null; return { png: cvm ? cvm.toDataURL('image/png').split(',')[1] : '', barcode: 'PERS482915307', nome: 'Latte fresco intero', posizione: 'Cantina', testa: 96, lunghezza: 280, stampante: true }; }
     if (/^api\/stampa\//.test(path)) return { ok: true };
+    if (/^api\/ai\/casa\//.test(path)) return { prompt: 'Ho preparato in casa questo prodotto…\nNome: Marmellata della nonna', ai: true };
+    if (path === 'api/ai/casa') return { testo: 'Ecco le stime.\n```json\n{}\n```', scheda: { composizione: '🧪 Ingredienti: albicocche, zucchero', nutrizione: '🔥 250 kcal  |  🍬 60 g zuccheri', dettagli: '🤖 Stime indicative dell\'AI  |  Durata: 12 mesi' } };
+    if (/\/info$/.test(path)) return { ok: true };
     if (path === 'api/codici' && method === 'GET') return [{ codice: 'PERS482915307', nome: 'Marmellata della nonna', creato: '2026-11-15 20:50', prodotto: '', nel_catalogo: false, alias_di: '', usato: false }];
     if (path === 'api/codici/nuovo') return { codice: 'PERS730419562', nome: (body && body.nome) || '', creato: '2026-11-15 20:51' };
     if (path.indexOf('api/codici/') === 0) return { ok: true };
@@ -574,6 +577,11 @@
     cat.addEventListener('change', fillSot); fillSot(); box.appendChild(cat); box.appendChild(sot);
     var tipo = el('input'); tipo.type = 'text'; tipo.placeholder = 'Tipo (facoltativo)'; tipo.setAttribute('list', 'tipi-dl'); tipo.setAttribute('aria-label', 'Tipo');
     var dl = $('tipi-dl') || el('datalist'); dl.id = 'tipi-dl'; dl.textContent = ''; (st.tipi || []).forEach(function (x) { var o = el('option'); o.value = x; dl.appendChild(o); }); box.appendChild(dl); box.appendChild(tipo);
+    var ingr = null, note2 = null;
+    if (r.manuale) {   // mio prodotto: tutte le informazioni che hai, subito
+      ingr = document.createElement('textarea'); ingr.rows = 3; ingr.placeholder = 'Ingredienti (facoltativo)'; ingr.setAttribute('aria-label', 'Ingredienti'); box.appendChild(ingr);
+      note2 = document.createElement('textarea'); note2.rows = 2; note2.placeholder = 'Note: data di preparazione, ricetta, conservazione… (facoltativo)'; note2.setAttribute('aria-label', 'Note'); box.appendChild(note2);
+    }
     var toccato = false; [cat, sot, tipo].forEach(function (x) { x.addEventListener('input', function () { toccato = true; }); x.addEventListener('change', function () { toccato = true; }); });
     function suggerisciAI() {   // suggerimento AI: riempie i menu, l'utente rivede e corregge prima di salvare
       if (r.manuale && !nome.value.trim()) { toast('Scrivi prima il nome.', true); nome.focus(); return; }
@@ -599,7 +607,7 @@
       if (!nome.value.trim()) { toast('Il nome è obbligatorio.', true); nome.focus(); return; }
       if (!cat.value || !sot.value) { toast('Scegli categoria e sottocategoria.', true); return; }
       ok.disabled = true;
-      api('POST', 'api/prodotto', { barcode: bc, nome: nome.value.trim(), marca: r.marca, confezione: r.confezione, immagine: r.immagine, categoria: cat.value, sottocategoria: sot.value, tipo: tipo.value.trim(), composizione: r.composizione, nutrizione: r.nutrizione, punteggi: r.punteggi, fonte: r.fonte, location: st.luogo, quantita: st.qta })
+      api('POST', 'api/prodotto', { barcode: bc, nome: nome.value.trim(), marca: r.marca, confezione: r.confezione, immagine: r.immagine, categoria: cat.value, sottocategoria: sot.value, tipo: tipo.value.trim(), composizione: ingr && ingr.value.trim() ? '🧪 Ingredienti: ' + ingr.value.trim() : r.composizione, dettagli: note2 && note2.value.trim() ? note2.value.trim() : undefined, nutrizione: r.nutrizione, punteggi: r.punteggi, fonte: r.fonte, location: st.luogo, quantita: st.qta })
         .then(function () { toast('Prodotto creato e movimento salvato.'); st.prod = null; st.stock = []; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } hideProp(); resetForm(); })
         .catch(function (e) { toast('Non salvato: ' + e.message, true); ok.disabled = false; });
     });
@@ -855,6 +863,10 @@
         var sb = el('button', 'btn ghost mio-cod', 'Etichetta per la stampante'); sb.type = 'button';
         sb.addEventListener('click', function () { window.mostraEtichettaStampante(String(p.barcode), api, toast); }); t.appendChild(sb);
       }
+      if (window.chatAiCasa && /^(PERS|2999)\d{9}/.test(String(p.barcode))) {   // prodotto fatto in casa: chat con l'AI con il primo messaggio gia scritto
+        var ca = el('button', 'btn ghost mio-cod', '🤖 Chiedi all\'AI (stime indicative)'); ca.type = 'button';
+        ca.addEventListener('click', function () { window.chatAiCasa(String(p.barcode), api, toast, function () { azzeraCache(); openScheda(p.barcode); }); }); t.appendChild(ca);
+      }
       head.appendChild(im); head.appendChild(t); box.appendChild(head);
       /* percorso: categoria › sottocategoria, tipo */
       var pills = el('div', 'pills');
@@ -924,6 +936,10 @@
       if (!st.ro) {
         var ed = el('details', 'sc-acc modifica'); ed.appendChild(el('summary', '', '✎ Modifica classificazione e scorta'));
         editSotto(ed, p); editTipo(ed, p); if (p.tipo) editScorta(ed, p); box.appendChild(ed);
+        if (window.editInfoCasa && /^(PERS|2999)\d{9}/.test(String(p.barcode))) {   // mio prodotto: ingredienti, valori e note a mano
+          var ei = el('details', 'sc-acc modifica'); ei.appendChild(el('summary', '', '✎ Ingredienti, valori e note'));
+          window.editInfoCasa(ei, p, api, toast, function () { azzeraCache(); openScheda(p.barcode); }); box.appendChild(ei);
+        }
       }
       /* riciclo della confezione: ultima informazione, un colpo d'occhio (materiale → bidone) */
       var DEST = [[/tetra|poliaccopp|brik|cartone per bevande/i, 'Carta', 'carta'], [/carta|cartone|cartoncino/i, 'Carta', 'carta'],

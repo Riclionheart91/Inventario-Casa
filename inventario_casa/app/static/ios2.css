@@ -232,3 +232,10 @@ nav button{font-size:9.5px;min-height:44px}nav button svg{width:23px;height:23px
 .etic-opz{margin:0 0 12px}.etic-opz .m{margin:2px 0 6px}.etic-riga{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:36px}
 .etic-flag{display:flex;align-items:center;gap:8px;flex:1 1 55%;cursor:pointer}.etic-flag input{width:20px;height:20px;flex:none}
 .etic-extra{display:flex;gap:6px;flex:1 1 40%}.etic-extra input,.etic-extra select{min-width:0;flex:1;font-size:16px}
+#chat-ai{position:fixed;inset:0;z-index:25;background:var(--bg);display:flex;flex-direction:column}
+#chat-ai .sc-body{flex:1;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.chat-msg{max-width:92%;padding:10px 12px;border-radius:14px;white-space:pre-wrap;word-break:break-word;font-size:15px;line-height:1.4}
+.chat-msg.io{align-self:flex-end;background:var(--accent,#e8203a);color:#fff}.chat-msg.ai{align-self:flex-start;background:var(--card,#fff);border:1px solid rgba(128,128,128,.25)}
+.chat-foot{padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid rgba(128,128,128,.25);background:var(--bg)}
+.chat-foot textarea{width:100%;box-sizing:border-box;font-size:16px;max-height:30vh}.chat-btn{display:flex;gap:10px;margin-top:8px}.chat-btn .btn{flex:1}.chat-btn .primary{flex:2}
+@media (min-width:744px) and (min-height:600px){#chat-ai{top:40px;bottom:40px;left:0;right:0;margin:0 auto;width:min(620px,92vw);border-radius:16px;box-shadow:0 0 0 100vmax rgba(0,0,0,.5);overflow:hidden}}
