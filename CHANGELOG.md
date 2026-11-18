@@ -4,6 +4,9 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.31.0
+- Webapp da salvare sulla Home: icona e meta per iPhone/iPad (schermo intero), manifest completo e pagina di accesso installabile. Nuova schermata «Installa sulla Home» in Impostazioni › App, con l'indirizzo da aprire, il pulsante «Copia indirizzo» e i passaggi per iPhone, Android e computer.
+
 ## 0.30.3
 - Eliminazione prodotto più sicura e veloce: righe rilette da Google subito prima di cancellare, una sola richiesta per foglio, la scheda per ultima; tolte anche proposte e bozze del codice.
 - Chat AI per i prodotti fatti in casa: conta nell'uso dell'AI e nel limite giornaliero, regge conversazioni lunghe, «Salva nella scheda» conserva le note scritte a mano, errori senza bolle doppie.

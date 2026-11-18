@@ -387,6 +387,7 @@
     fog: ['#ac8e68', '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/>'],
     mov: ['#ff9500', '<path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="4"/>'],
     sic: ['#8e8e93', '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>'],
+    inst: ['#30d158', '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 8v6M9 11l3 3 3-3"/>'],
     cod: ['#ff2d55', '<path d="M4 5v14M8 5v14M12 5v14M15 5v14M19 5v14"/>'],
     cop: ['#32ade6', '<path d="M12 4v10M8 10l4 4 4-4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/>'],
     ai: ['#bf5af2', '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>']
@@ -413,10 +414,11 @@
         ai: { nome: 'Uso dell\'AI', somm: uso ? (IMPST && IMPST.valori.ai_sospesa ? 'Sospesa' : uso.oggi + ' oggi') : '', build: loadAiUso },
         mov: { nome: 'Movimento ed elenchi', somm: '', build: function () { /* solo impostazioni */ } },
         sic: { nome: 'Accessi e sicurezza', somm: IMPST && IMPST.valori.sola_lettura_forza ? 'Sola lettura' : '', build: function () { /* contenuto dal modulo accessi */ } },
+        inst: { nome: 'Installa sulla Home', somm: ((window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)) ? 'Installata' : ''), build: function () { /* contenuto dal modulo codici */ } },
         cod: { nome: 'I miei codici', somm: '', build: function () { /* contenuto dal modulo codici */ } },
         cop: { nome: 'Copia ed esporta', somm: '', build: function () { /* contenuto dal modulo copia */ } }
       };
-      var GRUPPI = [['Automatico', ['arr', 'rev']], ['La mia casa', ['reg', 'avv']], ['Condivisione', ['off']], ['App', ['mov', 'cod', 'asp']], ['Manutenzione', ['fog', 'cop']], ['Diagnostica', ['ai', 'sic']]];
+      var GRUPPI = [['Automatico', ['arr', 'rev']], ['La mia casa', ['reg', 'avv']], ['Condivisione', ['off']], ['App', ['inst', 'mov', 'cod', 'asp']], ['Manutenzione', ['fog', 'cop']], ['Diagnostica', ['ai', 'sic']]];
       box.textContent = '';
       var split = el('div', 'imp-split' + (impVista ? ' dettaglio' : '')), lista = el('div', 'imp-list'), det = el('div', 'imp-det');
       // stato in breve

@@ -37,3 +37,16 @@ class TestNbcAi(unittest.TestCase):
         from app import ai
         self.assertEqual(ai.nbc_("pers482915307"), "PERS482915307")
         self.assertEqual(ai.nbc_("0012345"), "12345")
+
+
+class TestWebapp(unittest.TestCase):
+    def test_installabile_anche_dalla_pagina_di_accesso(self):
+        import json, os
+        from app import accesso
+        self.assertIn("/apple-touch-icon.png", accesso.PUBBLICI)
+        self.assertIn("manifest.json", accesso.PAGINA); self.assertIn("apple-touch-icon", accesso.PAGINA)
+        self.assertIn(b"manifest-src 'self'", accesso.CSP[1])
+        st = os.path.join(os.path.dirname(accesso.__file__), "static")
+        self.assertTrue(os.path.exists(os.path.join(st, "apple-touch-icon.png")))
+        m = json.load(open(os.path.join(st, "manifest.json")))
+        self.assertEqual(m["display"], "standalone"); self.assertTrue(m["id"])

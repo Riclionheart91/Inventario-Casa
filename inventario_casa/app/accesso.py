@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, quote
 
 INGRESS_IPS = tuple(x.strip() for x in os.environ.get("ACCESSO_INGRESS_IPS", "172.30.32.2").split(",") if x.strip())
 COOKIE = "inv_sess"
-PUBBLICI = {"/accesso", "/manifest.json", "/icon-192.png", "/icon-512.png", "/icon.svg", "/sw.js"}
+PUBBLICI = {"/accesso", "/manifest.json", "/icon-192.png", "/icon-512.png", "/icon.svg", "/apple-touch-icon.png", "/sw.js"}
 DURATA_RICORDA = 90 * 24 * 3600     # "Ricorda questo dispositivo"
 DURATA_SESSIONE = 7 * 24 * 3600     # senza "ricorda": cookie di sessione, valido al massimo una settimana
 MAX_ERRORI = 5
@@ -196,6 +196,7 @@ async def _leggi_corpo(receive, limite: int = 4096) -> bytes:
 
 PAGINA = """<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14181b"><meta name="robots" content="noindex"><title>Inventario · Accesso</title>
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Inventario"><meta name="apple-mobile-web-app-status-bar-style" content="black">
 <style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#14181b;color:#e8eaed;font:16px/1.4 -apple-system,system-ui,sans-serif;padding:16px}
 form{width:100%%;max-width:360px;background:#1d2327;border:1px solid #2d363c;border-radius:16px;padding:24px}
 h1{margin:0 0 4px;font-size:22px}p{margin:0 0 18px;color:#9aa4ab;font-size:14px}label{display:block;margin:0 0 6px;font-size:13px;color:#9aa4ab}
@@ -208,7 +209,7 @@ button{width:100%%;min-height:48px;border:0;border-radius:12px;background:#69b1e
 <input type="hidden" name="ritorno" value="%s">
 <div class="r"><input id="k" name="ricorda" type="checkbox" value="1" checked><label for="k" style="margin:0">Ricorda questo dispositivo</label></div>
 <button type="submit">Entra</button></form></body></html>"""
-CSP = (b"content-security-policy", b"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+CSP = (b"content-security-policy", b"default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 
 
 class _Mw:

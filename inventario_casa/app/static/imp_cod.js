@@ -220,6 +220,38 @@
     });
   };
 
+  /* schermata «Installa sulla Home»: l'app come una normale app, senza aprire Home Assistant */
+  window.IMP_EXTRA = window.IMP_EXTRA || {};
+  window.IMP_EXTRA.inst = function (det, ctx) {
+    var api = ctx.api, toast = ctx.toast;
+    var inst = !!(window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+    var c = el('div', 'card');
+    c.appendChild(el('b', '', inst ? '✅ Stai usando l\'app installata' : 'Aggiungila alla schermata Home'));
+    c.appendChild(el('p', 'm', 'Così la apri con un tocco, a schermo intero, senza passare da Home Assistant. Serve il codice di famiglia (opzione shared_code); «Ricorda questo dispositivo» evita di riscriverlo.'));
+    det.appendChild(c);
+    var ind = el('div', 'card'); ind.appendChild(el('b', '', 'Indirizzo da aprire'));
+    var riga = el('p', 'm', 'Controllo…'); ind.appendChild(riga); det.appendChild(ind);
+    api('GET', 'api/config').then(function (cfg) {
+      var u = (cfg && cfg.url_sicuro) || '';
+      if (u) {
+        riga.textContent = u;
+        var cp = el('button', 'btn', 'Copia indirizzo'); cp.type = 'button'; ind.appendChild(cp);
+        cp.addEventListener('click', function () { try { navigator.clipboard.writeText(u).then(function () { toast('Indirizzo copiato.'); }, function () { toast('Copia non riuscita: selezionalo a mano.', true); }); } catch (e) { toast('Copia non riuscita.', true); } });
+        ind.appendChild(el('p', 'm', 'È https: la fotocamera funziona.'));
+      } else {
+        riga.textContent = 'Nessun indirizzo sicuro impostato.';
+        ind.appendChild(el('p', 'm', 'In casa puoi usare http://IP-DI-HOME-ASSISTANT:8099, ma senza https la fotocamera non parte (il codice si digita). Per la fotocamera imposta url_sicuro nelle opzioni dell\'app (indirizzo https, per esempio quello di Tailscale) e riavvia.'));
+      }
+    }).catch(function () { riga.textContent = 'Non riesco a leggere l\'indirizzo.'; });
+    var pa = el('div', 'card'); pa.appendChild(el('b', '', 'Come fare'));
+    [['iPhone / iPad', 'Apri l\'indirizzo qui sopra in Safari (non dentro l\'app Home Assistant), entra con il codice, tocca Condividi e poi «Aggiungi alla schermata Home».'],
+     ['Android', 'Apri l\'indirizzo in Chrome, menu ⋮ e «Installa app» (o «Aggiungi a schermata Home»).'],
+     ['Mac / PC', 'In Chrome o Edge: icona di installazione nella barra dell\'indirizzo. In Safari: Condividi › «Aggiungi al Dock».']].forEach(function (r) {
+      var d = el('p', 'm'); var b = el('b', '', r[0] + ': '); d.appendChild(b); d.appendChild(document.createTextNode(r[1])); pa.appendChild(d);
+    });
+    det.appendChild(pa);
+  };
+
   /* schermata «I miei codici» nelle Impostazioni */
   window.IMP_EXTRA = window.IMP_EXTRA || {};
   window.IMP_EXTRA.cod = function (det, ctx) {
