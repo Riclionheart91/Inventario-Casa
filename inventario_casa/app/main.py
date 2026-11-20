@@ -29,7 +29,11 @@ async def _senza_cache_vecchia(request, call_next):
     di prima e quindi gli script vecchi (?v=...) anche dopo l'aggiornamento dell'add-on."""
     r = await call_next(request)
     if not request.url.path.startswith("/api") and "cache-control" not in r.headers:
-        r.headers["Cache-Control"] = "no-cache"
+        p, q = request.url.path, request.url.query
+        if q.startswith("v=") and p.endswith((".js", ".css")):   # file con la versione nell'indirizzo: cambiano solo a ogni release, niente rivalidazione
+            r.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            r.headers["Cache-Control"] = "no-cache"
     return r
 
 
@@ -38,6 +42,8 @@ def _tieni_fresco():
     while True:
         try:
             inv().refresh()
+            for f in (inv().alias, inv().categorie, inv().tipi):   # anche i fogli «minori»: la prima apertura non li aspetta da Google
+                f()
         except Exception:   # rete o quota di Google: si riprova al giro dopo
             pass
         time.sleep(20)

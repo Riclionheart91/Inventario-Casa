@@ -4,6 +4,9 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.32.1
+- Apertura più veloce: gli script e gli stili con la versione nell'indirizzo restano in memoria sul telefono (niente più 10 controlli a ogni apertura); i badge delle schede (5 richieste) partono dopo il primo disegno e al massimo una volta al minuto; i fogli alias, categorie e tipi si leggono in anticipo all'avvio.
+
 ## 0.32.0
 - Scadenza da foto: accanto al campo Scadenza nel Movimento c'è il pulsante 📷. Fotografi la data sulla confezione e l'AI la legge e la mette nel campo (solo mese e anno: ultimo giorno del mese). Controlli e poi salvi: la foto non viene conservata e nulla si scrive finché non salvi. Date assurde o illeggibili vengono scartate. Serve la chiave Gemini.
 

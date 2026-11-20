@@ -147,7 +147,10 @@
     Array.prototype.forEach.call(nav.querySelectorAll('button'), function (b) { var v = tabVisibile(b.dataset.tab); b.hidden = !v; if (v) n++; });
     nav.style.gridTemplateColumns = 'repeat(' + n + ',minmax(0,1fr))'; navInd(0, false);
   }
-  function aggiornaConteggi() {
+  var contQuando = 0;
+  function aggiornaConteggi(forza) {   // i badge: 5 richieste, quindi al massimo una volta al minuto (salvo dopo un'azione) e mai prima del primo disegno
+    if (!forza && Date.now() - contQuando < 60000) return;
+    contQuando = Date.now();
     st.n = st.n || {};
     Object.keys(NASCONDIBILI).forEach(function (id) {
       Promise.all(NASCONDIBILI[id].map(function (u) { return api('GET', u).then(function (l) { return (l || []).length; }); }))
@@ -164,7 +167,7 @@
       nav.appendChild(b);
     });
     var ind = el('div', ''); ind.id = 'nav-ind'; ind.setAttribute('aria-hidden', 'true'); nav.appendChild(ind);
-    applicaNav(); aggiornaConteggi();
+    applicaNav(); setTimeout(aggiornaConteggi, 1500);
   }
   /* campi di ricerca: una ✕ per svuotarli con un tocco */
   function aggiungiX(inp) {
@@ -468,7 +471,7 @@
       var b = el('button', 'btn primary', s.in_corso ? 'In corso…' : 'Avvia la revisione'); b.type = 'button'; b.disabled = !!s.in_corso;
       b.addEventListener('click', function () {
         b.disabled = true;
-        api('POST', 'api/revisione/avvia').then(function () { toast('Revisione avviata: le voci arrivano in «Da fare».'); azzeraCache(); setTimeout(function () { aggiornaConteggi(); loadImp(); }, 4000); })
+        api('POST', 'api/revisione/avvia').then(function () { toast('Revisione avviata: le voci arrivano in «Da fare».'); azzeraCache(); setTimeout(function () { aggiornaConteggi(true); loadImp(); }, 4000); })
           .catch(function (e) { toast('Non avviata: ' + e.message, true); b.disabled = false; });
       });
       c.appendChild(b); box.appendChild(c);
@@ -1066,7 +1069,7 @@
       ok.disabled = true;
       api('PATCH', 'api/prodotto/' + p.barcode + '/tipo', { tipo: t }).then(function (r) {
         toast(r.nuovo ? 'Tipo «' + r.tipo + '» nuovo: imposta la scorta in «Da fare».' : 'Tipo cambiato in «' + r.tipo + '».');
-        st.tipi = null; st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } aggiornaConteggi(); openScheda(p.barcode);
+        st.tipi = null; st.stock = []; st.prod = null; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } aggiornaConteggi(true); openScheda(p.barcode);
       }).catch(function (e) { toast('Non salvato: ' + e.message, true); }).then(function () { ok.disabled = false; });
     });
   }
@@ -1666,19 +1669,19 @@
         api('POST', 'api/off/invia', { voci: voci }).then(function (r) {
           var ok = 0; (r.esiti || []).forEach(function (e) { if (e.ok) ok++; if (righe[e.barcode]) note(righe[e.barcode].nt, e.messaggio, e.ok ? 'ok' : 'warn'); });
           note(esito, ok + ' inviati su ' + voci.length + '. I rifiutati restano nell\'elenco.', ok === voci.length ? 'ok' : 'warn');
-          azzeraCache(); setTimeout(function () { aggiornaConteggi(); loadOff(); }, 3000);
+          azzeraCache(); setTimeout(function () { aggiornaConteggi(true); loadOff(); }, 3000);
         }).catch(function (e) { note(esito, 'Non inviato: ' + e.message, 'warn'); conta(); });
       });
       rim.addEventListener('click', function () {   // esce dall'elenco finché il prodotto non viene caricato di nuovo
         var cod = scelti(); if (!cod.length) return; rim.disabled = true;
-        api('POST', 'api/off/rimanda', { barcodes: cod }).then(function () { toast('Rimandato: tornerà quando carichi di nuovo il prodotto.'); aggiornaConteggi(); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); conta(); });
+        api('POST', 'api/off/rimanda', { barcodes: cod }).then(function () { toast('Rimandato: tornerà quando carichi di nuovo il prodotto.'); aggiornaConteggi(true); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); conta(); });
       });
       var armato = 0;
       ignora.addEventListener('click', function () {   // due tocchi per confermare (i popup del browser nell'app non sempre si aprono)
         var cod = scelti(); if (!cod.length) return;
         if (!armato) { armato = setTimeout(function () { armato = 0; conta(); }, 5000); ignora.textContent = 'Sicuro? (' + cod.length + ')'; return; }
         clearTimeout(armato); armato = 0;
-        api('POST', 'api/off/ignora', { barcodes: cod }).then(function () { toast('Fatto: non verranno più proposti.'); aggiornaConteggi(); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); });
+        api('POST', 'api/off/ignora', { barcodes: cod }).then(function () { toast('Fatto: non verranno più proposti.'); aggiornaConteggi(true); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); });
       });
       var nasc = el('div', 'offnasc'), nb = el('button', 'btn ghost', OFF_NASC ? 'Nascondi i messi da parte' : 'Mostra i messi da parte' + ((s.ignorati + (s.rimandati || 0)) ? ' (' + (s.ignorati + (s.rimandati || 0)) + ')' : ''));
       nb.type = 'button'; nasc.appendChild(nb); var nl = el('div', ''); nasc.appendChild(nl); box.appendChild(nasc);
@@ -1692,7 +1695,7 @@
             var r = el('div', 'card offcard nascosto'), t = el('div', 'offtx'), bt = el('button', 'btn', 'Ripristina'); bt.type = 'button'; bt.disabled = !!st.ro;
             t.appendChild(el('b', '', x.nome)); t.appendChild(el('div', 'm', [x.progetto_nome, x.tipo === 'differenze' ? 'differenze con OFF' : x.stato === 'rimandato' ? 'rimandato' : 'non più proposto', (x.quando || '').slice(0, 10)].filter(Boolean).join(' · ')));
             r.appendChild(t); r.appendChild(bt); nl.appendChild(r);
-            bt.addEventListener('click', function () { bt.disabled = true; api('POST', 'api/off/ripristina', { voci: [{ barcode: x.barcode, tipo: x.tipo }] }).then(function () { toast('Ripristinato.'); aggiornaConteggi(); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); bt.disabled = false; }); });
+            bt.addEventListener('click', function () { bt.disabled = true; api('POST', 'api/off/ripristina', { voci: [{ barcode: x.barcode, tipo: x.tipo }] }).then(function () { toast('Ripristinato.'); aggiornaConteggi(true); loadOff(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); bt.disabled = false; }); });
           });
         }).catch(function (e) { nl.textContent = 'Non riesco a leggere l\'elenco: ' + e.message; });
       }
@@ -1798,7 +1801,7 @@
     var h = el('h3', 'sez', 'Open Food Facts · differenze (' + list.length + ')'); box.appendChild(h);
     box.appendChild(el('p', 'm oc-intro', 'Controlla le schede e scegli per ogni voce: «Usa OFF» allinea il tuo foglio, «Lascia» non cambia niente, «Invia il mio» manda il tuo dato dove OFF è vuoto. In fondo premi una sola volta «Applica le scelte»: lavoro in background.'));
     var schede = [];
-    function dopoApplica() { azzeraCache(); setTimeout(function () { aggiornaConteggi(); loadOffConf(); }, 8000); setTimeout(function () { aggiornaConteggi(); loadOffConf(); }, 30000); }
+    function dopoApplica() { azzeraCache(); setTimeout(function () { aggiornaConteggi(true); loadOffConf(); }, 8000); setTimeout(function () { aggiornaConteggi(true); loadOffConf(); }, 30000); }
     list.forEach(function (sc) {
       var c = el('article', 'card oc'), scelte = {}, ctrl = {};
       schede.push({ sc: sc, scelte: scelte, el: c, usaOff: function () { (sc.voci || []).forEach(function (v) { if ((v.azioni || []).indexOf('foglio') >= 0) { scelte[v.campo] = 'foglio'; ctrl[v.campo].forEach(function (x) { x.setAttribute('aria-pressed', String(x.dataset.az === 'foglio')); }); } }); } });
@@ -1833,7 +1836,7 @@
       no.addEventListener('click', function () {   // due tocchi per confermare
         if (!armato) { armato = setTimeout(function () { armato = 0; no.textContent = 'Non proporre più'; }, 5000); no.textContent = 'Tocca ancora'; return; }
         clearTimeout(armato); armato = 0; no.disabled = true;
-        api('POST', 'api/off/confronti/ignora', { barcode: sc.barcode }).then(function () { toast('Fatto: non verrà più proposto.'); aggiornaConteggi(); loadOffConf(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); no.disabled = !!st.ro; });
+        api('POST', 'api/off/confronti/ignora', { barcode: sc.barcode }).then(function () { toast('Fatto: non verrà più proposto.'); aggiornaConteggi(true); loadOffConf(); }).catch(function (e) { toast('Non riuscito: ' + e.message, true); no.disabled = !!st.ro; });
       });
       box.appendChild(c);
     });

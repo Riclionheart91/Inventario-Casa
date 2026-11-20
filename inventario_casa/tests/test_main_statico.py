@@ -23,6 +23,7 @@ class TMainStatico(unittest.TestCase):
     def test_statici_con_no_cache(self):
         t = open(MAIN, encoding="utf-8").read()
         self.assertIn('r.headers["Cache-Control"] = "no-cache"', t)
+        self.assertIn("immutable", t)      # i file con ?v=... si tengono a lungo: cambiano solo a ogni release
 
 
 if __name__ == "__main__":
