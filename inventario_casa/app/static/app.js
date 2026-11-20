@@ -614,7 +614,7 @@
       if (!nome.value.trim()) { toast('Il nome è obbligatorio.', true); nome.focus(); return; }
       if (!cat.value || !sot.value) { toast('Scegli categoria e sottocategoria.', true); return; }
       ok.disabled = true;
-      api('POST', 'api/prodotto', { barcode: bc, nome: nome.value.trim(), marca: r.marca, confezione: r.confezione, immagine: r.immagine, categoria: cat.value, sottocategoria: sot.value, tipo: tipo.value.trim(), composizione: ingr && ingr.value.trim() ? '🧪 Ingredienti: ' + ingr.value.trim() : r.composizione, dettagli: note2 && note2.value.trim() ? note2.value.trim() : undefined, nutrizione: r.nutrizione, punteggi: r.punteggi, fonte: r.fonte, location: st.luogo, quantita: st.qta })
+      api('POST', 'api/prodotto', { barcode: bc, nome: nome.value.trim(), marca: r.marca, confezione: r.confezione, immagine: r.immagine, categoria: cat.value, sottocategoria: sot.value, tipo: tipo.value.trim(), composizione: ingr && ingr.value.trim() ? '🧪 Ingredienti: ' + ingr.value.trim() : r.composizione, dettagli: note2 && note2.value.trim() ? note2.value.trim() : undefined, nutrizione: r.nutrizione, punteggi: r.punteggi, fonte: r.fonte, location: st.luogo, quantita: st.qta, scadenza: $('scad').value || '' })
         .then(function () { toast('Prodotto creato e movimento salvato.'); st.prod = null; st.stock = []; try { localStorage.removeItem('prodCache'); localStorage.removeItem('stockCache'); } catch (e) { /* ok */ } hideProp(); resetForm(); })
         .catch(function (e) { toast('Non salvato: ' + e.message, true); ok.disabled = false; });
     });
@@ -912,6 +912,15 @@
         });
         box.appendChild(pb);
         box.appendChild(el('p', 'sc-leg', 'Nutri-Score: qualità nutrizionale da A (migliore) a E · NOVA: grado di lavorazione da 1 (naturale) a 4 (ultra-lavorato) · Eco-Score: impatto ambientale da A (basso) a E (alto).'));
+      }
+      /* scadenze delle unita in casa */
+      if (p.scadenze && p.scadenze.length) {
+        var sd = el('div', 'sc-sec'); sd.appendChild(el('h3', '', '📅 Scadenze'));
+        p.scadenze.forEach(function (s) {
+          var quando = s.giorni < 0 ? 'scaduto da ' + (-s.giorni) + ' g' : s.giorni === 0 ? 'scade oggi' : s.giorni === 1 ? 'domani' : 'tra ' + s.giorni + ' giorni';
+          var r = el('div', 'm'); r.textContent = s.scadenza + ' · ' + s.qta + ' pz · ' + s.luogo + ' (' + quando + ')'; if (s.giorni <= 7) r.className = 'note warn'; sd.appendChild(r);
+        });
+        box.appendChild(sd);
       }
       /* nutrizione: riquadri con emoji e valore */
       if (p.nutrizione) {

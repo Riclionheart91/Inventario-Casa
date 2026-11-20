@@ -197,7 +197,7 @@ class Inventory:
     def crea_prodotto(self, barcode, nome: str, marca: str = "", confezione: str = "", immagine: str = "",
                       categoria: str = "", sottocategoria: str = "", tipo: str = "", dettagli: str = "",
                       composizione: str = "", nutrizione: str = "", punteggi: str = "", fonte: str = "App",
-                      location: str = "", quantita=1) -> dict:
+                      location: str = "", quantita=1, scadenza: str = "") -> dict:
         """Nuovo prodotto del catalogo (una riga in prodotti). Con `location` registra subito anche il Carico, nella stessa chiamata."""
         k = nbc(barcode)
         nome, categoria, sottocategoria, tipo = (nome or "").strip(), (categoria or "").strip(), (sottocategoria or "").strip(), (tipo or "").strip()
@@ -209,6 +209,8 @@ class Inventory:
             raise ApiError(409, "Codice già presente nel catalogo")
         if location and location not in LUOGHI:
             raise ApiError(400, "Posizione non valida")
+        if scadenza and str(scadenza).strip() and parse_data(scadenza) is None:
+            raise ApiError(400, "Data di scadenza non valida")
         ammesse = {c["categoria"]: c["sottocategorie"] for c in self.categorie()}
         if ammesse:
             if categoria not in ammesse:
@@ -228,7 +230,7 @@ class Inventory:
         self._drop(SH_PROD)
         out = {"ok": True, "riga": riga, "barcode": bco(k), "movimento": False}
         if location:   # il carico usa i dati appena inseriti, senza rileggere il foglio
-            self.movimento(k, "Carico", location, quantita or 1,
+            self.movimento(k, "Carico", location, quantita or 1, scadenza=scadenza or "",
                            noto={"prodotto": nome, "categoria": categoria, "sottocategoria": sottocategoria})
             out["movimento"] = True
         return out
@@ -466,6 +468,7 @@ class Inventory:
                     "immagine": g("Immagine"), "dettagli": g("Dettagli prodotto"), "punteggi": g("Punteggi"),
                     "composizione": g("Composizione"), "free_from": g("Free-from"), "nutrizione": g("Nutrizione (100g)"),
                     "smaltimento": g("Smaltimento/riciclo"), "aggiornato": data_it(g("Aggiornato il")),
+                    "scadenze": self._scadenze_prodotto(k),
                     "scorta_minima": minima, "giacenze": giac, "totale": sum(x["qta"] for x in giac),
                     "totale_tipo": sum(e["qta"] for e in self.stock() if tipo and e["tipo"].lower() == tipo.lower()) if tipo else sum(x["qta"] for x in giac)}
         return None
@@ -657,6 +660,18 @@ class Inventory:
             qv = int(resto) if float(resto).is_integer() else resto
             righe.append(dict(base, Quantità=qv))
         return righe
+
+    def _scadenze_prodotto(self, k: str, oggi: Optional[date] = None) -> List[dict]:
+        """Le scadenze delle unita ancora in casa di un prodotto, dalla piu vicina: [{luogo, qta, scadenza 'gg/mm/aaaa', giorni}]."""
+        oggi = oggi or date.today()
+        out = []
+        for (kk, loc), lots in self._lotti().items():
+            if kk != k:
+                continue
+            for d, n in lots:
+                if d is not None:
+                    out.append({"luogo": loc, "qta": int(n) if float(n).is_integer() else n, "scadenza": d.strftime("%d/%m/%Y"), "giorni": (d - oggi).days})
+        return sorted(out, key=lambda e: e["giorni"])
 
     def scadenze(self, giorni: int = 7, oggi: Optional[date] = None) -> List[dict]:
         """Prodotti in casa che scadono entro `giorni` giorni (o gia scaduti), dalla piu urgente."""

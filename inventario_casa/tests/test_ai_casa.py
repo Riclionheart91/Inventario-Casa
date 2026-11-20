@@ -95,3 +95,17 @@ class TestScadenza(unittest.TestCase):
     def test_senza_risposta(self):
         self.assertIsNone(ai.leggi_scadenza(b"x", "image/jpeg", "k", post=lambda *a: None))
         self.assertIsNone(ai.leggi_scadenza(b"x", "image/jpeg", "", post=lambda *a: None))
+
+
+class TestScadenzaSalvata(unittest.TestCase):
+    def test_nuovo_prodotto_con_scadenza_si_vede_nella_scheda(self):
+        st = MemoryStore({"prodotti": [["Barcode", "Prodotto", "Marca", "Categoria", "Sottocategoria", "Tipo", "Confezione", "Immagine", "API Status",
+                                        "Dettagli prodotto", "Punteggi", "Composizione", "Nutrizione (100g)", "Aggiornato il"]],
+                          "movimenti": [["Barcode", "Tipo", "Location", "Quantità", "Prodotto", "Categoria", "Sottocategoria", "Scadenza"]]})
+        inv = Inventory(st, ttl=20)
+        inv.crea_prodotto("8001234567890", "Yogurt", location="Casa", quantita=2, scadenza="2027-08-31")
+        s = inv.scheda("8001234567890")
+        self.assertEqual([(x["luogo"], x["qta"], x["scadenza"]) for x in s["scadenze"]], [("Casa", 2, "31/08/2027")])
+        with self.assertRaises(ApiError):
+            inv.crea_prodotto("8001234567891", "Altro", location="Casa", scadenza="non una data")
+        self.assertIsNone(inv.scheda("8001234567891"))      # con una data sbagliata non si crea nemmeno il prodotto

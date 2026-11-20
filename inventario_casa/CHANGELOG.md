@@ -4,6 +4,10 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.32.2
+- La scadenza ora si vede: la scheda prodotto ha la sezione «📅 Scadenze» con data, pezzi, posizione e giorni mancanti.
+- Correzione: salvando un prodotto nuovo (proposta dai database o scheda a mano) la scadenza inserita o letta dalla foto veniva persa; ora viene salvata con il primo carico.
+
 ## 0.32.1
 - Apertura più veloce: gli script e gli stili con la versione nell'indirizzo restano in memoria sul telefono (niente più 10 controlli a ogni apertura); i badge delle schede (5 richieste) partono dopo il primo disegno e al massimo una volta al minuto; i fogli alias, categorie e tipi si leggono in anticipo all'avvio.
 
