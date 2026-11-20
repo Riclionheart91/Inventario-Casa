@@ -4,6 +4,9 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.32.0
+- Scadenza da foto: accanto al campo Scadenza nel Movimento c'è il pulsante 📷. Fotografi la data sulla confezione e l'AI la legge e la mette nel campo (solo mese e anno: ultimo giorno del mese). Controlli e poi salvi: la foto non viene conservata e nulla si scrive finché non salvi. Date assurde o illeggibili vengono scartate. Serve la chiave Gemini.
+
 ## 0.31.0
 - Webapp da salvare sulla Home: icona e meta per iPhone/iPad (schermo intero), manifest completo e pagina di accesso installabile. Nuova schermata «Installa sulla Home» in Impostazioni › App, con l'indirizzo da aprire, il pulsante «Copia indirizzo» e i passaggi per iPhone, Android e computer.
 

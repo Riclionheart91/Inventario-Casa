@@ -11,10 +11,10 @@
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Inventario"><meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=0.31.0">
-<link rel="stylesheet" href="ios.css?v=0.31.0">
-<link rel="stylesheet" href="ios2.css?v=0.31.0">
-<link rel="stylesheet" href="tema.css?v=0.31.0">
+<link rel="stylesheet" href="style.css?v=0.32.0">
+<link rel="stylesheet" href="ios.css?v=0.32.0">
+<link rel="stylesheet" href="ios2.css?v=0.32.0">
+<link rel="stylesheet" href="tema.css?v=0.32.0">
 </head>
 <body>
 <div id="app">
@@ -40,7 +40,7 @@
 <div class="field" id="f-catnew" hidden><label for="catnew">Nuova categoria</label><select id="catnew"></select></div>
 <div class="field" id="f-luogo"><div class="lbl" id="l-luogo">Posizione</div><div class="seg" id="luogo" role="group" aria-labelledby="l-luogo"></div></div>
 <div class="field qty"><div class="lbl" id="l-q">Quantità</div><div class="row"><button type="button" class="sq" id="qm" aria-label="Diminuisci">−</button><output id="qv" aria-labelledby="l-q">1</output><button type="button" class="sq" id="qp" aria-label="Aumenta">+</button></div></div>
-<div class="field" id="f-scad"><label for="scad">Scadenza (facoltativa)</label><input id="scad" type="date"></div>
+<div class="field" id="f-scad"><label for="scad">Scadenza (facoltativa)</label><div class="row"><input id="scad" type="date"><button type="button" class="sq" id="scad-foto" aria-label="Leggi la scadenza da una foto">📷</button><input id="scad-file" type="file" accept="image/*" capture="environment" hidden></div><div id="scad-nota" class="note"></div></div>
 <div class="field"><label for="pr">Prodotto</label><input id="pr" type="text" placeholder="Si compila da solo se il codice è noto"><div id="cat" class="note"></div></div>
 <div class="actions"><button type="button" id="cancel" class="btn ghost">Annulla</button><button type="submit" id="save" class="btn primary">Salva</button></div>
 </form>
@@ -77,10 +77,10 @@
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="undo" role="status" hidden></div>
 </div>
-<script src="app.js?v=0.31.0"></script>
-<script src="ios.js?v=0.31.0"></script>
-<script src="imp_sic.js?v=0.31.0"></script>
-<script src="imp_cop.js?v=0.31.0"></script>
-<script src="imp_cod.js?v=0.31.0"></script>
+<script src="app.js?v=0.32.0"></script>
+<script src="ios.js?v=0.32.0"></script>
+<script src="imp_sic.js?v=0.32.0"></script>
+<script src="imp_cop.js?v=0.32.0"></script>
+<script src="imp_cod.js?v=0.32.0"></script>
 </body>
 </html>

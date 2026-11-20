@@ -1083,7 +1083,7 @@ import types as _types
 
 _CTX = _types.SimpleNamespace(check=check, writable=writable, inv=inv, off_=off_, conf_=conf_, arr=arr, rev=rev, env=_env,
                               impostazioni=_impost.imp, read_only=solo_lettura)
-for _nome_mod in ("ext_sic", "ext_dati", "ext_cop", "ext_codici", "ext_etichetta", "ext_ai_casa"):
+for _nome_mod in ("ext_sic", "ext_dati", "ext_cop", "ext_codici", "ext_etichetta", "ext_ai_casa", "ext_scadenza"):
     try:
         _imp_lib.import_module("." + _nome_mod, __package__).registra(app, _CTX)
     except ModuleNotFoundError as _e:

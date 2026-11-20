@@ -75,6 +75,7 @@
     if (path === 'api/impostazioni') return { valori: { tema: (body && body.valori && body.valori.tema) || 'auto', testo: 'normale' } };
     if (/^api\/etichetta\//.test(path)) { var cvm = window.eanEtichetta ? window.eanEtichetta('2999738560932', 'Latte fresco intero') : null; return { png: cvm ? cvm.toDataURL('image/png').split(',')[1] : '', barcode: 'PERS482915307', nome: 'Latte fresco intero', posizione: 'Cantina', testa: 96, lunghezza: 280, stampante: true }; }
     if (/^api\/stampa\//.test(path)) return { ok: true };
+    if (path === 'api/scadenza/foto') return { data: '2027-08-31', testo: 'PREF. ENTRO FINE 08/2027', mese_solo: true, sicurezza: 0.9 };
     if (method === 'DELETE' && /^api\/prodotto\//.test(path)) return { ok: true, prodotti: 1, movimenti: 2, alias: 0 };
     if (/^api\/ai\/casa\//.test(path)) return { prompt: 'Ho preparato in casa questo prodotto…\nNome: Marmellata della nonna', ai: true };
     if (path === 'api/ai/casa') return { testo: 'Ecco le stime.\n```json\n{}\n```', scheda: { composizione: '🧪 Ingredienti: albicocche, zucchero', nutrizione: '🔥 250 kcal  |  🍬 60 g zuccheri', dettagli: '🤖 Stime indicative dell\'AI  |  Durata: 12 mesi' } };
@@ -657,7 +658,7 @@
   }
   function resetForm() {
     hideProp(); st.giac = []; st.riga = 0; renderRiga();
-    $('bc').value = ''; $('pr').value = ''; $('scad').value = ''; setKnown(null); setQta(qtaPredefinita());
+    $('bc').value = ''; $('pr').value = ''; $('scad').value = ''; $('scad-nota').textContent = ''; setKnown(null); setQta(qtaPredefinita());
     note($('hint'), ''); note($('cat'), ''); $('bc').focus();
   }
   function resizeImage(file) {
@@ -2079,6 +2080,19 @@
     $('imp-btn').addEventListener('click', function () { show('imp'); });
     $('bc').addEventListener('input', function () { clearTimeout(dbt); setKnown(null); if (/^\d{8,24}$/.test($('bc').value.trim()) || isPers($('bc').value.trim().toUpperCase())) dbt = setTimeout(lookup, 450); });
     $('bc').addEventListener('change', lookup);
+    $('scad-foto').addEventListener('click', function () { $('scad-file').click(); });
+    $('scad-file').addEventListener('change', function () {   // foto della scadenza: l'AI propone la data, la confermi tu salvando
+      var f = $('scad-file').files && $('scad-file').files[0]; if (!f) return;
+      var b = $('scad-foto'); b.disabled = true; note($('scad-nota'), 'Leggo la scadenza…');
+      resizeImage(f).then(function (img) { var fd = new FormData(); fd.append('file', img, 'scadenza.jpg'); return api('POST', 'api/scadenza/foto', undefined, undefined, fd); })
+        .then(function (r) {
+          if (r && r.data) {
+            $('scad').value = r.data; var p = r.data.split('-');
+            note($('scad-nota'), 'Letto «' + (r.testo || '?') + '» → ' + p[2] + '/' + p[1] + '/' + p[0] + (r.mese_solo ? ' (solo mese: ho messo l\'ultimo giorno)' : '') + '. Controlla prima di salvare.', r.sicurezza < 0.6 || r.mese_solo ? 'warn' : 'ok');
+          } else note($('scad-nota'), 'Non riesco a leggere la scadenza: inquadra meglio la data o scrivila a mano.', 'warn');
+        }).catch(function (e) { note($('scad-nota'), 'Lettura non riuscita: ' + e.message, 'warn'); })
+        .then(function () { b.disabled = false; $('scad-file').value = ''; });
+    });
     $('mio-cod').addEventListener('click', function () {   // un codice personale nuovo (PERS…): va nel campo, l'etichetta si può salvare subito
       var b = $('mio-cod'), nome = $('pr').value.trim(); b.disabled = true;
       api('POST', 'api/codici/nuovo', { nome: nome }).then(function (v) {

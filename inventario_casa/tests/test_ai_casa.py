@@ -72,3 +72,26 @@ class TestRegistroAi(unittest.TestCase):
     def test_chat_casa_e_nel_conteggio_uso(self):
         from app import aiuso
         self.assertTrue(getattr(ai.chat_casa, "__wrapped__", None) is not None or ai.chat_casa.__name__ == "chat_casa")
+
+
+class TestScadenza(unittest.TestCase):
+    def _leggi(self, d, oggi=None):
+        import datetime
+        post = lambda *a: {"candidates": [{"content": {"parts": [{"text": __import__("json").dumps(d)}]}}]}
+        return ai.leggi_scadenza(b"x", "image/jpeg", "k", post=post, oggi=oggi or datetime.date(2026, 11, 20))
+
+    def test_data_completa_e_solo_mese(self):
+        r = self._leggi({"giorno": 15, "mese": 3, "anno": 2027, "testo": "15/03/2027", "sicurezza": 0.95})
+        self.assertEqual((r["data"], r["mese_solo"]), ("2027-03-15", False))
+        r = self._leggi({"giorno": None, "mese": 2, "anno": 28, "testo": "02/28", "sicurezza": 0.8})
+        self.assertEqual((r["data"], r["mese_solo"]), ("2028-02-29", True))      # ultimo giorno del mese, anche bisestile
+
+    def test_date_assurde_o_illeggibili(self):
+        for d in ({"giorno": 31, "mese": 2, "anno": 2027}, {"giorno": 1, "mese": 1, "anno": 1990}, {"giorno": 1, "mese": 1, "anno": 2099},
+                  {"giorno": None, "mese": None, "anno": None}, {"giorno": 1, "mese": 13, "anno": 2027}):
+            r = self._leggi(dict(d, testo="x", sicurezza=0.9))
+            self.assertEqual((r["data"], r["sicurezza"]), ("", 0.0), d)
+
+    def test_senza_risposta(self):
+        self.assertIsNone(ai.leggi_scadenza(b"x", "image/jpeg", "k", post=lambda *a: None))
+        self.assertIsNone(ai.leggi_scadenza(b"x", "image/jpeg", "", post=lambda *a: None))
