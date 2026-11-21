@@ -105,7 +105,24 @@ class TestScadenzaSalvata(unittest.TestCase):
         inv = Inventory(st, ttl=20)
         inv.crea_prodotto("8001234567890", "Yogurt", location="Casa", quantita=2, scadenza="2027-08-31")
         s = inv.scheda("8001234567890")
-        self.assertEqual([(x["luogo"], x["qta"], x["scadenza"]) for x in s["scadenze"]], [("Casa", 2, "31/08/2027")])
+        self.assertEqual([(x["luogo"], x["qta"], x["scadenza"]) for x in s["carichi"]], [("Casa", 2, "31/08/2027")])
         with self.assertRaises(ApiError):
             inv.crea_prodotto("8001234567891", "Altro", location="Casa", scadenza="non una data")
         self.assertIsNone(inv.scheda("8001234567891"))      # con una data sbagliata non si crea nemmeno il prodotto
+
+
+class TestFifo(unittest.TestCase):
+    def test_restano_i_carichi_piu_recenti(self):
+        h = ["Barcode", "Tipo", "Location", "Quantità", "Prodotto", "Categoria", "Sottocategoria", "Scadenza", "Data"]
+        st = MemoryStore({"prodotti": [["Barcode", "Prodotto"], [8001, "Latte"]],
+                          "movimenti": [h,
+                                        [8001, "Carico", "Casa", 2, "Latte", "", "", "2026-12-01", "01/11/2026"],
+                                        [8001, "Carico", "Casa", 3, "Latte", "", "", "2027-01-10", "10/11/2026"],
+                                        [8001, "Carico", "Cantina", 1, "Latte", "", "", "", "12/11/2026"],
+                                        [8001, "Scarico", "Casa", 3, "Latte", "", "", "", "15/11/2026"],
+                                        [8001, "Carico", "Casa", 4, "Latte", "", "", "2027-03-01", "20/11/2026"]]})
+        inv = Inventory(st, ttl=20)
+        r = inv._carichi_prodotto("8001")
+        # Casa: 2+3 caricati, 3 scaricati -> il carico piu vecchio (2) finisce e se ne toglie 1 dal secondo: restano 2 del 10/11 e 4 del 20/11
+        self.assertEqual([(x["luogo"], x["qta"], x["caricato"]) for x in r], [("Casa", 4, "20/11/2026"), ("Cantina", 1, "12/11/2026"), ("Casa", 2, "10/11/2026")])
+        self.assertEqual(r[0]["scadenza"], "01/03/2027"); self.assertIsNone(r[1]["giorni"])

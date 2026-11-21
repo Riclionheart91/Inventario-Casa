@@ -468,7 +468,7 @@ class Inventory:
                     "immagine": g("Immagine"), "dettagli": g("Dettagli prodotto"), "punteggi": g("Punteggi"),
                     "composizione": g("Composizione"), "free_from": g("Free-from"), "nutrizione": g("Nutrizione (100g)"),
                     "smaltimento": g("Smaltimento/riciclo"), "aggiornato": data_it(g("Aggiornato il")),
-                    "scadenze": self._scadenze_prodotto(k),
+                    "carichi": self._carichi_prodotto(k),
                     "scorta_minima": minima, "giacenze": giac, "totale": sum(x["qta"] for x in giac),
                     "totale_tipo": sum(e["qta"] for e in self.stock() if tipo and e["tipo"].lower() == tipo.lower()) if tipo else sum(x["qta"] for x in giac)}
         return None
@@ -661,17 +661,48 @@ class Inventory:
             righe.append(dict(base, Quantità=qv))
         return righe
 
-    def _scadenze_prodotto(self, k: str, oggi: Optional[date] = None) -> List[dict]:
-        """Le scadenze delle unita ancora in casa di un prodotto, dalla piu vicina: [{luogo, qta, scadenza 'gg/mm/aaaa', giorni}]."""
+    def _carichi_fifo(self) -> Dict[tuple, list]:
+        """Carichi ancora presenti per (codice, posizione) con logica FIFO: gli scarichi tolgono prima i carichi PIU VECCHI (per data e, a parita,
+        per ordine nel foglio), quindi quello che resta sono i carichi piu recenti. [[data carico|None, quantita, scadenza|None], ...], dal piu recente."""
+        if "fifo" not in self._memo:
+            car: Dict[tuple, list] = {}
+            sca: Dict[tuple, float] = {}
+            for i, m in enumerate(self._dicts(SH_MOV)):
+                k, loc, t = nbc(m.get("Barcode")), str(m.get("Location", "")).strip(), str(m.get("Tipo", "")).strip()
+                q = _num(m.get("Quantità", m.get("Quantita", 0)))
+                if not k or not loc or q <= 0:
+                    continue
+                if t == "Carico":
+                    car.setdefault((k, loc), []).append([parse_data(m.get("Data")), q, parse_data(m.get("Scadenza")), i])
+                elif t == "Scarico":
+                    sca[(k, loc)] = sca.get((k, loc), 0) + q
+            out = {}
+            for key, lots in car.items():
+                lots.sort(key=lambda x: (x[0] or date.min, x[3]))       # dal piu vecchio: e il primo a essere consumato
+                da_togliere = sca.get(key, 0)
+                for lot in lots:
+                    t = min(lot[1], da_togliere); lot[1] -= t; da_togliere -= t
+                resto = [x[:3] for x in lots if x[1] > 0]
+                resto.reverse()                                         # il piu recente per primo
+                if resto:
+                    out[key] = resto
+            self._memo["fifo"] = out
+        return self._memo["fifo"]
+
+    def _carichi_prodotto(self, k: str, oggi: Optional[date] = None) -> List[dict]:
+        """I carichi ancora presenti di un prodotto (FIFO), dal piu recente: [{luogo, qta, caricato, scadenza, giorni}]."""
         oggi = oggi or date.today()
         out = []
-        for (kk, loc), lots in self._lotti().items():
+        for (kk, loc), lots in self._carichi_fifo().items():
             if kk != k:
                 continue
-            for d, n in lots:
-                if d is not None:
-                    out.append({"luogo": loc, "qta": int(n) if float(n).is_integer() else n, "scadenza": d.strftime("%d/%m/%Y"), "giorni": (d - oggi).days})
-        return sorted(out, key=lambda e: e["giorni"])
+            for dc, n, ds in lots:
+                out.append({"luogo": loc, "qta": int(n) if float(n).is_integer() else n, "caricato": dc.strftime("%d/%m/%Y") if dc else "",
+                            "scadenza": ds.strftime("%d/%m/%Y") if ds else "", "giorni": (ds - oggi).days if ds else None, "_o": dc or date.min})
+        out.sort(key=lambda e: e["_o"], reverse=True)
+        for e in out:
+            del e["_o"]
+        return out
 
     def scadenze(self, giorni: int = 7, oggi: Optional[date] = None) -> List[dict]:
         """Prodotti in casa che scadono entro `giorni` giorni (o gia scaduti), dalla piu urgente."""

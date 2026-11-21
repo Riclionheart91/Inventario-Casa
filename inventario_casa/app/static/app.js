@@ -49,7 +49,7 @@
     var m;
     if (path === 'api/stock') return MOCKDB.stock;
     if (path === 'api/prodotti') return MOCKDB.stock.map(function (e) { return Object.assign({}, e, { qta: e.qta, posti: [{ luogo: e.luogo, qta: e.qta }].concat(e.nome.length % 2 ? [{ luogo: 'Cantina', qta: 1 }] : []) }); }).concat([{ barcode: 1, nome: 'Aceto balsamico', marca: 'Ponti', conf: '500 ml', tipo: 'Aceto', categoria: 'Dispensa', sotto: 'Condimenti e Sale', img: '', qta: 0, minima: 1 }]).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
-    if (/^api\/scheda\//.test(path)) return { barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero (origine: Italia), sale.  —  ⚠️ Allergeni: latte, soia  —  🏷️ en:green-dot', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP  🫙 Vetro', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }, { luogo: 'Cantina', categoria: 'Bevande', qta: 2, minima: 0 }] };
+    if (/^api\/scheda\//.test(path)) return { carichi: [{ luogo: 'Casa', qta: 4, caricato: '20/11/2026', scadenza: '01/03/2027', giorni: 100 }, { luogo: 'Cantina', qta: 1, caricato: '12/11/2026', scadenza: '', giorni: null }, { luogo: 'Casa', qta: 2, caricato: '10/11/2026', scadenza: '25/11/2026', giorni: 4 }], barcode: 8002795002995, nome: 'Latte fresco intero', marca: 'Granarolo', confezione: '1 l', categoria: 'Frigorifero', sottocategoria: 'Latticini', tipo: 'Latte', immagine: MOCKDB.stock[0].img, dettagli: '🌍 Italia', punteggi: 'Nutri 🟢 B  |  NOVA 🏭 1  |  Eco 🌿 A', composizione: '🧪 Ingredienti: Latte fresco pastorizzato intero (origine: Italia), sale.  —  ⚠️ Allergeni: latte, soia  —  🏷️ en:green-dot', free_from: '🥗 Vegetariano', nutrizione: '🔥 64 kcal  |  🫙 3.6 g grassi  |  🍬 4.9 g zuccheri  |  🧂 0.1 g sale', smaltimento: '📦 Carta  🧴 Plastica PP  🫙 Vetro', aggiornato: '21/03/2026', scorta_minima: 1, totale: 3, giacenze: [{ luogo: 'Casa', categoria: 'Frigorifero', qta: 3, minima: 1 }, { luogo: 'Cantina', categoria: 'Bevande', qta: 2, minima: 0 }] };
     if ((m = /^api\/prodotto\/(.+)$/.exec(path))) { var p = MOCKDB.prod[decodeURIComponent(m[1])]; return p ? Object.assign({ found: true }, p) : { found: false }; }
     if (/^api\/cerca\//.test(path)) return decodeURIComponent(path.slice(10)) === '9999999999999' ? { found: false } : { found: true, nome: 'Crema Spalmabile Alle Nocciole', marca: 'Ferrero', confezione: '450 g', immagine: MOCKDB.stock[0].img, fonte: 'Open Food Facts', composizione: '', nutrizione: '', punteggi: '' };
     if (/^api\/prodotto\/.+\/tipo$/.test(path)) return { ok: true, tipo: (body && body.tipo) || '', nuovo: false };
@@ -913,12 +913,14 @@
         box.appendChild(pb);
         box.appendChild(el('p', 'sc-leg', 'Nutri-Score: qualità nutrizionale da A (migliore) a E · NOVA: grado di lavorazione da 1 (naturale) a 4 (ultra-lavorato) · Eco-Score: impatto ambientale da A (basso) a E (alto).'));
       }
-      /* scadenze delle unita in casa */
-      if (p.scadenze && p.scadenze.length) {
-        var sd = el('div', 'sc-sec'); sd.appendChild(el('h3', '', '📅 Scadenze'));
-        p.scadenze.forEach(function (s) {
-          var quando = s.giorni < 0 ? 'scaduto da ' + (-s.giorni) + ' g' : s.giorni === 0 ? 'scade oggi' : s.giorni === 1 ? 'domani' : 'tra ' + s.giorni + ' giorni';
-          var r = el('div', 'm'); r.textContent = s.scadenza + ' · ' + s.qta + ' pz · ' + s.luogo + ' (' + quando + ')'; if (s.giorni <= 7) r.className = 'note warn'; sd.appendChild(r);
+      /* carichi ancora presenti (FIFO: gli scarichi tolgono prima i piu vecchi, restano i piu recenti) */
+      if (p.carichi && p.carichi.length) {
+        var sd = el('div', 'sc-sec'); sd.appendChild(el('h3', '', '📦 Carichi presenti'));
+        sd.appendChild(el('p', 'sc-leg', 'Dal più recente. Gli scarichi tolgono prima i carichi più vecchi (FIFO): qui vedi ciò che resta.'));
+        p.carichi.forEach(function (s) {
+          var r = el('div', 'm'), t = (s.caricato || 'data n.d.') + ' · ' + s.qta + ' pz · ' + s.luogo;
+          if (s.scadenza) { var q = s.giorni < 0 ? 'scaduto da ' + (-s.giorni) + ' g' : s.giorni === 0 ? 'scade oggi' : s.giorni === 1 ? 'domani' : 'tra ' + s.giorni + ' giorni'; t += ' · scade ' + s.scadenza + ' (' + q + ')'; if (s.giorni <= 7) r.className = 'note warn'; }
+          r.textContent = t; sd.appendChild(r);
         });
         box.appendChild(sd);
       }

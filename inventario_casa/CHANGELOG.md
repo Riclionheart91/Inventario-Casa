@@ -4,6 +4,9 @@ Tutte le modifiche rilevanti dell'app. Formato: versione, data, cosa cambia.
 Home Assistant mostra questo file nella pagina dell'app e prima dell'aggiornamento.
 
 
+## 0.33.0
+- Scheda prodotto: nuova sezione «📦 Carichi presenti», con logica FIFO. Gli scarichi tolgono prima i carichi più vecchi (per data, poi per ordine nel foglio), quindi vedi solo ciò che resta, dal più recente: data del carico, pezzi, posizione e, se c'è, la scadenza con i giorni mancanti. Sostituisce la sezione «Scadenze». L'avviso delle scadenze e la pagina «Da fare» continuano a ragionare per scadenza più vicina.
+
 ## 0.32.2
 - La scadenza ora si vede: la scheda prodotto ha la sezione «📅 Scadenze» con data, pezzi, posizione e giorni mancanti.
 - Correzione: salvando un prodotto nuovo (proposta dai database o scheda a mano) la scadenza inserita o letta dalla foto veniva persa; ora viene salvata con il primo carico.
